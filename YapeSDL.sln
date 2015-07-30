@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "YapeSDL", "YapeSDL.vcproj", "{88A75874-9C6D-4364-8C94-78AA1A8BFB99}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.Debug|Win32.ActiveCfg = Debug|Win32
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.Debug|Win32.Build.0 = Debug|Win32
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.Release|Win32.ActiveCfg = Release|Win32
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

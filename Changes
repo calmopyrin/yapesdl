@@ -1,0 +1,86 @@
+Changes in v0.58.2
+==================
+
+- fast line based mode added for lower end platforms (toggle with Alt+E)
+- able to select among drives (Windows only)
+
+Changes in v0.58.1
+==================
+
+- true 1541 drive emulation and R/W D64 support added
+- fixed a few GCC warnings
+- bugfixes
+
+Changes in v0.36.2
+==================
+
+Small update
+
+- Linux compilation fix
+- updated the Makefile
+- primitive STDIO based external monitor & disassembler added (Alt+M)
+- bugfixes
+
+Changes in v0.36.1
+==================
+
+Even more years passed. This time a larger than average update.
+
+- ported to SDL 2.0
+- SID card support added
+- simpler, better sound replay
+- simple CRT emulation
+- minor UI changes and improvements
+- minor TED improvements
+
+Changes in v0.32.5
+==================
+
+Again many years passed. This version IS a major update in terms of emulation accuracy
+as it is based on the code tree of the Windows version from around 2005. Due to lack of
+spare time it has not been fully synced with it ever since but is still capable of much
+more than the previous open source version. It also implements a user interface (though
+it is not very advanced). The almost full list of changes is:
+
+- "new" TED engine, backported and refactored from the Windows version
+- sound much better
+- faster overall emulation
+- disk emulation via the file system enhanced
+- user interface (available via the F8 key)
+
+Changes in v0.32.4
+==================
+
+After all these years, a new SDL release, nothing fancy, mostly SDL related fixes.
+It's still the very old 0.32 codebase, not that of the Windows version. It has been
+updated merely out of fun.
+
+- renamed to YapeSDL
+- DevC++ workspace file included
+- a few keyboard fixes (ALT based shortcuts work again)
+- better sound rendering
+- better CPU management
+- various fixes here and there
+
+Changes in v0.32.3
+==================
+
+- noise channel fixed
+- the FPS counter now reports values below 50 FPS correctly
+- 50 Hz synchronization is also fixed
+
+Changes in v0.32.2
+==================
+
+- sound is implemented! (yet a bit clumsier than in the Windows version)
+- configuration settings now saved to user's home directory
+- some other bugs with the configuration file fixed
+- some keyboard mapping problems solved (cursor keys are now always usable)
+- save screenshots by pressing F7
+- many new bugs
+- can't remember more, it's been too long since last version :)
+
+0.32.1
+======
+
+- first public release of the SDL version of Yape

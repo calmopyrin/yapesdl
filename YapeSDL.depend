@@ -1,0 +1,298 @@
+# depslib dependency file v1.0
+1437939458 source:c:\munka\eigen\code\mgn\yapesdl\1541mem.cpp
+	"1541mem.h"
+	"FdcGcr.h"
+
+1434918884 c:\munka\eigen\code\mgn\yapesdl\1541mem.h
+	"mem.h"
+	"serial.h"
+
+1437913676 c:\munka\eigen\code\mgn\yapesdl\mem.h
+	"types.h"
+
+1426458442 c:\munka\eigen\code\mgn\yapesdl\types.h
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+
+1438266186 c:\munka\eigen\code\mgn\yapesdl\serial.h
+
+1434892580 c:\munka\eigen\code\mgn\yapesdl\fdcgcr.h
+	<stdio.h>
+	"types.h"
+
+1438250651 source:c:\munka\eigen\code\mgn\yapesdl\archdep.cpp
+	"archdep.h"
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+	<stdio.h>
+	<stdio.h>
+	<unistd.h>
+	<glob.h>
+	<dirent.h>
+	<ctype.h>
+	<string.h>
+	<stdlib.h>
+	<signal.h>
+	<sys/stat.h>
+	<sys/types.h>
+
+1437302656 c:\munka\eigen\code\mgn\yapesdl\archdep.h
+	<SDL/SDL.h>
+	<windows.h>
+	<SDL2/SDL.h>
+	<unistd.h>
+
+1438093872 source:c:\munka\eigen\code\mgn\yapesdl\cpu.cpp
+	<stdio.h>
+	<stdlib.h>
+	<memory.h>
+	"cpu.h"
+	"tedmem.h"
+
+1438093212 c:\munka\eigen\code\mgn\yapesdl\cpu.h
+	"mem.h"
+
+1438081034 c:\munka\eigen\code\mgn\yapesdl\tedmem.h
+	"types.h"
+	"mem.h"
+	"serial.h"
+
+1433885076 source:c:\munka\eigen\code\mgn\yapesdl\dis.cpp
+	"cpu.h"
+	"mnemonic.h"
+	"types.h"
+	"tedmem.h"
+	<stdio.h>
+	<string.h>
+
+1150732920 c:\munka\eigen\code\mgn\yapesdl\mnemonic.h
+
+1434910222 source:c:\munka\eigen\code\mgn\yapesdl\diskfs.cpp
+	"device.h"
+	"iec.h"
+	"diskfs.h"
+	<string.h>
+	<ctype.h>
+
+1436472066 c:\munka\eigen\code\mgn\yapesdl\device.h
+	"types.h"
+	<string.h>
+
+1436472426 c:\munka\eigen\code\mgn\yapesdl\iec.h
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+	"device.h"
+
+1434838924 c:\munka\eigen\code\mgn\yapesdl\diskfs.h
+	<stdio.h>
+	"archdep.h"
+	"device.h"
+
+1437170774 source:c:\munka\eigen\code\mgn\yapesdl\dos.cpp
+	<ctype.h>
+	<stdio.h>
+	"device.h"
+
+1434993084 source:c:\munka\eigen\code\mgn\yapesdl\drive.cpp
+	"drive.h"
+	"device.h"
+	"diskfs.h"
+	"iec.h"
+	"tcbm.h"
+	"FdcGcr.h"
+	"1541rom.h"
+	"1541mem.h"
+
+1434993084 c:\munka\eigen\code\mgn\yapesdl\drive.h
+	<cstddef>
+	"Clockable.h"
+
+1436991280 c:\munka\eigen\code\mgn\yapesdl\clockable.h
+	"mem.h"
+	"cpu.h"
+
+1436472822 c:\munka\eigen\code\mgn\yapesdl\tcbm.h
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+	"mem.h"
+	"iec.h"
+
+1107607186 c:\munka\eigen\code\mgn\yapesdl\1541rom.h
+	"types.h"
+
+1438237538 source:c:\munka\eigen\code\mgn\yapesdl\fdcgcr.cpp
+	<memory.h>
+	<string.h>
+	<stdio.h>
+	"FdcGcr.h"
+
+1434739184 source:c:\munka\eigen\code\mgn\yapesdl\iec.cpp
+	"iec.h"
+
+1438210012 source:c:\munka\eigen\code\mgn\yapesdl\interface.cpp
+	<string.h>
+	<stdlib.h>
+	<stdio.h>
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+	"monitor.h"
+	"tedmem.h"
+	"interface.h"
+	"archdep.h"
+	"prg.h"
+	"tape.h"
+	"drive.h"
+	"roms.h"
+
+1429802422 c:\munka\eigen\code\mgn\yapesdl\monitor.h
+
+1438084215 c:\munka\eigen\code\mgn\yapesdl\interface.h
+	"archdep.h"
+
+1438069919 c:\munka\eigen\code\mgn\yapesdl\prg.h
+
+1176752404 c:\munka\eigen\code\mgn\yapesdl\tape.h
+	"types.h"
+
+1438029628 source:c:\munka\eigen\code\mgn\yapesdl\keyboard.cpp
+	<memory.h>
+	<stdio.h>
+	"keyboard.h"
+
+1438250687 c:\munka\eigen\code\mgn\yapesdl\keyboard.h
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+
+1438253246 source:c:\munka\eigen\code\mgn\yapesdl\main.cpp
+	<stdlib.h>
+	<string.h>
+	<ctype.h>
+	<math.h>
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+	"keyboard.h"
+	"cpu.h"
+	"tedmem.h"
+	"tape.h"
+	"sound.h"
+	"archdep.h"
+	"iec.h"
+	"device.h"
+	"tcbm.h"
+	"diskfs.h"
+	"monitor.h"
+	"prg.h"
+	"interface.h"
+	"video.h"
+	"drive.h"
+	"FdcGcr.h"
+	"icon.h"
+	"vic2mem.h"
+
+1425596918 c:\munka\eigen\code\mgn\yapesdl\sound.h
+	"types.h"
+
+1437771042 c:\munka\eigen\code\mgn\yapesdl\video.h
+
+1434915330 c:\munka\eigen\code\mgn\yapesdl\icon.h
+
+1436905956 source:c:\munka\eigen\code\mgn\yapesdl\monitor.cpp
+	<ctype.h>
+	<stdio.h>
+	<stdlib.h>
+	<cstring>
+	<vector>
+	<string>
+	"cpu.h"
+	"monitor.h"
+
+1438151686 source:c:\munka\eigen\code\mgn\yapesdl\prg.cpp
+	<stdio.h>
+	<string.h>
+	"mem.h"
+	"types.h"
+
+1437943028 source:c:\munka\eigen\code\mgn\yapesdl\serial.cpp
+	<stdio.h>
+	"serial.h"
+
+1438183544 source:c:\munka\eigen\code\mgn\yapesdl\sid.cpp
+	<math.h>
+	<memory.h>
+	"Sid.h"
+	"tedmem.h"
+	"sound.h"
+
+1434904440 c:\munka\eigen\code\mgn\yapesdl\sid.h
+
+1437976078 source:c:\munka\eigen\code\mgn\yapesdl\sound.cpp
+	<stdio.h>
+	<stdlib.h>
+	<memory.h>
+	<math.h>
+	"sound.h"
+
+1433883006 source:c:\munka\eigen\code\mgn\yapesdl\tape.cpp
+	"tape.h"
+	"tedmem.h"
+	"cpu.h"
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+
+1434739302 source:c:\munka\eigen\code\mgn\yapesdl\tcbm.cpp
+	"tcbm.h"
+
+1438081021 source:c:\munka\eigen\code\mgn\yapesdl\tedmem.cpp
+	<stdio.h>
+	<string.h>
+	<ctype.h>
+	<stdlib.h>
+	<ctype.h>
+	"tedmem.h"
+	"Sid.h"
+	"sound.h"
+	"cpu.h"
+	"keyboard.h"
+	"tape.h"
+	"roms.h"
+	"tcbm.h"
+	"Clockable.h"
+	"video.h"
+
+1438077475 c:\munka\eigen\code\mgn\yapesdl\roms.h
+
+1425596930 source:c:\munka\eigen\code\mgn\yapesdl\tedsound.cpp
+	"sound.h"
+	"tedmem.h"
+	"Sid.h"
+
+1437775276 source:c:\munka\eigen\code\mgn\yapesdl\video.cpp
+	<math.h>
+	"tedmem.h"
+	"video.h"
+
+1438236956 source:c:\munka\eigen\code\mgn\yapesdl\vic2mem.cpp
+	<stdio.h>
+	<memory.h>
+	"vic2mem.h"
+	"c64rom.h"
+	"Sid.h"
+	"Clockable.h"
+	"video.h"
+	"keys64.h"
+	"sound.h"
+	"tape.h"
+
+1438267517 c:\munka\eigen\code\mgn\yapesdl\vic2mem.h
+	"tedmem.h"
+
+1437979164 c:\munka\eigen\code\mgn\yapesdl\c64rom.h
+
+1438032430 c:\munka\eigen\code\mgn\yapesdl\keys64.h
+	"keyboard.h"
+
+1438201452 source:c:\munka\eigen\code\mgn\yapesdl\keys64.cpp
+	<stdio.h>
+	"keys64.h"
+

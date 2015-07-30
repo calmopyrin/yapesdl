@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="YapeSDL" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/YapeSDL" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/YapeSDL" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-fomit-frame-pointer" />
+					<Add option="-fexpensive-optimizations" />
+					<Add option="-O3" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add directory="D:/Program Files (x86)/CodeBlocks/MinGW/include" />
+		</Compiler>
+		<Linker>
+			<Add library="SDL2main" />
+			<Add library="SDL2" />
+			<Add directory="D:/Program Files (x86)/CodeBlocks/MinGW/lib" />
+		</Linker>
+		<Unit filename="1541mem.cpp" />
+		<Unit filename="1541mem.h" />
+		<Unit filename="1541rom.h" />
+		<Unit filename="FdcGcr.cpp" />
+		<Unit filename="FdcGcr.h" />
+		<Unit filename="Sid.cpp" />
+		<Unit filename="Sid.h" />
+		<Unit filename="archdep.cpp" />
+		<Unit filename="archdep.h" />
+		<Unit filename="cb.bmp" />
+		<Unit filename="cpu.cpp" />
+		<Unit filename="cpu.h" />
+		<Unit filename="device.h" />
+		<Unit filename="dis.cpp" />
+		<Unit filename="diskfs.cpp" />
+		<Unit filename="diskfs.h" />
+		<Unit filename="dos.cpp" />
+		<Unit filename="drive.cpp" />
+		<Unit filename="drive.h" />
+		<Unit filename="icon.h" />
+		<Unit filename="iec.cpp" />
+		<Unit filename="iec.h" />
+		<Unit filename="interface.cpp" />
+		<Unit filename="interface.h" />
+		<Unit filename="keyboard.cpp" />
+		<Unit filename="keyboard.h" />
+		<Unit filename="main.cpp" />
+		<Unit filename="mem.h" />
+		<Unit filename="mnemonic.h" />
+		<Unit filename="monitor.cpp" />
+		<Unit filename="monitor.h" />
+		<Unit filename="prg.cpp" />
+		<Unit filename="prg.h" />
+		<Unit filename="roms.h" />
+		<Unit filename="serial.cpp" />
+		<Unit filename="serial.h" />
+		<Unit filename="sound.cpp" />
+		<Unit filename="sound.h" />
+		<Unit filename="tape.cpp" />
+		<Unit filename="tape.h" />
+		<Unit filename="tcbm.cpp" />
+		<Unit filename="tcbm.h" />
+		<Unit filename="tedmem.cpp" />
+		<Unit filename="tedmem.h" />
+		<Unit filename="tedsound.cpp" />
+		<Unit filename="types.h" />
+		<Unit filename="video.cpp" />
+		<Unit filename="video.h" />
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
