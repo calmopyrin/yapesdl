@@ -115,6 +115,7 @@ class TED : public CSerial , public MemoryHandler {
 	virtual unsigned int getCyclesPerRow() const { return SCR_HSIZE; }
 	virtual unsigned char *getIrqReg() { return Ram + 0xff09; }
 	virtual unsigned int getSoundClock() { return TED_SOUND_CLOCK; }
+	virtual unsigned int getEmulationLevel() { return 0; }
 
 private:
 	  KEYS *keys;
@@ -215,7 +216,7 @@ protected:
 	static const double luma(unsigned int i)
 	{
 		/*
-		Luminancia Voltages
+            Luminance Voltages
 		*/
 		const double luma[9] = { 2.00, 2.4, 2.55, 2.7, 2.9, 3.3, 3.6, 4.1, 4.8 };
 		return luma[i + 1];
@@ -228,6 +229,7 @@ public:
 	virtual ~TEDFAST() {};
 	virtual void ted_process(const unsigned int continuous);
 	virtual void process_debug(unsigned int continuous);
+	virtual unsigned int getEmulationLevel() { return 1; }
 protected:
 	virtual unsigned char getHorizontalCount();
 private:

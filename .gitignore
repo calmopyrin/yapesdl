@@ -33,8 +33,13 @@ $RECYCLE.BIN/
 *.ilk
 *.tlog
 *.buildstate
+*.lastbuildstate
 *.asm
 *.htm
+*.depend
+*.cache
+
+*.tap
 
 # =========================
 # Operating System Files

@@ -6,6 +6,7 @@
 class KEYS64;
 struct Color;
 
+#define VIC_PIXELS_PER_ROW 504
 #define VIC_REAL_CLOCK_M10 9852480 // 9852480 19704960
 #define VIC_SOUND_CLOCK (VIC_REAL_CLOCK_M10 / 8 / 10)
 
@@ -29,12 +30,14 @@ class Vic2mem : public TED
 		virtual unsigned char *getIrqReg() { return &irqFlag ; }
 		virtual void copyToKbBuffer(const char *text, unsigned int length = 0);
 		virtual unsigned int getSoundClock() { return VIC_SOUND_CLOCK; }
+		virtual unsigned int getEmulationLevel() { return 2; }
 
     protected:
 		void doHRetrace();
 		void newLine();
 		void changeCharsetBank();
 		void checkIRQflag();
+		void doDelayedDMA();
 		unsigned char vicReg[0x40];
 		//
 		struct Mob {

@@ -244,11 +244,13 @@ void UI::show_file_list(struct menu_t * menu, UI_MenuClass type)
 		switch ( type ) {
             case UI_T64_ITEM:
 			case UI_PRG_ITEM:
-			    nrOfExts = 2;
+			    nrOfExts = 3;
 			    strcpy(ftypes[0].name, "*.prg");
-                strcpy(ftypes[1].name, "*.t64");
+				strcpy(ftypes[1].name, "*.p00");
+                strcpy(ftypes[2].name, "*.t64");
                 ftypes[0].menufunction = UI_PRG_ITEM;
-                ftypes[1].menufunction = UI_T64_ITEM;
+                ftypes[1].menufunction = UI_PRG_ITEM;
+                ftypes[2].menufunction = UI_T64_ITEM;
                 break;
 			case UI_TAP_ITEM:
 				strcpy(ftypes[0].name, "*.tap");
@@ -421,7 +423,7 @@ void UI::show_title(struct menu_t * menu)
 		titlen -= MAXLEN;
 		subtitle += chunklen;
 		startline += 8;
-	} while (--chunks);
+	} while (chunks--);
 
 	char helptxt[] = "Arrows: navigate, ENTER: select, ESC: resume";
 	texttoscreen( (CPR - int(strlen(helptxt)*8)) / 2 - 8, 312 - 32, petstr2ascstr(helptxt));

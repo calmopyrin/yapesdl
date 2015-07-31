@@ -78,7 +78,7 @@ static bool				g_bSaveSettings = true;
 static bool				g_SoundOn = true;
 static bool             g_bUseOverlay = 0;
 static unsigned int		g_bWindowMultiplier = 2;
-static unsigned int		g_iEmulationLevel = 1;
+static unsigned int		g_iEmulationLevel;
 
 //-----------------------------------------------------------------------------
 // Name: ShowFrameRate()
@@ -448,14 +448,15 @@ static void enterMenu()
 static void setEmulationLevel(unsigned int level)
 {
 	unsigned char ram[RAMSIZE];
-	unsigned int i;
+	unsigned int i = ted8360->getEmulationLevel();
 
-	if (level != g_iEmulationLevel) {
+	if (level != i) {
 		g_bActive = 0;
 		sound_pause();
 		// Back up RAM
 		memcpy(ram, ted8360->Ram, RAMSIZE);
 		// Back up TED
+		unsigned int oldCpr = ted8360->getCyclesPerRow();
 		unsigned int romEnabled = ram[0xff13] & 1;
 		for(i = 0; i < 0x20; i++) {
 			ram[0xFF00 + i] = ted8360->Read(0xFF00 + i);
@@ -465,34 +466,45 @@ static void setEmulationLevel(unsigned int level)
 		// destroy old TED object
 		if (ted8360)
 			delete ted8360;
-		if (level == 0) {
-			ted8360 = new TEDFAST;
-		} else {
-			ted8360 = new TED;
+        switch (level) {
+            case 0:
+                ted8360 = new TED;
+                break;
+            case 1:
+                ted8360 = new TEDFAST;
+                break;
+            case 2:
+                ted8360 = new Vic2mem;
+                break;
 		}
+		unsigned int newCpr = ted8360->getCyclesPerRow();
 		//ted8360->Reset();
-		machine->setMem(ted8360, &(ted8360->Ram[0xFF09]), &(ted8360->Ram[0x0100]));
+		machine->setMem(ted8360, ted8360->getIrqReg(), &(ted8360->Ram[0x0100]));
 		ted8360->HookTCBM(tcbm);
 		ted8360->cpuptr = machine;
 		// restore RAM
 		memcpy(ted8360->Ram, ram, RAMSIZE);
-		// Restore TED register state
-		for(i = 0; i < 0x20; i++) {
-			ted8360->Write(0xFF00 + i, ram[0xFF00 + i]);
-		}
-		ted8360->Write(0xFF3F - romEnabled, 0);
-		// processor ports
-		ted8360->Write(0, prddr);
-		ted8360->Write(1, prp & prddr);
 		// reload ROMs for machine type switch
 		ted8360->loadroms();
+		if (oldCpr != newCpr) {
+			machine->Reset();
+			ted8360->Reset(false);
+            init_palette(ted8360);
+		} else {
+            // Restore TED register state
+            for(i = 0; i < 0x20; i++) {
+                ted8360->Write(0xFF00 + i, ram[0xFF00 + i]);
+            }
+            ted8360->Write(0xFF3F - romEnabled, 0);
+            // processor ports
+            ted8360->Write(0, prddr);
+            ted8360->Write(1, prp & prddr);
+		}
 		//CSerial::InitPorts();
 		//CTrueDrive::ResetAllDrives();
 		//
-		g_iEmulationLevel = level;
 		sound_resume();
 		g_bActive = 1;
-		init_palette(ted8360);
 	}
 }
 
@@ -534,9 +546,20 @@ inline static void poll_events(void)
 								}
 								break;
 							case SDLK_e:
-								setEmulationLevel(!g_iEmulationLevel);
-								sprintf(textout, " EMULATION LEVEL: %s ",
-									g_iEmulationLevel ? "ACCURATE" : "FAST");
+							    g_iEmulationLevel = (g_iEmulationLevel + 1) % 3;
+								setEmulationLevel(g_iEmulationLevel);
+								sprintf(textout, " EMULATION LEVEL: ");
+								switch (g_iEmulationLevel) {
+								    default:
+                                    case 0:
+                                        strcat(textout, "ACCURATE +4 ");
+                                        break;
+                                    case 1:
+                                        strcat(textout, "FAST +4 ");
+                                        break;
+                                    case 2:
+                                        strcat(textout, "COMMODORE 64 ");
+								}
 								PopupMsg(textout);
 								break;
 							case SDLK_j :
@@ -717,6 +740,7 @@ static void machineInit()
 	// TED
 	//
 	ted8360 = new Vic2mem; // TED;//
+	g_iEmulationLevel = ted8360->getEmulationLevel();
 	machine = new CPU(ted8360, ted8360->getIrqReg(), &(ted8360->Ram[0x0100]));
 	ted8360->HookTCBM(tcbm);
 	ted8360->cpuptr = machine;

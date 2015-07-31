@@ -92,7 +92,6 @@ class CPU {
 			irq_register = _i;
 			stack = _s;
 		}
-		//void triggerIrq() { irqVector = INTERRUPT_IRQ; }
 		void triggerNmi() {
 		    if (!nmiLevel) {
                 irqVector = INTERRUPT_NMI;

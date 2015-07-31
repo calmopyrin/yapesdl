@@ -9,10 +9,10 @@
 #include "sound.h"
 #include "tape.h"
 
-#define PIXELS_PER_ROW 504
 #define FAST_BOOT 1
-#define BEAMY2RASTER(X) (X < 265 ? X + 47 : X - 265)
-#define RASTER2BEAMY(X) (X < 47 ? 265 + X : X - 47)
+#define VRETRACE_LINE 265
+#define BEAMY2RASTER(X) (X < VRETRACE_LINE ? X + (312 - VRETRACE_LINE) : X - VRETRACE_LINE)
+#define RASTER2BEAMY(X) (X < (312 - VRETRACE_LINE) ? VRETRACE_LINE + X : X - (312 - VRETRACE_LINE))
 
 #define SET_BITS(REG, VAL) { \
 		unsigned int i = 7; \
@@ -49,7 +49,7 @@ Vic2mem::Vic2mem()
 	// setting screen memory pointer
 	scrptr = screen;
 	// pointer of the end of the screen memory
-	endptr = scrptr + PIXELS_PER_ROW;
+	endptr = scrptr + VIC_PIXELS_PER_ROW;
 	framecol = 0;
 	crsrblinkon = false;
 	vicBase = Ram;
@@ -470,7 +470,7 @@ void Vic2mem::changeCharsetBank()
 		? charrombank + (cSetOffset & 0x0800) : charrambank;
 	grbank = vicBase + ((vicReg[0x18] & 8) << 10);
 #if 0
-	fprintf(stderr, "VIC bank: %04X, matrix:%04X(%u) in line:%03i pra:%02X ddra:%02X vic18:%02X\n", 
+	fprintf(stderr, "VIC bank: %04X, matrix:%04X(%u) in line:%03i pra:%02X ddra:%02X vic18:%02X\n",
 		vicBank, cSetOffset, cset != charrambank, beamy, cia[1].pra, cia[1].ddra, vicReg[0x18]);
 #endif
 }
@@ -478,6 +478,34 @@ void Vic2mem::changeCharsetBank()
 void Vic2mem::checkIRQflag()
 {
 	irqFlag = (cia[0].icr | vicReg[0x19]) & 0x80;
+}
+
+void Vic2mem::doDelayedDMA()
+{
+    if (attribFetch) {
+        if (vshift == (beamy & 7)) {
+            BadLine = 1;
+            // Delayed DMA?
+            if (beamx >=3 && beamx < 89) {
+                unsigned char idleread = Read((cpuptr->getPC()+1) & 0xFFFF);
+                unsigned int delay = (beamx - 1) >> 1;
+                unsigned int invalidcount = (delay > 3) ? 3 : delay;
+                unsigned int invalidpos = delay - invalidcount;
+                invalidcount = (invalidcount < 40-invalidpos) ? invalidcount : 40-invalidpos;
+                unsigned int newdmapos = (invalidpos+invalidcount < 40) ? invalidpos+invalidcount : 40;
+                unsigned int newdmacount = 40 - newdmapos ;
+                unsigned int oldcount = 40 - newdmacount - invalidcount;
+                memcpy(tmpClrbuf, chrbuf, oldcount);
+                memset(tmpClrbuf + oldcount, idleread, invalidcount);
+                memcpy(tmpClrbuf + oldcount + invalidcount, VideoBase + CharacterCount + oldcount
+                    + invalidcount, newdmacount);
+                BadLine = 1;
+                delayedDMA = true;
+            }
+        } else if (BadLine & 1) {
+            BadLine = 0;
+        }
+    }
 }
 
 // read memory through memory decoder
@@ -489,7 +517,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 				case 0:
 					return prddr;
 				case 1:
-					return prp | ~prddr;
+					return prp | ~prddr; // (!tap->IsButtonPressed() << 4)
 				default:
 					return actram[addr & 0xFFFF];
 			}
@@ -555,7 +583,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 								case 0x00:
 									return keys64->getJoyState(1);
 								case 0x01:
-									retval = keys64->feedkey(cia[0].pra /*| ~cia[0].ddra*/);
+									retval = keys64->feedkey(cia[0].pra | ~cia[0].ddra);
 									//fprintf(stderr, "$Kb(%02X) read: %02X\n", cia[0].pra, retval);
 									break;
 								case 0x0D:
@@ -595,6 +623,8 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 					prddr = value & 0xDF;
 					return;
 				case 1:
+					if ((prp ^ value) & 8)
+						tap->SetTapeMotor(CycleCounter, value & 8);
 					prp = value;
 					mem_8000_bfff = ((prp & 3) == 3) ? RomLo[0] : Ram + 0xa000; // a000..bfff
 					mem_c000_ffff = ((prp & 2) == 2) ? RomHi[0] : Ram + 0xe000; // e000..ffff
@@ -632,7 +662,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 									checkIRQflag();
 								}
 								// get vertical offset of screen when smooth scroll
-								vshift = value&0x07;
+								vshift = value & 0x07;
 								// check for flat screen (23 rows)
 								fltscr = !(value&0x08);
 								// check for extended mode
@@ -648,6 +678,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
                                 } else if ((beamy == 200 && fltscr) || (beamy == 204 && !fltscr)) {
                                     ScreenOn = false;
                                 }
+                                //doDelayedDMA();
 								break;
 							case 0x16:
 								// check for narrow screen (38 columns)
@@ -819,17 +850,14 @@ void Vic2mem::doHRetrace()
 	if ( TVScanLineCounter >= 340 ) {
 		doVRetrace();
 	}
-	scrptr = screen + TVScanLineCounter * PIXELS_PER_ROW;
-	endptr = scrptr + PIXELS_PER_ROW;
+	scrptr = screen + TVScanLineCounter * VIC_PIXELS_PER_ROW;
+	endptr = scrptr + VIC_PIXELS_PER_ROW;
 }
 
 inline void Vic2mem::newLine()
 {
-	beamy += 1;
+    beamy += 1;
 	ff1d_latch = beamy;
-	// the beam reached a new line
-	doHRetrace();
-	flushBuffer(CycleCounter);
 	switch (beamy) {
 
 		case 4:
@@ -857,7 +885,7 @@ inline void Vic2mem::newLine()
 			VBlanking = true;
 			break;
 
-		case 261: // Vertical retrace
+		case VRETRACE_LINE: // Vertical retrace 261 or 265?
 			doVRetrace();
             // CIA ToD count @ 50 Hz
             cia[0].todUpdate();
@@ -871,15 +899,16 @@ inline void Vic2mem::newLine()
 		case 512:
 		case 312:
 			beamy = 0;
-            //
 			CharacterPositionReload = 0;
 			if (!attribFetch) {
 				endOfScreen = true;
 			}
 			attribFetch = (vicReg[0x11] & 0x10) != 0;
+			// skip checking raster IRQ
+			return;
 	}
 	// is there raster interrupt?
-	if (beamy == irqline) {
+	if (!endOfScreen && beamy == irqline) {
 		vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
 		checkIRQflag();
 	}
@@ -895,7 +924,10 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			default:
                 break;
 			case 100:
-				newLine();
+                // the beam reached a new line
+                doHRetrace();
+                newLine();
+                flushBuffer(CycleCounter);
 				break;
 
             case 102:
@@ -903,8 +935,13 @@ void Vic2mem::ted_process(const unsigned int continuous)
                 	vertSubCount = (vertSubCount+1)&7;
 				if (endOfScreen) {
 					vertSubCount = 7;
+                    // is there raster interrupt? line 0 IRQ is delayed by 0 cycle
+                    if (beamy == irqline) {
+                        vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
+                        checkIRQflag();
+                    }
 					endOfScreen = false;
-				}
+                }
 				break;
 
             case 122:
@@ -913,7 +950,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 
 			case 124:
 				if (attribFetch) {
-					BadLine |= (vshift == (beamy & 7)) & (beamy != 203);
+					BadLine = (vshift == (beamy & 7)) & (beamy != 203);
 					if (BadLine) {
 						vertSubCount = 7;
 					}
@@ -1051,12 +1088,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 	loop_continuous = false;
 }
 
-// when multi and extended color modes are all on the screen is blank
-inline void Vic2mem::mcec()
-{
-	memset( scrptr, 0, 8);
-}
-
 // renders hires text
 inline void Vic2mem::hi_text()
 {
@@ -1065,14 +1096,15 @@ inline void Vic2mem::hi_text()
 	unsigned char	mask;
 	unsigned char	*wbuffer = scrptr + hshift;
 
-	// get the actual physical character column
-	charcol = colorRAM[CharacterPosition + x];
-	chr = chrbuf[x];
-
-	if (VertSubActive)
+	if (VertSubActive) {
+        charcol = colorRAM[CharacterPosition + x];
+        // get the actual physical character column
+        chr = chrbuf[x];
 		mask = cset[(chr << 3) | vertSubCount];
-	else
+	} else {
+	    charcol = 0;
 		mask = Read(0x3FFF);
+	}
 
 	wbuffer[0] = (mask & 0x80) ? charcol : mcol[0];
 	wbuffer[1] = (mask & 0x40) ? charcol : mcol[0];
@@ -1092,16 +1124,16 @@ inline void Vic2mem::ec_text()
 	unsigned char mask;
 	unsigned char *wbuffer = scrptr + hshift;
 
-	// get the actual physical character column
-	charcol = colorRAM[CharacterPosition + x];
-	chr = chrbuf[x];
-
-	if (VertSubActive)
+	if (VertSubActive) {
+        // get the actual physical character column
+        charcol = colorRAM[CharacterPosition + x];
+       	chr = chrbuf[x];
 		mask = cset[((chr & 0x3F) << 3) | vertSubCount];
-	else
+       	chr >>= 6;
+	} else {
 		mask = Read(0x39FF);
-
-	chr >>= 6;
+		charcol = chr = 0;
+	}
 
 	wbuffer[0] = (mask & 0x80) ? charcol : ecol[chr];
 	wbuffer[1] = (mask & 0x40) ? charcol : ecol[chr];
@@ -1116,15 +1148,19 @@ inline void Vic2mem::ec_text()
 // renders multicolor text with reverse bit set
 inline void Vic2mem::mc_text()
 {
-	unsigned char charcol = colorRAM[CharacterPosition + x];
-	unsigned char chr = chrbuf[x];
+	unsigned char charcol;
+	unsigned char chr;
 	unsigned char *wbuffer = scrptr + hshift;
 	unsigned char mask;
 
-	if (VertSubActive)
+	if (VertSubActive) {
+        charcol = colorRAM[CharacterPosition + x];
+        chr = chrbuf[x];
 		mask = cset[(chr << 3) | vertSubCount];
-	else
+	} else {
 		mask = Read(0x3FFF);
+		charcol = 0;
+	}
 
 	if (charcol & 8) { // if character is multicolored
 
@@ -1148,19 +1184,40 @@ inline void Vic2mem::mc_text()
 	}
 }
 
+// when multi and extended color modes are all on the screen is blank
+inline void Vic2mem::mcec()
+{
+	//unsigned char charcol = colorRAM[CharacterPosition + x];
+	unsigned char chr = chrbuf[x];
+	unsigned char *wbuffer = scrptr + hshift;
+	unsigned char mask;
+
+	if (VertSubActive)
+		mask = cset[((chr & 0x3F) << 3) | vertSubCount];
+	else
+		mask = Read(0x3FFF);
+
+    memset(wbuffer, mask & 0, 8);
+}
+
 // renders hires bitmap graphics
 inline void Vic2mem::hi_bitmap()
 {
 	unsigned char mask;
 	unsigned char *wbuffer = scrptr + hshift;
 	// get the actual color attributes
-	unsigned char hcol0 = chrbuf[x] & 0x0F;
-	unsigned char hcol1 = chrbuf[x] >> 4;
+	unsigned char hcol0;
+	unsigned char hcol1;
 
-	if (VertSubActive)
+	if (VertSubActive) {
+        // get the actual color attributes
+        hcol0 = chrbuf[x] & 0x0F;
+        hcol1 = chrbuf[x] >> 4;
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) | vertSubCount];
-	else
+	} else {
+        hcol0 = hcol1 = 0;
 		mask = Read(0x3FFF);
+	}
 
 	wbuffer[0] = (mask & 0x80) ? hcol1 : hcol0;
 	wbuffer[1] = (mask & 0x40) ? hcol1 : hcol0;
@@ -1184,7 +1241,7 @@ inline void Vic2mem::mc_bitmap()
 
 	if (VertSubActive)
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) | vertSubCount];
-	else
+	else // FIXME
 		mask = Read(0x3FFF);
 
 	wbuffer[0]= wbuffer[1] = bmmcol[(mask & 0xC0) >> 6 ];
