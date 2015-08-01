@@ -58,6 +58,8 @@ class Vic2mem : public TED
 		unsigned char mobExtCol[2];
 		//
 		struct CIA {
+			CIA() { refCount++; }
+			~CIA() { refCount--; }
 			unsigned char pra;
 			unsigned char prb;
 			unsigned char prbTimerToggle;
@@ -96,6 +98,7 @@ class Vic2mem : public TED
 			static unsigned int tod2frames(TOD &todin);
 			static void frames2tod(unsigned int frames, TOD &todout, unsigned int frq);
 			unsigned int todCount, alarmCount;
+			static unsigned int refCount;
 		} cia[2];
 		unsigned char *vicBase;
 		void	hi_text();

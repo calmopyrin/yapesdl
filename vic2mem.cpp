@@ -36,13 +36,15 @@ static unsigned char cycleLookup[][128] = {
 {"3 i 4 i 5 i 6 i 7 i r r*r*r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 0 i 1 i 2 i "}
 };
 
+unsigned int Vic2mem::CIA::refCount = 0;
+
 Vic2mem::Vic2mem()
 {
-    enableSidCard(true, 0);
+	enableSidCard(true, 0);
 	sidCard->setFrequency(1);
 	sidCard->setModel(SID6581R1);
 	actram = Ram;
-    loadroms();
+	loadroms();
 	chrbuf = DMAbuf;
 	clrbuf = DMAbuf + 64;
 	tmpClrbuf = DMAbuf + 128;
@@ -54,6 +56,7 @@ Vic2mem::Vic2mem()
 	crsrblinkon = false;
 	vicBase = Ram;
 	charrombank = charRomC64;
+	charrom = false;
 	tap = new TAP;
 	keys64 = new KEYS64;
 	Reset(true);
@@ -71,7 +74,7 @@ void Vic2mem::Reset(bool clearmem)
 		for (int i=0;i<RAMSIZE;Ram[i] = (i>>1)<<1==i ? 0 : 0xFF, i++);
 		loadroms();
 	}
-    soundReset();
+	soundReset();
 	cia[0].reset();
 	cia[1].reset();
 	vicReg[0x19] = 0;
@@ -81,12 +84,12 @@ void Vic2mem::Reset(bool clearmem)
 
 void Vic2mem::loadroms()
 {
-    memcpy(RomLo[0], basicRomC64, basicRomC64_size);
-    memcpy(RomHi[0], kernalRomC64, kernalRomC64_size);
+	memcpy(RomLo[0], basicRomC64, basicRomC64_size);
+	memcpy(RomHi[0], kernalRomC64, kernalRomC64_size);
 	mem_8000_bfff = RomLo[0];
 	mem_c000_ffff = RomHi[0];
 #if FAST_BOOT
-    //if (memcmp()) // TODO
+	//if (memcmp()) // TODO
 	unsigned char patch[] = { 0xA0, 0xA0, 0xA2, 0x00, 0x84, 0xC1, 0x86, 0xC2 };
 	memset(mem_c000_ffff + 0x1D68, 0xEA, 0x24);
 	memcpy(mem_c000_ffff + 0x1D68, patch, sizeof(patch));
@@ -116,7 +119,7 @@ Color Vic2mem::getColor(unsigned int ix)
 
 void Vic2mem::soundReset()
 {
-    sidCard->reset();
+	sidCard->reset();
 }
 
 void Vic2mem::CIA::reset()
@@ -147,75 +150,66 @@ void Vic2mem::CIA::setIRQflag(unsigned int mask)
 
 unsigned int Vic2mem::CIA::bcd2hex(unsigned int bcd)
 {
-# if 0
-	unsigned int d = 0;
-
-	while (bcd) {
-		d <<= 4;
-		d |= bcd % 10;
-		bcd /= 10;
-	} while (bcd);
-	return d;
-#else
-    return (((bcd & 0xf0) >> 4) * 10) + (bcd & 0xf);
-#endif
+	return (((bcd & 0xf0) >> 4) * 10) + (bcd & 0xf);
 }
 
 unsigned int Vic2mem::CIA::hex2bcd(unsigned int hex)
 {
-    return ((hex / 10) << 4) + (hex % 10);
+	return ((hex / 10) << 4) + (hex % 10);
 }
 
 // called after each new frame
 void Vic2mem::CIA::todUpdate()
 {
-    if (!tod.halt) {
-        todCount += 1;
-        if (alarmCount == todCount) {
-            // set alarm IRQ
-            icr |= 4;
-            setIRQflag(irq_mask & icr);
-        }
-		if (todCount == 12 * 60 * 60 * 50) // 12 AM/PM
+	if (!tod.halt) {
+		todCount += 1;
+		if (alarmCount == todCount) {
+			// set alarm IRQ
+			icr |= 4;
+			setIRQflag(irq_mask & icr);
+		}
+		if (todCount == 12 * 60 * 60 * 50) {// 12 AM/PM
 			tod.ampm ^= 0x80;
+			todCount = 0;
+		}
 #if 0
-        TOD time;
-        frames2tod(todCount, time, todIn);
-       // if (!(todCount % 2000))
-            fprintf(stderr, "Count:%09u Time: %02xh:%02Xm:%02Xs:%02Xths.\n", todCount, time.hr, time.min, time.sec, time.tenths);
+		TOD time;
+		frames2tod(todCount, time, todIn);
+	   // if (!(todCount % 2000))
+			fprintf(stderr, "Count:%09u Time: %02xh:%02Xm:%02Xs:%02Xths.\n", todCount, time.hr, time.min, time.sec, time.tenths);
 #endif
-    }
+	}
 }
 
 unsigned int Vic2mem::CIA::tod2frames(TOD &todin)
 {
-    unsigned int newmsec =
-        bcd2hex(todin.hr) * 180000 +
-        bcd2hex(todin.min) * 3000 +
-        bcd2hex(todin.sec) * 50 +
-        bcd2hex(todin.tenths) * 5;
-    return newmsec;
+	unsigned int newmsec =
+		bcd2hex(todin.hr) * 180000 +
+		bcd2hex(todin.min) * 3000 +
+		bcd2hex(todin.sec) * 50 +
+		bcd2hex(todin.tenths) * 5;
+	return newmsec;
 }
 
 void Vic2mem::CIA::frames2tod(unsigned int frames, TOD &todout, unsigned int frq)
 {
-    unsigned int hours = frames * frq / 180000 / 50;
-    frames = frames - hours * 180000;
-    unsigned int minutes = frames / 3000;
-    frames = frames - minutes * 3000;
-    unsigned int seconds = frames / 50;
-    frames = frames - seconds * 50;
-    unsigned int tenths = frames / 5;
+	unsigned int hours = frames * frq / 180000 / 50;
+	frames = frames - hours * 180000;
+	unsigned int minutes = frames / 3000;
+	frames = frames - minutes * 3000;
+	unsigned int seconds = frames / 50;
+	frames = frames - seconds * 50;
+	unsigned int tenths = frames / 5;
 
-    todout.hr = hex2bcd(hours);
-    todout.min = hex2bcd(minutes);
-    todout.sec = hex2bcd(seconds);
-    todout.tenths = hex2bcd(tenths);
+	todout.hr = hex2bcd(hours);
+	todout.min = hex2bcd(minutes);
+	todout.sec = hex2bcd(seconds);
+	todout.tenths = hex2bcd(tenths);
 }
 
 void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 {
-    //fprintf(stderr, "$(%04X) CIA write : %02X @ PC=%04X\n", addr, value /* cpuptr->getPC()*/);
+	//fprintf(stderr, "$(%04X) CIA%i write : %02X @ PC=%04X\n", addr, refCount, value, theTed->cpuptr->getPC());
 	addr &= 0xF;
 	switch (addr) {
 		case 0x00:
@@ -258,52 +252,52 @@ void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 
 		case 0x08:
 			if (crb & 0x80) {
-                frames2tod(alarmCount, alm, todIn);
+				frames2tod(alarmCount, alm, todIn);
 				alm.tenths = value & 0x0F;
-                alarmCount = tod2frames(alm);
+				alarmCount = tod2frames(alm);
 			} else {
-                frames2tod(todCount, tod, todIn);
+				frames2tod(todCount, tod, todIn);
 				tod.tenths = value & 0x0F;
 				todCount = tod2frames(tod);
 			}
-            tod.halt = false;
+			tod.halt = false;
 			break;
 
 		case 0x09:
 			if (crb & 0x80) {
-                frames2tod(alarmCount, alm, todIn);
+				frames2tod(alarmCount, alm, todIn);
 				alm.sec = value & 0x7F;
 				alarmCount = tod2frames(alm);
 			} else {
-                frames2tod(todCount, tod, todIn);
+				frames2tod(todCount, tod, todIn);
 				tod.sec = value & 0x7F;
-                todCount = tod2frames(tod);
+				todCount = tod2frames(tod);
 			}
 			break;
 
 		case 0x0A:
 			if (crb & 0x80) {
-                frames2tod(alarmCount, alm, todIn);
+				frames2tod(alarmCount, alm, todIn);
 				alm.min = value & 0x7F;
-                alarmCount = tod2frames(alm);
+				alarmCount = tod2frames(alm);
 			} else {
-                frames2tod(todCount, tod, todIn);
+				frames2tod(todCount, tod, todIn);
 				tod.min = value & 0x7F;
-                todCount = tod2frames(tod);
+				todCount = tod2frames(tod);
 			}
 			break;
 
 		case 0x0B:
 			if (crb & 0x80) {
-                frames2tod(alarmCount, alm, todIn);
+				frames2tod(alarmCount, alm, todIn);
 				alm.hr = value & 0x9F;
-                alarmCount = tod2frames(alm);
+				alarmCount = tod2frames(alm);
 			} else {
-                frames2tod(todCount, tod, todIn);
+				frames2tod(todCount, tod, todIn);
 				tod.hr = value & 0x9F;
 				todCount = tod2frames(tod);
 			}
-            tod.halt = true;
+			tod.halt = true;
 			break;
 
 		case 0x0C:
@@ -317,7 +311,7 @@ void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 			else
 				irq_mask &= ~value;
 			setIRQflag(icr & irq_mask);
-            break;
+			break;
 
 		case 0x0E:
 			cra = value & 0xEF;
@@ -363,32 +357,32 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 		case 0x07:
 			return tb >> 8;
 		case 0x08:
-		    if (tod.latched) {
-                tod.latched = false;
-                return todLatch.sec;
-            } else {
-                frames2tod(todCount, tod, todIn);
-                return tod.tenths;
-            }
+			if (tod.latched) {
+				tod.latched = false;
+				return todLatch.sec;
+			} else {
+				frames2tod(todCount, tod, todIn);
+				return tod.tenths;
+			}
 		case 0x09:
-		    if (tod.latched)
-                return todLatch.sec;
-            else {
-                frames2tod(todCount, tod, todIn);
-                return tod.sec;
-            }
+			if (tod.latched)
+				return todLatch.sec;
+			else {
+				frames2tod(todCount, tod, todIn);
+				return tod.sec;
+			}
 		case 0x0A:
-		    if (tod.latched)
-                return todLatch.min;
-            else {
-                frames2tod(todCount, tod, todIn);
-                return tod.min;
-            }
+			if (tod.latched)
+				return todLatch.min;
+			else {
+				frames2tod(todCount, tod, todIn);
+				return tod.min;
+			}
 		case 0x0B:
-            frames2tod(todCount, tod, todIn);
-		    tod.latched = true;
+			frames2tod(todCount, tod, todIn);
+			tod.latched = true;
 			todLatch = tod;
-			return todLatch.hr;
+			return todLatch.hr | tod.ampm;
 		case 0x0C:
 			return sdr;
 		case 0x0D:
@@ -408,48 +402,48 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 
 void Vic2mem::CIA::countTimers()
 {
-    if ((cra & 0x40) && sdrShiftCnt) {
-        sdrShiftCnt -= 1;
-        if (!sdrShiftCnt) {
-            icr |= 8;
-            setIRQflag(icr & irq_mask);
-        }
-    }
-    if ((cra & 0x20) == 0x00 && cra & 1 ) {
+	if ((cra & 0x40) && sdrShiftCnt) {
+		sdrShiftCnt -= 1;
+		if (!sdrShiftCnt) {
+			icr |= 8;
+			setIRQflag(icr & irq_mask);
+		}
+	}
+	if ((cra & 0x20) == 0x00 && cra & 1 ) {
 		if (!ta--) {
-		   	icr |= 0x01; // Set timer A IRQ flag
+			icr |= 0x01; // Set timer A IRQ flag
 			setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay
 			prbTimerToggle ^= 0x40; // PRA7 underflow count toggle
 			// timer A output to PB6?
 			if (cra & 2) {
-			    // set PRA6 high for one clock
-			    if (cra & 4) {
-                    prbTimerOut ^= 0x40; // toggle PRA6 between 1 and 0
-			    } else {
-			        prbTimerOut |= 0x40; // set high for one clock
-			    }
+				// set PRA6 high for one clock
+				if (cra & 4) {
+					prbTimerOut ^= 0x40; // toggle PRA6 between 1 and 0
+				} else {
+					prbTimerOut |= 0x40; // set high for one clock
+				}
 			}
-     	  	if (cra & 8) // One-shot?
+			if (cra & 8) // One-shot?
 				cra &= 0xFE; // Stop timer
 			// Reload from latch
-  	 	  	ta = latcha;
+			ta = latcha;
 		}
 	}
-    if ((crb & 0x20) == 0x00 && crb & 1) {
+	if ((crb & 0x20) == 0x00 && crb & 1) {
 		if (!tb--) {
-		   	icr |= 0x02; // Set timer B IRQ flag
+			icr |= 0x02; // Set timer B IRQ flag
 			setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay
 			prbTimerToggle ^= 0x80; // PRB7 underflow count toggle
 			// timer A output to PRB6?
 			if (crb & 2) {
-			    // set PRB7 high for one clock
-			    if (crb & 4) {
-                    prbTimerOut ^= 0x80; // toggle PRB7 between 1 and 0
-			    } else {
-			        prbTimerOut |= 0x80; // set high for one clock
-			    }
+				// set PRB7 high for one clock
+				if (crb & 4) {
+					prbTimerOut ^= 0x80; // toggle PRB7 between 1 and 0
+				} else {
+					prbTimerOut |= 0x80; // set high for one clock
+				}
 			}
-     	  	if (crb & 8) // One-shot?
+			if (crb & 8) // One-shot?
 				crb &= 0xFE; // Stop timer
 			// Reload from latch
 			tb = latchb;
@@ -459,10 +453,17 @@ void Vic2mem::CIA::countTimers()
 
 void Vic2mem::changeCharsetBank()
 {
-    const unsigned int vicBank = (((cia[1].pra | ~cia[1].ddra) ^ 0xFF) & 3) << 14;
+	const unsigned int vicBank = (((cia[1].pra | ~cia[1].ddra) ^ 0xFF) & 3) << 14;
 	vicBase = Ram + vicBank;
+	// video matrix base address
 	const unsigned int vmOffset = ((vicReg[0x18] & 0xF0) << 6);
-    VideoBase = vicBase + vmOffset;
+	VideoBase = vicBase + vmOffset;
+	// Sprite data addresses
+	unsigned int i = 7;
+	do {
+		mob[i].address = VideoBase + 0x3F8 + i;
+	} while (i--);
+	// character bitmap data
 	const unsigned int cSetOffset = ((vicReg[0x18] & 0x0E) << 10);
 	charrambank = vicBase + cSetOffset;
 
@@ -482,30 +483,30 @@ void Vic2mem::checkIRQflag()
 
 void Vic2mem::doDelayedDMA()
 {
-    if (attribFetch) {
-        if (vshift == (beamy & 7)) {
-            BadLine = 1;
-            // Delayed DMA?
-            if (beamx >=3 && beamx < 89) {
-                unsigned char idleread = Read((cpuptr->getPC()+1) & 0xFFFF);
-                unsigned int delay = (beamx - 1) >> 1;
-                unsigned int invalidcount = (delay > 3) ? 3 : delay;
-                unsigned int invalidpos = delay - invalidcount;
-                invalidcount = (invalidcount < 40-invalidpos) ? invalidcount : 40-invalidpos;
-                unsigned int newdmapos = (invalidpos+invalidcount < 40) ? invalidpos+invalidcount : 40;
-                unsigned int newdmacount = 40 - newdmapos ;
-                unsigned int oldcount = 40 - newdmacount - invalidcount;
-                memcpy(tmpClrbuf, chrbuf, oldcount);
-                memset(tmpClrbuf + oldcount, idleread, invalidcount);
-                memcpy(tmpClrbuf + oldcount + invalidcount, VideoBase + CharacterCount + oldcount
-                    + invalidcount, newdmacount);
-                BadLine = 1;
-                delayedDMA = true;
-            }
-        } else if (BadLine & 1) {
-            BadLine = 0;
-        }
-    }
+	if (attribFetch) {
+		if (vshift == (beamy & 7)) {
+			BadLine = 1;
+			// Delayed DMA?
+			if (beamx >=2 && beamx < 82) {
+				unsigned char idleread = Read((cpuptr->getPC()+1) & 0xFFFF);
+				unsigned int delay = (beamx - 1) >> 1;
+				unsigned int invalidcount = (delay > 3) ? 3 : delay;
+				unsigned int invalidpos = delay - invalidcount;
+				invalidcount = (invalidcount < 40-invalidpos) ? invalidcount : 40-invalidpos;
+				unsigned int newdmapos = (invalidpos+invalidcount < 40) ? invalidpos+invalidcount : 40;
+				unsigned int newdmacount = 40 - newdmapos ;
+				unsigned int oldcount = 40 - newdmacount - invalidcount;
+				memcpy(tmpClrbuf, chrbuf, oldcount);
+				memset(tmpClrbuf + oldcount, idleread, invalidcount);
+				memcpy(tmpClrbuf + oldcount + invalidcount, VideoBase + CharacterCount + oldcount
+					+ invalidcount, newdmacount);
+				BadLine = 1;
+				delayedDMA = true;
+			} else if (BadLine) {
+				BadLine = 0;
+			}
+		}
+	}
 }
 
 // read memory through memory decoder
@@ -530,7 +531,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 		case 0xF000:
 			return mem_c000_ffff[addr & 0x1FFF];
 		case 0xD000:
-			if (!(prp & 3))
+			if (!((prp | ~prddr) & 3))
 				return actram[addr & 0xFFFF];
 			else if (charrom) {
 				return charRomC64[addr & 0x0FFF];
@@ -548,7 +549,6 @@ unsigned char Vic2mem::Read(unsigned int addr)
 								return (vicReg[0x11] & 0x7f) | (((BEAMY2RASTER(beamy)) & 0x100) >> 1);
 							case 0x13: // LPX
 								return beamx << 1;
-								//return (beamx < 99 ? 26 + beamx : beamx - 99) << 2;
 							case 0x16:
 								return vicReg[0x16] | 0xC0;
 							case 0x18:
@@ -558,12 +558,12 @@ unsigned char Vic2mem::Read(unsigned int addr)
 							case 0x1A:
 								return vicReg[0x1A] | 0xF0;
 							case 0x20:
-								return framecol & 0x0F;
+								return framecol | 0xF0;
 							case 0x21:
 							case 0x22:
 							case 0x23:
 							case 0x24:
-								return ecol[(addr & 0x3F) - 0x21];
+								return ecol[(addr & 0x3F) - 0x21] | 0xF0;
 						}
 						return vicReg[addr];
 					case 0xD4: // SID
@@ -584,7 +584,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 									return keys64->getJoyState(1);
 								case 0x01:
 									retval = keys64->feedkey(cia[0].pra | ~cia[0].ddra);
-									//fprintf(stderr, "$Kb(%02X) read: %02X\n", cia[0].pra, retval);
+									//fprintf(stderr, "$Kb(%02X,%02X) read: %02X\n", cia[0].pra, cia[0].ddra, retval);
 									break;
 								case 0x0D:
 									checkIRQflag();
@@ -597,12 +597,12 @@ unsigned char Vic2mem::Read(unsigned int addr)
 						switch (addr & 0x0F) {
 							case 0:
 								return (readBus() & 0xC0) | (cia[1].read(0) & 0x3F);
-                            case 0xD:
-                                {
-                                    unsigned char retval = cia[1].read(0xD);
-                                    cpuptr->clearNmi();
-                                    return retval;
-                                }
+							case 0xD:
+								{
+									unsigned char retval = cia[1].read(0xD);
+									cpuptr->clearNmi();
+									return retval;
+								}
 							default:
 								;
 						}
@@ -638,7 +638,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 			actram[addr & 0xFFFF] = value;
 			return;
 		case 0xD000:
-			if (!(prp & 3)) { // should be read(1)
+			if (!((prp | ~prddr) & 3)) { // should be read(1)
 				actram[addr & 0xFFFF] = value;
 			} else if (!charrom) {
 				//unsigned int i;
@@ -670,15 +670,15 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 								// check for graphics mode (5th b14it)
 								scrattr = (scrattr & ~(GRAPHMODE|EXTCOLOR))|(value & (GRAPHMODE|EXTCOLOR));
 								// Check if screen is turned on
-                                if (value & 0x10 && !beamy && !attribFetch) {
-                                    attribFetch = ScreenOn = true;
-                                    vertSubCount = 7;
-                                } else if (attribFetch && ((fltscr && beamy == 8) || (!fltscr && beamy == 4))) {
-                                    ScreenOn = true;
-                                } else if ((beamy == 200 && fltscr) || (beamy == 204 && !fltscr)) {
-                                    ScreenOn = false;
-                                }
-                                //doDelayedDMA();
+								if (value & 0x10 && !beamy && !attribFetch) {
+									attribFetch = true;
+									vertSubCount = 7;
+								} else if (attribFetch && ((fltscr && beamy == 8) || (!fltscr && beamy == 4))) {
+									ScreenOn = true;
+								} else if ((beamy == 200 && fltscr) || (beamy == 204 && !fltscr)) {
+									ScreenOn = false;
+								}
+								//doDelayedDMA();
 								break;
 							case 0x16:
 								// check for narrow screen (38 columns)
@@ -856,7 +856,7 @@ void Vic2mem::doHRetrace()
 
 inline void Vic2mem::newLine()
 {
-    beamy += 1;
+	beamy += 1;
 	ff1d_latch = beamy;
 	switch (beamy) {
 
@@ -887,10 +887,10 @@ inline void Vic2mem::newLine()
 
 		case VRETRACE_LINE: // Vertical retrace 261 or 265?
 			doVRetrace();
-            // CIA ToD count @ 50 Hz
-            cia[0].todUpdate();
-            cia[1].todUpdate();
-            break;
+			// CIA ToD count @ 50 Hz
+			cia[0].todUpdate();
+			cia[1].todUpdate();
+			break;
 
 		case 271:
 			VBlanking = false;
@@ -916,35 +916,35 @@ inline void Vic2mem::newLine()
 
 void Vic2mem::ted_process(const unsigned int continuous)
 {
-    loop_continuous = continuous;
-    do {
+	loop_continuous = continuous;
+	do {
 		beamx += 2;
-        switch(beamx) {
+		switch(beamx) {
 
 			default:
-                break;
+				break;
 			case 100:
-                // the beam reached a new line
-                doHRetrace();
-                newLine();
-                flushBuffer(CycleCounter);
+				// the beam reached a new line
+				doHRetrace();
+				newLine();
+				flushBuffer(CycleCounter);
 				break;
 
-            case 102:
-                if (VertSubActive)
-                	vertSubCount = (vertSubCount+1)&7;
+			case 102:
+				if (VertSubActive)
+					vertSubCount = (vertSubCount+1)&7;
 				if (endOfScreen) {
 					vertSubCount = 7;
-                    // is there raster interrupt? line 0 IRQ is delayed by 0 cycle
-                    if (beamy == irqline) {
-                        vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
-                        checkIRQflag();
-                    }
+					// is there raster interrupt? line 0 IRQ is delayed by 0 cycle
+					if (beamy == irqline) {
+						vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
+						checkIRQflag();
+					}
 					endOfScreen = false;
-                }
+				}
 				break;
 
-            case 122:
+			case 122:
 				HBlanking = false;
 				break;
 
@@ -954,18 +954,18 @@ void Vic2mem::ted_process(const unsigned int continuous)
 					if (BadLine) {
 						vertSubCount = 7;
 					}
-                 	if (beamy == 203) {
+					if (beamy == 203) {
 						attribFetch = false;
 					}
 				}
 				break;
 
-            case 0:
-            case 126:
+			case 0:
+			case 126:
 				if (VertSubActive)
 					CharacterPosition = CharacterPositionReload;
 				beamx = 0;
-                break;
+				break;
 
 			case 2:
 				if (BadLine) {
@@ -974,7 +974,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				}
 				break;
 
-            case 6:
+			case 6:
 				if (ScreenOn) {
 					SideBorderFlipFlop = true;
 					memset(scrptr, mcol[0], hshift);
@@ -990,24 +990,24 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				}
 				break;
 
-            case 82:
+			case 82:
 				if (VertSubActive && vertSubCount == 6)
 					CharacterCount = (CharacterCount + 40) & 0x3FF;
 				break;
 
-            case 84:
-    			if ( VertSubActive && charPosLatchFlag) // FIXME
+			case 84:
+				if ( VertSubActive && charPosLatchFlag) // FIXME
 					CharacterPositionReload = (CharacterPosition + 40) & 0x3FF;
 				if (!nrwscr)
-  					SideBorderFlipFlop = CharacterWindow = false;
+					SideBorderFlipFlop = CharacterWindow = false;
 				break;
 
- 			case 86:
+			case 86:
 				if (nrwscr)
-  					SideBorderFlipFlop = CharacterWindow = false;
-  			    break;
+					SideBorderFlipFlop = CharacterWindow = false;
+				break;
 
-		    case 98:
+			case 98:
 				HBlanking = true;
 				break;
 
@@ -1030,7 +1030,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case 128: // overflow
 				beamx = 0;
 				break;
-        }
+		}
 		// drawing the visible part of the screen
 		if (!(HBlanking |VBlanking)) {
 			if (SideBorderFlipFlop) {
@@ -1057,21 +1057,21 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			scrptr += 8;
 		else
 			doHRetrace();
-        //
+		//
 		checkIRQflag();
 		cia[0].countTimers();
 		cia[1].countTimers();
 		cycleChr = cycleLookup[BadLine][beamx|1];
 		switch (cycleChr) {
-            case ' ':
-                cpuptr->process();
-                break;
-            case '*':
-                cpuptr->stopcycle();
-		    default:;
+			case ' ':
+				cpuptr->process();
+				break;
+			case '*':
+				cpuptr->stopcycle();
+			default:;
 		}
-        //
-        CycleCounter += 1;
+		//
+		CycleCounter += 1;
 
 		unsigned int i = 0;
 		while (Clockable::itemHeap[i]) {
@@ -1083,7 +1083,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			c->ClockCount += c->ClockRate;
 			i++;
 		}
-    } while (loop_continuous);
+	} while (loop_continuous);
 
 	loop_continuous = false;
 }
@@ -1091,18 +1091,18 @@ void Vic2mem::ted_process(const unsigned int continuous)
 // renders hires text
 inline void Vic2mem::hi_text()
 {
-    unsigned char	chr;
+	unsigned char	chr;
 	unsigned char	charcol;
 	unsigned char	mask;
 	unsigned char	*wbuffer = scrptr + hshift;
 
 	if (VertSubActive) {
-        charcol = colorRAM[CharacterPosition + x];
-        // get the actual physical character column
-        chr = chrbuf[x];
+		charcol = colorRAM[CharacterPosition + x];
+		// get the actual physical character column
+		chr = chrbuf[x];
 		mask = cset[(chr << 3) | vertSubCount];
 	} else {
-	    charcol = 0;
+		charcol = 0;
 		mask = Read(0x3FFF);
 	}
 
@@ -1125,11 +1125,11 @@ inline void Vic2mem::ec_text()
 	unsigned char *wbuffer = scrptr + hshift;
 
 	if (VertSubActive) {
-        // get the actual physical character column
-        charcol = colorRAM[CharacterPosition + x];
-       	chr = chrbuf[x];
+		// get the actual physical character column
+		charcol = colorRAM[CharacterPosition + x];
+		chr = chrbuf[x];
 		mask = cset[((chr & 0x3F) << 3) | vertSubCount];
-       	chr >>= 6;
+		chr >>= 6;
 	} else {
 		mask = Read(0x39FF);
 		charcol = chr = 0;
@@ -1154,8 +1154,8 @@ inline void Vic2mem::mc_text()
 	unsigned char mask;
 
 	if (VertSubActive) {
-        charcol = colorRAM[CharacterPosition + x];
-        chr = chrbuf[x];
+		charcol = colorRAM[CharacterPosition + x];
+		chr = chrbuf[x];
 		mask = cset[(chr << 3) | vertSubCount];
 	} else {
 		mask = Read(0x3FFF);
@@ -1197,7 +1197,7 @@ inline void Vic2mem::mcec()
 	else
 		mask = Read(0x3FFF);
 
-    memset(wbuffer, mask & 0, 8);
+	memset(wbuffer, mask & 0, 8);
 }
 
 // renders hires bitmap graphics
@@ -1210,12 +1210,12 @@ inline void Vic2mem::hi_bitmap()
 	unsigned char hcol1;
 
 	if (VertSubActive) {
-        // get the actual color attributes
-        hcol0 = chrbuf[x] & 0x0F;
-        hcol1 = chrbuf[x] >> 4;
+		// get the actual color attributes
+		hcol0 = chrbuf[x] & 0x0F;
+		hcol1 = chrbuf[x] >> 4;
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) | vertSubCount];
 	} else {
-        hcol0 = hcol1 = 0;
+		hcol0 = hcol1 = 0;
 		mask = Read(0x3FFF);
 	}
 

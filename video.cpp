@@ -23,6 +23,14 @@ inline static void RGB82YCrCb(double R, double G, double B, double &Yc, double &
 	Cr = 0.0 + 1.0 / 256.0 * (  112.439  * R -   94.154  * G -  18.285  * B);
 }
 
+inline static void RGB2YUV(double R, double G, double B, Yuv &yuv)
+{
+	// RGB -> YUV
+	yuv.y = (int)(0.299*R + 0.587*G + 0.114*B + 0.5);
+	yuv.u = (int)(- 0.14713*R - 0.28886*G + 0.436*B + 0.5); // U = 0.492111 (B'-Y')
+	yuv.v = (int)(0.615*R - 0.51499*G - 0.10001*B + 0.5); // V = 0.877283 (R'-Y')
+}
+
 static unsigned int	palette[256];
 static Yuv          yuvPalette[256];
 
@@ -45,16 +53,14 @@ void init_palette(TED *videoChip)
 		Uint8 Bc = (Uint8) myMax(myMin((Yc + Uc / 0.492111), 255.0), 0);
 
 		palette[ix + 128] = palette[ix] = Bc | (Gc << 8) | (Rc << 16);
-#if 0
-		double Yc, Cb, Cr;
-		RGB82YCrCb(Rc, Gc, Bc, Yc, Cb, Cr);
+#if 1
 		yuvPalette[ix].y = (unsigned char)(Yc);
-		yuvPalette[ix].u = (char)(Cb);
-		yuvPalette[ix].v = (char)(Cr);
+		yuvPalette[ix].u = (int)(Uc + 128);
+		yuvPalette[ix].v = (int)(Vc + 128);
 #else
         rgb2yuv(Bc, Gc, Rc, yuvPalette[ix].y, yuvPalette[ix].u, yuvPalette[ix].v);
-		yuvPalette[ix + 128] = yuvPalette[ix];
 #endif
+		yuvPalette[ix + 128] = yuvPalette[ix];
 	}
 }
 
@@ -121,19 +127,11 @@ void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned 
 
                 // average color signal
                 // approximately a 13 -> 1.3 MHz Butterworth filter
-#if 0
-                char ssu = (Uc[0] + Uc[1] + Uc[2] +
-                    Up[0] + Up[1] + Up[2]) / 6; // U
-                char ssv = (Uc[0] + Vc[1] + Vc[2] +
-                    Vp[0] + Vp[1] + Vp[2]) / 6; // V
-				const unsigned char U = 0x80 ^ ssu;
-				const unsigned char V = 0x80 ^ ssv;
-#else
                 const unsigned char U = (Uc[0] + Uc[1] + Uc[2] +
                     Up[0] + Up[1] + Up[2]) / 6; // U
                 const unsigned char V = (Uc[0] + Vc[1] + Vc[2] +
                     Vp[0] + Vp[1] + Vp[2]) / 6; // V
-#endif
+
                 // store result
                 *(pImage + j) =
                     (U << 0)

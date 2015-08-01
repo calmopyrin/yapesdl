@@ -134,7 +134,7 @@ void CPU::process()
 		nextins=mem->Read(PC+1);			// prefetch next opcode/operand
 		cycle = 1;							// increment the CPU cycle counter
 		PC=(PC+1)&0xFFFF;
-		//fprintf(stderr, "$%04X\n", PC);
+		//if ((PC & 0xf000) == 0xf000) fprintf(stderr, "$%04X\n", PC);
 #ifdef CPUS_STATS
 		stats[currins]++;
 #endif

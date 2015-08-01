@@ -49,10 +49,10 @@
 	"cpu.h"
 	"tedmem.h"
 
-1438093212 c:\munka\eigen\code\mgn\yapesdl\cpu.h
+1438357511 c:\munka\eigen\code\mgn\yapesdl\cpu.h
 	"mem.h"
 
-1438081034 c:\munka\eigen\code\mgn\yapesdl\tedmem.h
+1438357557 c:\munka\eigen\code\mgn\yapesdl\tedmem.h
 	"types.h"
 	"mem.h"
 	"serial.h"
@@ -163,7 +163,7 @@
 	<SDL/SDL.h>
 	<SDL2/SDL.h>
 
-1438253246 source:c:\munka\eigen\code\mgn\yapesdl\main.cpp
+1438344502 source:c:\munka\eigen\code\mgn\yapesdl\main.cpp
 	<stdlib.h>
 	<string.h>
 	<ctype.h>
@@ -272,7 +272,7 @@
 	"tedmem.h"
 	"video.h"
 
-1438236956 source:c:\munka\eigen\code\mgn\yapesdl\vic2mem.cpp
+1438360592 source:c:\munka\eigen\code\mgn\yapesdl\vic2mem.cpp
 	<stdio.h>
 	<memory.h>
 	"vic2mem.h"
@@ -284,7 +284,7 @@
 	"sound.h"
 	"tape.h"
 
-1438267517 c:\munka\eigen\code\mgn\yapesdl\vic2mem.h
+1438358169 c:\munka\eigen\code\mgn\yapesdl\vic2mem.h
 	"tedmem.h"
 
 1437979164 c:\munka\eigen\code\mgn\yapesdl\c64rom.h
