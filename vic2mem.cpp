@@ -743,14 +743,16 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 							case 0x0B:
 							case 0x0D:
 							case 0x0F:
-								mob[addr >> 1].y = (mob[addr >> 1].y & 0x100) | value;
+								mob[addr >> 1].y = RASTER2BEAMY(
+									(BEAMY2RASTER(mob[addr >> 1].y) & 0x100) | value);
 								break;
 							case 0x10:
 								{
 									unsigned int ix = addr >> 1;
 									unsigned int i = 7;
 									do {
-										mob[ix].y = (mob[ix].y & 0xFF) | ((value << (i - 6)) & 0x100);
+										mob[ix].y = RASTER2BEAMY(
+											BEAMY2RASTER(mob[ix].y & 0xFF) | ((value << (i - 6)) & 0x100));
 									} while (i--);
 								}
 								break;
