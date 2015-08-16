@@ -154,9 +154,17 @@ unsigned char KEYS64::feedjoy()
 	const Uint8 *kbstate = SDL_GetKeyboardState(NULL);
 	unsigned char tmp = ~
 		((kbstate[joystick[0]]<<0)
+		|(kbstate[SDL_SCANCODE_KP_7]<<0)
+		|(kbstate[SDL_SCANCODE_KP_9]<<0)
 		|(kbstate[joystick[2]]<<1)
+		|(kbstate[SDL_SCANCODE_KP_1]<<1)
+		|(kbstate[SDL_SCANCODE_KP_3]<<1)
 		|(kbstate[joystick[3]]<<2)
+		|(kbstate[SDL_SCANCODE_KP_7]<<2)
+		|(kbstate[SDL_SCANCODE_KP_1]<<2)
 		|(kbstate[joystick[1]]<<3)
+		|(kbstate[SDL_SCANCODE_KP_3]<<3)
+		|(kbstate[SDL_SCANCODE_KP_9]<<3)
 		|(kbstate[joystick[4]]<<4));
 	return tmp;
 }

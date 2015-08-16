@@ -9,11 +9,10 @@
 #include "sound.h"
 #include "tape.h"
 
-#define FAST_BOOT 1
 #define VRETRACE_LINE 265
 #define BEAMY2RASTER(X) (X < VRETRACE_LINE ? X + (312 - VRETRACE_LINE) : X - VRETRACE_LINE)
 #define RASTER2BEAMY(X) (X < (312 - VRETRACE_LINE) ? VRETRACE_LINE + X : X - (312 - VRETRACE_LINE))
-
+#define RASTERX2TVCOL(X) (X < 400 ? X + 104 : X - 400)
 #define SET_BITS(REG, VAL) { \
 		unsigned int i = 7; \
 		do { \
@@ -24,16 +23,17 @@
 static unsigned char cycleLookup[][128] = {
 // SCREEN:             |===========0102030405060708091011121314151617181920212223242526272829303132333435363738391111=========
 //     coordinate:                                                                                    111111111111111111111111111111
-//0000000000111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999000000000011111111112222222222
-//0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
+// 0000000000111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999000000000011111111112222222222
+// 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
 //     beamX:
-//11111111111111111111111111
-//000000000011111111112222220000000000111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999
-//012345678901234567890123450123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
-// NO SPRITES NO BADLINE
-{"3 i 4 i 5 i 6 i 7 i r r r r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 0 i 1 i 2 i "},
-// no sprites, bad line
-{"3 i 4 i 5 i 6 i 7 i r r*r*r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 0 i 1 i 2 i "}
+// 11111111111111111111111111
+// 000000000011111111112222220000000000111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999
+// 012345678901234567890123450123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
+// NO BADLINE
+//"3 i 4 i 5 i 6 i 7 i r r r r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 0 i 1 i 2 i "
+{ "33i344i455i566i677i7r r r r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 0 i 11i122i2"},
+// bad line
+{ "33i344i455i566i677i7r r*r*r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 0 i 11i122i2"}
 };
 
 unsigned int Vic2mem::CIA::refCount = 0;
@@ -53,6 +53,21 @@ Vic2mem::Vic2mem()
 	// pointer of the end of the screen memory
 	endptr = scrptr + VIC_PIXELS_PER_ROW;
 	framecol = 0;
+	//
+	mobExtCol[0] = 0xFF;
+	unsigned int i;
+	for(i = 0; i < 256; i++) {
+		collisionLookup[i] = i;
+	}
+	for(i = 0; i < 8; i++) {
+		collisionLookup[1 << i] = 0;
+		mob[i].dataCount = 0;
+	}
+	// empty collision buffers
+	memset(spriteCollisions, 0, sizeof(spriteCollisions));
+	memset(spriteBckgColl, 0, sizeof(spriteBckgColl));
+	spriteBckgCollReg = spriteCollisionReg = 0;
+	//
 	crsrblinkon = false;
 	vicBase = Ram;
 	charrombank = charRomC64;
@@ -416,7 +431,7 @@ void Vic2mem::CIA::countTimers()
 			prbTimerToggle ^= 0x40; // PRA7 underflow count toggle
 			// timer A output to PB6?
 			if (cra & 2) {
-				// set PRA6 high for one clock
+				// set PRA6 high for one clock cycle
 				if (cra & 4) {
 					prbTimerOut ^= 0x40; // toggle PRA6 between 1 and 0
 				} else {
@@ -436,7 +451,7 @@ void Vic2mem::CIA::countTimers()
 			prbTimerToggle ^= 0x80; // PRB7 underflow count toggle
 			// timer A output to PRB6?
 			if (crb & 2) {
-				// set PRB7 high for one clock
+				// set PRB7 high for one clock cycle
 				if (crb & 4) {
 					prbTimerOut ^= 0x80; // toggle PRB7 between 1 and 0
 				} else {
@@ -458,11 +473,6 @@ void Vic2mem::changeCharsetBank()
 	// video matrix base address
 	const unsigned int vmOffset = ((vicReg[0x18] & 0xF0) << 6);
 	VideoBase = vicBase + vmOffset;
-	// Sprite data addresses
-	unsigned int i = 7;
-	do {
-		mob[i].address = VideoBase + 0x3F8 + i;
-	} while (i--);
 	// character bitmap data
 	const unsigned int cSetOffset = ((vicReg[0x18] & 0x0E) << 10);
 	charrambank = vicBase + cSetOffset;
@@ -479,6 +489,7 @@ void Vic2mem::changeCharsetBank()
 void Vic2mem::checkIRQflag()
 {
 	irqFlag = (cia[0].icr | vicReg[0x19]) & 0x80;
+	if (cia[1].icr & 0x80) cpuptr->triggerNmi();
 }
 
 void Vic2mem::doDelayedDMA()
@@ -557,6 +568,18 @@ unsigned char Vic2mem::Read(unsigned int addr)
 								return vicReg[0x19] | 0x70;
 							case 0x1A:
 								return vicReg[0x1A] | 0xF0;
+							case 0x1E:
+								{	// sprite-sprite collision
+									unsigned char rv = spriteCollisionReg;
+									spriteCollisionReg = 0;
+									return rv;
+								}
+							case 0x1F:
+								{	// sprite-background collision
+									unsigned char rv = spriteBckgCollReg;
+									spriteBckgCollReg = 0;
+									return rv;
+								}
 							case 0x20:
 								return framecol | 0xF0;
 							case 0x21:
@@ -581,7 +604,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 							unsigned char retval;
 							switch (addr & 0x0F) {
 								case 0x00:
-									return keys64->getJoyState(1);
+									return cia[0].read(0) & keys64->getJoyState(1);
 								case 0x01:
 									retval = keys64->feedkey(cia[0].pra | ~cia[0].ddra);
 									//fprintf(stderr, "$Kb(%02X,%02X) read: %02X\n", cia[0].pra, cia[0].ddra, retval);
@@ -644,6 +667,9 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 				//unsigned int i;
 				switch ( addr >> 8 ) {
 					case 0xD0: // VIC2
+					case 0xD1:
+					case 0xD2:
+					case 0xD3:
 						addr &= 0x3F;
 						switch (addr) {
 							case 0x12:
@@ -709,20 +735,21 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 								checkIRQflag();
 								break;
 							case 0x20:
-								value &= 0x0F;
-								framecol=(value<<24)|(value<<16)|(value<<8)|value;
+								// distinguish border in the rendered screen with 0x80
+								value = (value & 0x0F) | 0x80;
+								framecol = (value << 24) | (value << 16) | (value << 8) | value;
 								break;
 							case 0x21:
-								ecol[0]=bmmcol[0]=mcol[0]=value&0x0F;
+								ecol[0] = bmmcol[0] = mcol[0] = (value & 0x0F) | 0x40;
 								break;
-							case 0x22:
-								ecol[1]=bmmcol[3]=mcol[1]=value&0x0F;
+							case 0x22: // '01' counts as background as well
+								ecol[1] = mcol[1] = (value & 0x0F) | 0x40;
 								break;
 							case 0x23:
-								ecol[2]=mcol[2]=value&0x0F;
+								ecol[2] = mcol[2] = value & 0x0F;
 								break;
 							case 0x24:
-								ecol[3]=value&0x0F;
+								ecol[3] = value & 0x0F;
 								break;
 							// sprites
 							case 0x00:
@@ -733,7 +760,8 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 							case 0x0A:
 							case 0x0C:
 							case 0x0E:
-								mob[addr >> 1].x = value;
+								mob[addr >> 1].x = (mob[addr >> 1].x & 0x0100) | value;
+								//fprintf(stderr, "Sprite%i:%i m_x: %u\n", addr >> 1, value, mob[addr >> 1].x);
 								break;
 							case 0x01:
 							case 0x03:
@@ -743,21 +771,23 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 							case 0x0B:
 							case 0x0D:
 							case 0x0F:
-								mob[addr >> 1].y = RASTER2BEAMY(
-									(BEAMY2RASTER(mob[addr >> 1].y) & 0x100) | value);
+								mob[addr >> 1].y = RASTER2BEAMY(value);
+								//fprintf(stderr, "Sprite%i:%i : %u\n", addr >> 1, value, mob[addr >> 1].y);
 								break;
 							case 0x10:
 								{
-									unsigned int ix = addr >> 1;
 									unsigned int i = 7;
 									do {
-										mob[ix].y = RASTER2BEAMY(
-											BEAMY2RASTER(mob[ix].y & 0xFF) | ((value << (i - 6)) & 0x100));
+										mob[i].x = ((mob[i].x & 0xFF) | ((value << (8 - i)) & 0x100));
+										//fprintf(stderr, "Sprite%i:%i m8x: %u\n", i, value, mob[i].x);
 									} while (i--);
 								}
 								break;
 							case 0x15:
 								SET_BITS(mob[i].enabled, value);
+								break;
+							case 0x17:
+								SET_BITS(mob[i].expandY, value);
 								break;
 							case 0x1B:
 								SET_BITS(mob[i].priority, value);
@@ -770,7 +800,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 								break;
 							case 0x25:
 							case 0x26:
-								mobExtCol[addr - 0x25] = value & 0x0F;
+								mobExtCol[((addr - 0x25) << 1) + 1] = value & 0x0F;
 								break;
 							case 0x27:
 							case 0x28:
@@ -847,6 +877,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 
 void Vic2mem::doHRetrace()
 {
+	if (vicReg[0x15]) drawSpritesPerLine();
 	// the beam reached a new line
 	TVScanLineCounter += 1;
 	if ( TVScanLineCounter >= 340 ) {
@@ -962,11 +993,11 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				}
 				break;
 
-			case 0:
 			case 126:
+				beamx = 0;
+			case 0:
 				if (VertSubActive)
 					CharacterPosition = CharacterPositionReload;
-				beamx = 0;
 				break;
 
 			case 2:
@@ -1046,32 +1077,27 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				*((int*)(scrptr + 4)) = framecol;
 			}
 		}
-		unsigned char cycleChr = cycleLookup[BadLine][beamx];
-		// sprites
-		if (cycleChr >= '0' && cycleChr <= '9') {
-			unsigned int spX = cycleChr - '0';
-			if (mob[spX].enabled) {
-				mob[spX].address = vicBase ;
-			}
-		}
-		//
-		if (scrptr != endptr)
-			scrptr += 8;
-		else
-			doHRetrace();
-		//
+		//unsigned char cycleChr = cycleLookup[BadLine][beamx];
 		checkIRQflag();
 		cia[0].countTimers();
 		cia[1].countTimers();
-		cycleChr = cycleLookup[BadLine][beamx|1];
+		unsigned char cycleChr = cycleLookup[BadLine][beamx|1];
 		switch (cycleChr) {
 			case ' ':
 				cpuptr->process();
+				break;
+			case '0': case '1':	case '2': case '3':
+			case '4': case '5': case '6': case '7':
+				// FIXME: not really accurate
+				if (!mob[cycleChr - '0'].dataCount)
+					cpuptr->process();
 				break;
 			case '*':
 				cpuptr->stopcycle();
 			default:;
 		}
+		//
+		scrptr += 8;
 		//
 		CycleCounter += 1;
 
@@ -1093,19 +1119,16 @@ void Vic2mem::ted_process(const unsigned int continuous)
 // renders hires text
 inline void Vic2mem::hi_text()
 {
-	unsigned char	chr;
 	unsigned char	charcol;
 	unsigned char	mask;
 	unsigned char	*wbuffer = scrptr + hshift;
 
 	if (VertSubActive) {
 		charcol = colorRAM[CharacterPosition + x];
-		// get the actual physical character column
-		chr = chrbuf[x];
-		mask = cset[(chr << 3) | vertSubCount];
+		mask = cset[(chrbuf[x] << 3) | vertSubCount];
 	} else {
 		charcol = 0;
-		mask = Read(0x3FFF);
+		mask = vicBase[0x3FFF];
 	}
 
 	wbuffer[0] = (mask & 0x80) ? charcol : mcol[0];
@@ -1127,13 +1150,12 @@ inline void Vic2mem::ec_text()
 	unsigned char *wbuffer = scrptr + hshift;
 
 	if (VertSubActive) {
-		// get the actual physical character column
 		charcol = colorRAM[CharacterPosition + x];
 		chr = chrbuf[x];
 		mask = cset[((chr & 0x3F) << 3) | vertSubCount];
 		chr >>= 6;
 	} else {
-		mask = Read(0x39FF);
+		mask = vicBase[0x39FF];
 		charcol = chr = 0;
 	}
 
@@ -1160,7 +1182,7 @@ inline void Vic2mem::mc_text()
 		chr = chrbuf[x];
 		mask = cset[(chr << 3) | vertSubCount];
 	} else {
-		mask = Read(0x3FFF);
+		mask = vicBase[0x3FFF];
 		charcol = 0;
 	}
 
@@ -1197,7 +1219,7 @@ inline void Vic2mem::mcec()
 	if (VertSubActive)
 		mask = cset[((chr & 0x3F) << 3) | vertSubCount];
 	else
-		mask = Read(0x3FFF);
+		mask = vicBase[0x3FFF];
 
 	memset(wbuffer, mask & 0, 8);
 }
@@ -1207,7 +1229,6 @@ inline void Vic2mem::hi_bitmap()
 {
 	unsigned char mask;
 	unsigned char *wbuffer = scrptr + hshift;
-	// get the actual color attributes
 	unsigned char hcol0;
 	unsigned char hcol1;
 
@@ -1218,7 +1239,7 @@ inline void Vic2mem::hi_bitmap()
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) | vertSubCount];
 	} else {
 		hcol0 = hcol1 = 0;
-		mask = Read(0x3FFF);
+		mask = vicBase[0x3FFF];
 	}
 
 	wbuffer[0] = (mask & 0x80) ? hcol1 : hcol0;
@@ -1236,15 +1257,16 @@ inline void Vic2mem::mc_bitmap()
 {
 	unsigned char	mask;
 	unsigned char	*wbuffer = scrptr + hshift;
-	// get the actual color attributes
-	bmmcol[1] = chrbuf[x] >> 4;
-	bmmcol[2] = chrbuf[x] & 0x0F;
-	bmmcol[3] = colorRAM[CharacterPosition + x] & 0x0F;
 
-	if (VertSubActive)
+	if (VertSubActive) {
+		bmmcol[1] = chrbuf[x] >> 4;
+		bmmcol[2] = chrbuf[x] & 0x0F;
+		bmmcol[3] = colorRAM[CharacterPosition + x] & 0x0F;
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) | vertSubCount];
-	else // FIXME
-		mask = Read(0x3FFF);
+	} else {// FIXME
+		bmmcol[1] = bmmcol[2] = bmmcol[3] = 0;
+		mask = vicBase[0x3FFF];
+	}
 
 	wbuffer[0]= wbuffer[1] = bmmcol[(mask & 0xC0) >> 6 ];
 	wbuffer[2]= wbuffer[3] = bmmcol[(mask & 0x30) >> 4 ];
@@ -1275,4 +1297,359 @@ inline void Vic2mem::render()
 			mcec();
 			break;
 	}
+} 
+
+void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsigned int cx, const unsigned int six)
+{
+	unsigned int i;
+	const unsigned int priority = m.priority;
+
+	if (!m.multicolor) {
+		unsigned char spc = m.color;
+		if (m.expandX) {
+			unsigned short *cb = (unsigned short *) (spriteCollisions + cx);
+			unsigned short cd = (six << 8) | six;
+			// sprite X expansion, hires mode
+			for(i = 0; i < 3; i++, out += 16) {
+				unsigned char data = in[i];
+				if (data & 0x80) {
+					cb[i] |= cd;
+					if (!(out[0] & 0x80)) {
+						if (!(out[0] & 0x40)) spriteBckgColl[cx] |= six;
+						out[0] = (out[0] & 0xF0) | spc;
+					}
+					spriteCollisions[cx + 1] |= six;
+					if (!(out[1] & 0x80)) {
+						if (!(out[1] & 0x40)) spriteBckgColl[cx + 1] |= six;
+						out[1] = (out[1] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x40) {
+					cb[i + 1] |= cd;
+					if (!(out[2] & 0x80)) {
+						if (!(out[2] & 0x40)) spriteBckgColl[cx + 2] |= six;
+						out[2] = (out[2] & 0xF0) | spc;
+					}
+					if (!(out[3] & 0x80)) {
+						if (!(out[3] & 0x40)) spriteBckgColl[cx + 3] |= six;
+						out[3] = (out[3] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x20) {
+					cb[i + 2] |= cd;
+					if (!(out[4] & 0x80)) {
+						if (!(out[4] & 0x40)) spriteBckgColl[cx + 4] |= six;
+						out[4] = (out[4] & 0xF0) | spc;
+					}
+					if (!(out[5] & 0x80))  {
+						if (!(out[5] & 0x40)) spriteBckgColl[cx + 5] |= six;
+						out[5] = (out[5] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x10) {
+					cb[i + 3] |= cd;
+					if (!(out[6] & 0x80)) {
+						if (!(out[6] & 0x40)) spriteBckgColl[cx + 6] |= six;
+						out[6] = (out[6] & 0xF0) | spc;
+					}
+					if (!(out[7] & 0x80)) {
+						if (!(out[7] & 0x40)) spriteBckgColl[cx + 7] |= six;
+						out[7] = (out[7] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x08) {
+					cb[i + 4] |= cd;
+					if (!(out[8] & 0x80)) {
+						if (!(out[8] & 0x40)) spriteBckgColl[cx + 8] |= six;
+						out[8] = (out[8] & 0xF0) | spc;
+					}
+					if (!(out[9] & 0x80)) {
+						if (!(out[9] & 0x40)) spriteBckgColl[cx + 9] |= six;
+						out[9] = (out[8] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x04) {
+					cb[i + 5] |= cd;
+					if (!(out[10] & 0x80)) {
+						if (!(out[10] & 0x40)) spriteBckgColl[cx + 10] |= six;
+						out[10] = (out[10] & 0xF0) | spc;
+					}
+					if (!(out[11] & 0x80)) {
+						if (!(out[11] & 0x40)) spriteBckgColl[cx + 11] |= six;
+						out[11] = (out[11] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x02) {
+					cb[i + 6] |= cd;
+					if (!(out[12] & 0x80)) {
+						if (!(out[12] & 0x40)) spriteBckgColl[cx + 12] |= six;
+						out[12] = (out[12] & 0xF0) | spc;
+					}
+					if (!(out[13] & 0x80)) {
+						if (!(out[13] & 0x40)) spriteBckgColl[cx + 13] |= six;
+						out[13] = (out[13] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x01) {
+					cb[i + 7] |= cd;
+					if (!(out[14] & 0x80)) {
+						if (!(out[14] & 0x40)) spriteBckgColl[cx + 14] |= six;
+						out[14] = (out[14] & 0xF0) | spc;
+					}
+					if (!(out[15] & 0x80)) {
+						if (!(out[15] & 0x40)) spriteBckgColl[cx + 15] |= six;
+						out[15] = (out[15] & 0xF0) | spc;
+					}
+				}
+			}
+		} else {
+			// sprite, normal size, hires mode
+			for(i = 0; i < 3; i++, out += 8, cx += 8) {
+				unsigned char data = in[i];
+				if (data & 0x80) {
+					spriteCollisions[cx] |= six;
+					if (!(out[0] & 0x80)) {
+						if (!(out[0] & 0x40)) spriteBckgColl[cx] |= six;
+						out[0] = (out[0] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x40) {
+					spriteCollisions[cx + 1] |= six;
+					if (!(out[1] & 0x80)) {
+						if (!(out[1] & 0x40)) spriteBckgColl[cx + 1] |= six;
+						out[1] = (out[1] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x20) {
+					spriteCollisions[cx + 2] |= six;
+					if (!(out[2] & 0x80)) {
+						if (!(out[2] & 0x40)) spriteBckgColl[cx + 2] |= six;
+						out[2] = (out[2] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x10) {
+					spriteCollisions[cx + 3] |= six;
+					if (!(out[3] & 0x80)) {
+						if (!(out[3] & 0x40)) spriteBckgColl[cx + 3] |= six;
+						out[3] = (out[3] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x08) {
+					spriteCollisions[cx + 4] |= six;
+					if (!(out[4] & 0x80)) {
+						if (!(out[4] & 0x40)) spriteBckgColl[cx + 4] |= six;
+						out[4] = (out[4] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x04) {
+					spriteCollisions[cx + 5] |= six;
+					if (!(out[5] & 0x80)) {
+						if (!(out[5] & 0x40)) spriteBckgColl[cx + 5] |= six;
+						out[5] = (out[5] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x02) {
+					spriteCollisions[cx + 6] |= six;
+					if (!(out[6] & 0x80)) {
+						if (!(out[6] & 0x40)) spriteBckgColl[cx + 6] |= six;
+						out[6] = (out[6] & 0xF0) | spc;
+					}
+				}
+				if (data & 0x01) {
+					spriteCollisions[cx + 7] |= six;
+					if (!(out[7] & 0x80)) {
+						if (!(out[7] & 0x40)) spriteBckgColl[cx + 7] |= six;
+						out[7] = (out[7] & 0xF0) | spc;
+					}
+				}
+			}
+		}
+	} else {
+		mobExtCol[2] = m.color;
+		if (m.expandX) {
+			unsigned int *cb = (unsigned int *) (spriteCollisions + cx);
+			unsigned int cDword = (six << 24) | (six << 16) | (six << 8) | six;
+			// sprite X expansion, multi mode
+			for(i = 0; i < 3; i++, out += 16) {
+				unsigned char data = in[i];
+				unsigned int bitlet = data & 0xC0;
+				if (bitlet) {
+					cb[i] |= cDword;
+					if (!(out[0] & 0x80))
+						out[0] = out[1] = out[2] = out[3] = mobExtCol[bitlet >> 6];
+				}
+				bitlet = data & 0x30;
+				if (bitlet) {
+					cb[i + 1] |= cDword;
+					if (!(out[4] & 0x80))
+						out[4] = out[5] = out[6] = out[7] = mobExtCol[bitlet >> 4];
+				}
+				bitlet = data & 0x0C;
+				if (bitlet) {
+					cb[i + 2] |= cDword;
+					if (!(out[8] & 0x80))
+						out[8] = out[9] = out[10] = out[11] = mobExtCol[bitlet >> 2];
+				}
+				bitlet = data & 0x03;
+				if (bitlet) {
+					cb[i + 3] |= cDword;
+					if (!(out[12] & 0x80))
+						out[12] = out[13] = out[14] = out[15] = mobExtCol[bitlet];
+				}
+			}
+		} else {
+			// normal size, multicolor
+			for(i = 0; i < 3; i++, out += 8) {
+				unsigned char data = in[i];
+				unsigned int bitlet = data & 0xC0;
+				if (bitlet) {
+					spriteCollisions[cx] |= six;
+					spriteCollisions[cx + 1] |= six;
+					if (!(out[0] & 0x80)) {
+						bitlet >>= 6;
+						if (!(out[0] & 0x40)) {
+							spriteBckgColl[cx] |= six;
+							if (!priority) out[0] = mobExtCol[bitlet];
+						} else  
+							out[0] = 0x40 | mobExtCol[bitlet];
+						if (!(out[1] & 0x40)) {
+							spriteBckgColl[cx + 1] |= six;
+							if (!priority) out[1] = mobExtCol[bitlet];
+						} else 
+							out[1] = 0x40 | mobExtCol[bitlet];
+					}
+				}
+				bitlet = data & 0x30;
+				if (bitlet) {
+					spriteCollisions[cx + 2] |= six;
+					spriteCollisions[cx + 3] |= six;
+					if (!(out[2] & 0x80)) {
+						bitlet >>= 4;
+						if (!(out[2] & 0x40)) {
+							spriteBckgColl[cx + 2] |= six;
+							if (!priority) out[2] = mobExtCol[bitlet];
+						} else
+							out[2] = 0x40 | mobExtCol[bitlet];
+						if (!(out[3] & 0x40)) {
+							spriteBckgColl[cx + 3] |= six;
+							if (!priority) out[3] = mobExtCol[bitlet];
+						} else
+							out[3] = 0x40 | mobExtCol[bitlet];
+					}
+				}
+				bitlet = data & 0x0C;
+				if (bitlet) {
+					spriteCollisions[cx + 4] |= six;
+					spriteCollisions[cx + 5] |= six;
+					if (!(out[4] & 0x80)) {
+						bitlet >>= 2;
+						if (!(out[4] & 0x40)) {
+							spriteBckgColl[cx + 4] |= six;
+							if (!priority) out[4] = mobExtCol[bitlet];
+						} else
+							out[4] = 0x40 | mobExtCol[bitlet];
+						if (!(out[5] & 0x40)) {
+							spriteBckgColl[cx + 5] |= six;
+							if (!priority) out[5] = mobExtCol[bitlet];
+						} else
+							out[5] = 0x40 | mobExtCol[bitlet];
+					}
+				}
+				bitlet = data & 0x03;
+				if (bitlet) {
+					spriteCollisions[cx + 6] |= six;
+					spriteCollisions[cx + 7] |= six;
+					if (!(out[6] & 0x80)) {
+						if (!(out[6] & 0x40)) {
+							spriteBckgColl[cx + 6] |= six;
+							if (!priority) out[6] = mobExtCol[bitlet];
+						} else
+							out[6] = 0x40 | mobExtCol[bitlet];
+						if (!(out[7] & 0x40)) {
+							spriteBckgColl[cx + 7] |= six;
+							if (!priority) out[7] = mobExtCol[bitlet];
+						} else
+							out[7] = 0x40 | mobExtCol[bitlet];
+					}
+				}
+			}
+		}
+	}
+}
+
+inline void Vic2mem::drawSpritesPerLine()
+{
+	unsigned char *spd = VideoBase + 0x03F8;
+	unsigned int i = 7;
+	
+	do {
+		if (mob[i].enabled) {
+			const unsigned int exy = mob[i].expandY;
+			if (!mob[i].dataCount) {
+				unsigned int rY = mob[i].y;
+				if (rY == beamy)
+					mob[i].dataCount = 21 << exy;
+			} else {
+				unsigned int dc = mob[i].dataCount;
+				if (dc) {
+					unsigned int tvX = RASTERX2TVCOL(mob[i].x);
+					unsigned char *d = vicBase + (spd[i] << 6) + (21 - ((dc + exy) >> exy)) * 3;
+					unsigned char *p = screen + TVScanLineCounter * VIC_PIXELS_PER_ROW + tvX;
+					renderSprite(d, p, mob[i], tvX, 1 << i);
+					mob[i].dataCount -= 1;
+				}
+			}
+		}
+	} while (i--);
+	// check collisions
+	for(i = 0; i < VIC_PIXELS_PER_ROW; i++) {
+		if (spriteCollisions[i]) {
+			spriteCollisionReg |= collisionLookup[spriteCollisions[i]];
+			spriteCollisions[i] = 0;
+		}
+		if (spriteBckgColl[i]) {
+			spriteBckgCollReg |= spriteBckgColl[i];
+			spriteBckgColl[i] = 0;
+		}
+	}
+	if (spriteCollisionReg) {
+		vicReg[0x19] |= (vicReg[0x1A] & 4) ? 0x84 : 0x04;
+		checkIRQflag();
+	}
+	if (spriteBckgCollReg) {
+		vicReg[0x19] |= (vicReg[0x1A] & 2) ? 0x82 : 0x02;
+		checkIRQflag();
+	}
+}
+
+void Vic2mem::drawSprites()
+{
+	unsigned char *spd = VideoBase + 0x03F8;
+	// start with with lowest priority so it simply gets overwritten
+	unsigned int i = 7;
+	do {
+		if (mob[i].enabled) {
+			unsigned int tvX = RASTERX2TVCOL(mob[i].x);
+			unsigned int tvY = RASTER2BEAMY(mob[i].y + 1);
+			//fprintf(stderr, "Sprite%i x: %u(%u) y: %u(%u)\n", i, mob[i].x, tvX, mob[i].y, tvY);
+			unsigned char *d = vicBase + (spd[i] << 6);
+			unsigned int j = 21;
+			unsigned char *p = screen + tvY * VIC_PIXELS_PER_ROW + tvX;
+			// sprite Y expansion?
+			if (mob[i].expandY) {
+				do {
+					renderSprite(d, p, mob[i], tvX, 1 << i);
+					memcpy(p + VIC_PIXELS_PER_ROW, p, 24 << mob[i].expandX);
+					p += VIC_PIXELS_PER_ROW << 1;
+					d += 3;
+				} while(--j);
+			} else {
+				do {
+					renderSprite(d , p, mob[i], tvX, 1 << i);
+					p += VIC_PIXELS_PER_ROW;
+					d += 3;
+				} while(--j);
+			}
+		}
+	} while (i--);
 }

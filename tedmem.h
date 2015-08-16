@@ -116,6 +116,7 @@ class TED : public CSerial , public MemoryHandler {
 	virtual unsigned char *getIrqReg() { return Ram + 0xff09; }
 	virtual unsigned int getSoundClock() { return TED_SOUND_CLOCK; }
 	virtual unsigned int getEmulationLevel() { return 0; }
+	virtual unsigned int getAutostartDelay() { return 30; }
 
 private:
 	  KEYS *keys;

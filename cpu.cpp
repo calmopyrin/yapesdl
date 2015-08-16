@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <memory.h>
 #include "cpu.h"
-#include "tedmem.h"
-
 
 // this one is much quicker
 #define push(VALUE) (stack[SP--]=(VALUE))

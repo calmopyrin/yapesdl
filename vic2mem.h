@@ -6,6 +6,7 @@
 class KEYS64;
 struct Color;
 
+#define FAST_BOOT 1
 #define VIC_PIXELS_PER_ROW 504
 #define VIC_REAL_CLOCK_M10 9852480 // 9852480 19704960
 #define VIC_SOUND_CLOCK (VIC_REAL_CLOCK_M10 / 8 / 10)
@@ -31,6 +32,11 @@ class Vic2mem : public TED
 		virtual void copyToKbBuffer(const char *text, unsigned int length = 0);
 		virtual unsigned int getSoundClock() { return VIC_SOUND_CLOCK; }
 		virtual unsigned int getEmulationLevel() { return 2; }
+#if !FAST_BOOT
+		virtual unsigned int getAutostartDelay() { return 175; }
+#else
+		virtual unsigned int getAutostartDelay() { return 50; }
+#endif
 
     protected:
 		void doHRetrace();
@@ -42,20 +48,25 @@ class Vic2mem : public TED
 		//
 		struct Mob {
 			bool enabled;
-			bool dmaOn;
 			bool multicolor;
 			bool priority;
-			bool expandX;
-			bool expandY;
-			unsigned char y;
-			unsigned short x;
+			unsigned int expandX;
+			unsigned int expandY;
+			unsigned int y;
+			unsigned int x;
 			unsigned char color;
-			unsigned char data[63];
-			unsigned int linesLeft;
 			unsigned int dataCount;
-			unsigned char *address;
+			unsigned int dataCountReload;
 		} mob[8];
-		unsigned char mobExtCol[2];
+		unsigned char spriteCollisionReg;
+		unsigned char spriteBckgCollReg;
+		unsigned char spriteCollisions[VIC_PIXELS_PER_ROW];
+		unsigned char spriteBckgColl[VIC_PIXELS_PER_ROW];
+		unsigned char collisionLookup[256];
+		unsigned char mobExtCol[4];
+		void renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsigned int cx, const unsigned int six);
+		void drawSprites();
+		void drawSpritesPerLine();
 		//
 		struct CIA {
 			CIA() { refCount++; }

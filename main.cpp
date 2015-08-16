@@ -186,7 +186,7 @@ bool autostart_file(char *szFile)
 	machineReset(true);
 	unsigned int cyclesPerRow = ted8360->getCyclesPerRow();
 	// do some frames
-	unsigned int frames = cyclesPerRow == 504 ? 175 : 25;
+	unsigned int frames = ted8360->getAutostartDelay();
 	machineDoSomeFrames(frames);
 	// and then try to load the parameter as file
 	return start_file(szFile);
@@ -642,6 +642,10 @@ inline static void poll_events(void)
 					case SDLK_ESCAPE:
 					case SDLK_F8:
 						enterMenu();
+						if (!g_bActive) {
+							PopupMsg(" PAUSED ");
+							frameUpdate();
+						}
 						break;
 					case SDLK_F9 :
 						g_inDebug=!g_inDebug;
@@ -676,7 +680,6 @@ inline static void poll_events(void)
 						}
 						if (event.key.keysym.mod & (KMOD_LCTRL|KMOD_RCTRL) ) {
 							ted8360->Reset(false);
-							break;
 						}
 						machineReset(false);
 						ted8360->soundReset();
