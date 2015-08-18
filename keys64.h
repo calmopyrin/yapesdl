@@ -8,6 +8,7 @@ public:
 	KEYS64(void);
 	~KEYS64(void);
 	unsigned char feedkey(unsigned char latch);
+	unsigned char feedKeyColumn(unsigned char column);
 	unsigned char feedjoy();
 	unsigned char getJoyState(unsigned int j);
 

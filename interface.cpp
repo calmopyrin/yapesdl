@@ -329,9 +329,9 @@ bool UI::handle_menu_command( struct element_t *element)
 					autostart_file(element->name);
 				} else {
 				    if (menuSelection != UI_T64_ITEM)
-                        PrgLoad(element->name, 0, (MemoryHandler*) ted8360);
+                        PrgLoad(element->name, 0, ted8360);
                     else
-                        prgLoadFromT64(element->name, 0, (MemoryHandler*) ted8360);
+                        prgLoadFromT64(element->name, 0, ted8360);
 				}
 			}
 			clear (0, 0);

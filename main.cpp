@@ -78,7 +78,7 @@ static bool				g_bSaveSettings = true;
 static bool				g_SoundOn = true;
 static bool             g_bUseOverlay = 0;
 static unsigned int		g_bWindowMultiplier = 2;
-static unsigned int		g_iEmulationLevel;
+static unsigned int		g_iEmulationLevel = 0;
 
 //-----------------------------------------------------------------------------
 // Name: ShowFrameRate()
@@ -161,13 +161,13 @@ bool start_file(char *szFile )
 			ted8360->copyToKbBuffer("L\317\042*\042,8,1\rRUN:\r", 15);
 			return true;
 		}
-		if (!strcmp(fileext,".prg")) {
-			PrgLoad(szFile, 0, (MemoryHandler*)ted8360 );
+		if (!strcmp(fileext,".prg") || !strcmp(fileext,".p00") || !strcmp(fileext,".P00")) {
+			PrgLoad(szFile, 0, ted8360 );
 			ted8360->copyToKbBuffer("RUN:\r",5);
 			return true;
 		}
 		if (!strcmp(fileext, ".t64")) {
-            prgLoadFromT64(szFile, 0, (MemoryHandler*) ted8360);
+            prgLoadFromT64(szFile, 0, ted8360);
             ted8360->copyToKbBuffer("RUN:\r",5);
 		}
 		if (!strcmp(fileext,".tap")) {
@@ -294,6 +294,7 @@ bool SaveSettings(char *inifileName)
 		fprintf(ini, "CurrentDirectory = %s\n", tmpStr);
 		fprintf(ini, "CRTEmulation = %u\n", g_bUseOverlay);
 		fprintf(ini, "WindowMultiplier = %u\n", g_bWindowMultiplier);
+		fprintf(ini, "EmulationLevel = %u\n", g_iEmulationLevel);
 
 		fclose(ini);
 		return true;
@@ -358,6 +359,8 @@ bool LoadSettings(char *inifileName)
 					g_bUseOverlay = !!atoi(value);
 				else if (!strcmp(keyword, "WindowMultiplier"))
 					g_bWindowMultiplier = number ? (number & 3) : 1;
+				else if (!strcmp(keyword, "EmulationLevel"))
+					g_iEmulationLevel = atoi(value);
 			}
 		}
 		fclose(ini);
@@ -680,9 +683,10 @@ inline static void poll_events(void)
 						}
 						if (event.key.keysym.mod & (KMOD_LCTRL|KMOD_RCTRL) ) {
 							ted8360->Reset(false);
+						} else {
+							ted8360->Reset(false);
 						}
 						machineReset(false);
-						ted8360->soundReset();
 						break;
 						default:
 							;
@@ -742,8 +746,7 @@ static void machineInit()
 	//
 	// TED
 	//
-	ted8360 = new Vic2mem; // TED;//
-	g_iEmulationLevel = ted8360->getEmulationLevel();
+	ted8360 = new TED;
 	machine = new CPU(ted8360, ted8360->getIrqReg(), &(ted8360->Ram[0x0100]));
 	ted8360->HookTCBM(tcbm);
 	ted8360->cpuptr = machine;
@@ -865,11 +868,11 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Settings loaded successfully.\n");
 		ad_get_curr_dir(tmpStr);
 		fprintf(stderr, "IEC drive path: %s\n", tmpStr);
+		setEmulationLevel(g_iEmulationLevel);
 	} else
 		fprintf(stderr,"Error loading settings or no .ini file present...\n");
 	app_initialise();
 	ted_sound_init(SAMPLE_FREQ);
-
 	if (!g_SoundOn || !g_50Hz) sound_pause();
 	KEYS::initPcJoys();
 	machine->Reset();

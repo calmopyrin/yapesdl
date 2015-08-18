@@ -37,6 +37,7 @@ class Vic2mem : public TED
 #else
 		virtual unsigned int getAutostartDelay() { return 50; }
 #endif
+		virtual unsigned short getEndLoadAddressPtr() { return 0xAE; };
 
     protected:
 		void doHRetrace();

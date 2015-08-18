@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <string.h>
-#include "mem.h"
+#include "tedmem.h"
 #include "types.h"
 
 static FILE	*prg;
 static unsigned char lpBufPtr[0x10000];
 
-static void prgLoadFromBuffer(unsigned short &adr, unsigned int size, unsigned char *buf, MemoryHandler *mem )
+static void prgLoadFromBuffer(unsigned short &adr, unsigned int size, unsigned char *buf, TED *mem )
 {
     unsigned int endaddr = adr + size;
 
@@ -19,11 +19,12 @@ static void prgLoadFromBuffer(unsigned short &adr, unsigned int size, unsigned c
     mem->Write(0x30,(endaddr)>>8);
     mem->Write(0x31,(endaddr)&0xFF);
     mem->Write(0x32,(endaddr)>>8);
-    mem->Write(0x9D,(endaddr)&0xFF);
-    mem->Write(0x9E,(endaddr)>>8);
+	unsigned short loadEndAddPtr = mem->getEndLoadAddressPtr();
+    mem->Write(loadEndAddPtr,(endaddr)&0xFF);
+    mem->Write(loadEndAddPtr + 1,(endaddr)>>8);
 }
 
-bool PrgLoad(char *fname, int loadaddress, MemoryHandler *mem)
+bool PrgLoad(char *fname, int loadaddress, TED *mem)
 {
 	unsigned short	loadaddr;
 	unsigned int	fsize;
@@ -34,7 +35,7 @@ bool PrgLoad(char *fname, int loadaddress, MemoryHandler *mem)
     	return FALSE;
 	} else {
 		fext = strrchr( fname, '.');
-		if ( !strcmp( fext+1, "p00" ) || !strcmp( fext+1, "P00" ))
+		if (!strcmp( fext, ".p00") || !strcmp(fext, ".P00"))
 			p00offset = 26;
 		// load PRG file
 		fseek(prg, 0L, SEEK_END);
@@ -43,12 +44,11 @@ bool PrgLoad(char *fname, int loadaddress, MemoryHandler *mem)
 		fseek(prg, p00offset, SEEK_SET);
 		fread(lpBufPtr, 1, fsize, prg);
 		fclose(prg);
-		if (fsize > 0x10002) fsize = 0x10000;
 		// copy to memory
 		if (loadaddress&0x10000)
-			loadaddr=loadaddress&0xFFFF;
+			loadaddr = loadaddress&0xFFFF;
 		else
-			loadaddr=lpBufPtr[0]|(lpBufPtr[1]<<8);
+			loadaddr = lpBufPtr[p00offset]|(lpBufPtr[p00offset + 1] << 8);
 
 		if (fsize < 2)
 			return FALSE;
@@ -59,7 +59,7 @@ bool PrgLoad(char *fname, int loadaddress, MemoryHandler *mem)
 	return TRUE;
 }
 
-bool prgLoadFromT64(char *t64path, unsigned short *loadAddress, MemoryHandler *mem)
+bool prgLoadFromT64(char *t64path, unsigned short *loadAddress, TED *mem)
 {
 	if ((prg = fopen(t64path, "rb"))) {
 	    unsigned char dirEntry[32];

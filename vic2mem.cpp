@@ -50,8 +50,6 @@ Vic2mem::Vic2mem()
 	tmpClrbuf = DMAbuf + 128;
 	// setting screen memory pointer
 	scrptr = screen;
-	// pointer of the end of the screen memory
-	endptr = scrptr + VIC_PIXELS_PER_ROW;
 	framecol = 0;
 	//
 	mobExtCol[0] = 0xFF;
@@ -63,10 +61,7 @@ Vic2mem::Vic2mem()
 		collisionLookup[1 << i] = 0;
 		mob[i].dataCount = 0;
 	}
-	// empty collision buffers
-	memset(spriteCollisions, 0, sizeof(spriteCollisions));
-	memset(spriteBckgColl, 0, sizeof(spriteBckgColl));
-	spriteBckgCollReg = spriteCollisionReg = 0;
+
 	//
 	crsrblinkon = false;
 	vicBase = Ram;
@@ -89,12 +84,19 @@ void Vic2mem::Reset(bool clearmem)
 		for (int i=0;i<RAMSIZE;Ram[i] = (i>>1)<<1==i ? 0 : 0xFF, i++);
 		loadroms();
 	}
+	// empty collision buffers
+	memset(spriteCollisions, 0, sizeof(spriteCollisions));
+	memset(spriteBckgColl, 0, sizeof(spriteBckgColl));
+	spriteBckgCollReg = spriteCollisionReg = 0;
+	//
 	soundReset();
 	cia[0].reset();
 	cia[1].reset();
 	vicReg[0x19] = 0;
 	prp = 7;
 	prddr = 0;
+	mem_8000_bfff = RomLo[0];
+	mem_c000_ffff = RomHi[0];
 }
 
 void Vic2mem::loadroms()
@@ -145,6 +147,7 @@ void Vic2mem::CIA::reset()
 	irq_mask = 0;
 	ta = tb = latcha = latchb = 0;
 	cra = crb = 0;
+	prbTimerOut = prbTimerOut = 0;
 	// ToD
 	todCount = 60 * 60 * 50; // set to 1hr at reset
 	alarmCount = -1;
@@ -350,13 +353,11 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 	addr &= 0x0F;
 	switch (addr) {
 		case 0x00:
-			//return (pra & ddra) | ( 0xff & ~ddra);
 			return pra | ~ddra;
 		case 0x01:
 			{
 				unsigned char retval;
-				retval = (prb & ddrb)
-					| (0xff & ~ddrb);
+				retval = prb ^ prbTimerOut | ~ddrb;
 				return retval;
 			}
 		case 0x02:
@@ -604,13 +605,18 @@ unsigned char Vic2mem::Read(unsigned int addr)
 							unsigned char retval;
 							switch (addr & 0x0F) {
 								case 0x00:
-									return cia[0].read(0) & keys64->getJoyState(1);
-								case 0x01:
-									retval = keys64->feedkey(cia[0].pra | ~cia[0].ddra);
+									retval = cia[0].read(0) 
+										& keys64->getJoyState(1) 
+										& keys64->feedKeyColumn(cia[0].prb | ~cia[0].ddrb);
+									break;
+								case 0x01: // port B usually not driven low by port A.
+									retval = (keys64->feedkey(cia[0].pra | ~cia[0].ddra) & ~cia[0].ddrb) | (cia[0].prb & cia[0].ddrb);
 									//fprintf(stderr, "$Kb(%02X,%02X) read: %02X\n", cia[0].pra, cia[0].ddra, retval);
 									break;
 								case 0x0D:
+									retval = cia[0].read(0x0D);
 									checkIRQflag();
+									break;
 								default:
 									retval = cia[0].read(addr);
 							}
@@ -884,7 +890,6 @@ void Vic2mem::doHRetrace()
 		doVRetrace();
 	}
 	scrptr = screen + TVScanLineCounter * VIC_PIXELS_PER_ROW;
-	endptr = scrptr + VIC_PIXELS_PER_ROW;
 }
 
 inline void Vic2mem::newLine()
@@ -1077,7 +1082,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				*((int*)(scrptr + 4)) = framecol;
 			}
 		}
-		//unsigned char cycleChr = cycleLookup[BadLine][beamx];
 		checkIRQflag();
 		cia[0].countTimers();
 		cia[1].countTimers();
@@ -1211,17 +1215,22 @@ inline void Vic2mem::mc_text()
 // when multi and extended color modes are all on the screen is blank
 inline void Vic2mem::mcec()
 {
-	//unsigned char charcol = colorRAM[CharacterPosition + x];
-	unsigned char chr = chrbuf[x];
 	unsigned char *wbuffer = scrptr + hshift;
 	unsigned char mask;
 
 	if (VertSubActive)
-		mask = cset[((chr & 0x3F) << 3) | vertSubCount];
+		mask = cset[((chrbuf[x] & 0x3F) << 3) | vertSubCount];
 	else
 		mask = vicBase[0x3FFF];
 
-	memset(wbuffer, mask & 0, 8);
+	wbuffer[0] = (mask & 0x80) ? 0 : 0x40;
+	wbuffer[1] = (mask & 0x40) ? 0 : 0x40;
+	wbuffer[2] = (mask & 0x20) ? 0 : 0x40;
+	wbuffer[3] = (mask & 0x10) ? 0 : 0x40;
+	wbuffer[4] = (mask & 0x08) ? 0 : 0x40;
+	wbuffer[5] = (mask & 0x04) ? 0 : 0x40;
+	wbuffer[6] = (mask & 0x02) ? 0 : 0x40;
+	wbuffer[7] = (mask & 0x01) ? 0 : 0x40;
 }
 
 // renders hires bitmap graphics

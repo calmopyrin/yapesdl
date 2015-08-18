@@ -133,20 +133,43 @@ unsigned char KEYS64::keyReadMatrixRow(unsigned int r)
 	return tmp;
 }
 
-unsigned char KEYS64::feedkey(unsigned char latch)
+unsigned char KEYS64::feedkey(unsigned char rowselect)
 {
 	unsigned char tmp = 0xFF;
 
-	if ((latch&0x01)==0) tmp&=keyReadMatrixRow(0);
-	if ((latch&0x02)==0) tmp&=keyReadMatrixRow(1);
-	if ((latch&0x04)==0) tmp&=keyReadMatrixRow(2);
-	if ((latch&0x08)==0) tmp&=keyReadMatrixRow(3);
-	if ((latch&0x10)==0) tmp&=keyReadMatrixRow(4);
-	if ((latch&0x20)==0) tmp&=keyReadMatrixRow(5);
-	if ((latch&0x40)==0) tmp&=keyReadMatrixRow(6);
-	if ((latch&0x80)==0) tmp&=keyReadMatrixRow(7);
+	if ((rowselect & 0x01)==0) tmp &= keyReadMatrixRow(0);
+	if ((rowselect & 0x02)==0) tmp &= keyReadMatrixRow(1);
+	if ((rowselect & 0x04)==0) tmp &= keyReadMatrixRow(2);
+	if ((rowselect & 0x08)==0) tmp &= keyReadMatrixRow(3);
+	if ((rowselect & 0x10)==0) tmp &= keyReadMatrixRow(4);
+	if ((rowselect & 0x20)==0) tmp &= keyReadMatrixRow(5);
+	if ((rowselect & 0x40)==0) tmp &= keyReadMatrixRow(6);
+	if ((rowselect & 0x80)==0) tmp &= keyReadMatrixRow(7);
 
 	return tmp & getJoyState(0);
+}
+
+unsigned char KEYS64::feedKeyColumn(unsigned char column)
+{
+	unsigned char retval;
+	unsigned char tmp = ~(keyReadMatrixRow(0) | column);
+	retval = tmp ? 1 : 0;
+	tmp = ~(keyReadMatrixRow(1) | column);
+	retval |= tmp ? 2 : 0;
+	tmp = ~(keyReadMatrixRow(2) | column); 
+	retval |= tmp ? 4 : 0;
+	tmp = ~(keyReadMatrixRow(3) | column); 
+	retval |= tmp ?  8 : 0;
+	tmp = ~(keyReadMatrixRow(4) | column); 
+	retval |= tmp ? 0x10 : 0;
+	tmp |= ~(keyReadMatrixRow(5) | column); 
+	retval |= tmp ? 0x20 : 0;
+	tmp |= ~(keyReadMatrixRow(6) | column); 
+	retval |= tmp ? 0x40 : 0;
+	tmp |= ~(keyReadMatrixRow(7) | column); 
+	retval |= tmp ? 0x80 : 0;
+
+	return retval ^ 0xff;
 }
 
 unsigned char KEYS64::feedjoy()

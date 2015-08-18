@@ -1,6 +1,6 @@
 #pragma once
 
-class MemoryHandler;
+class TED;
 
-extern bool PrgLoad(char *fname, int loadaddress, MemoryHandler *mem);
-extern bool prgLoadFromT64(char *t64path, unsigned short *loadAddress, MemoryHandler *mem);
+extern bool PrgLoad(char *fname, int loadaddress, TED *mem);
+extern bool prgLoadFromT64(char *t64path, unsigned short *loadAddress, TED *mem);
