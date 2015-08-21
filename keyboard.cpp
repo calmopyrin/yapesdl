@@ -39,16 +39,11 @@ static const unsigned int origkeys[5]={
 //--------------------------------------------------------------
 unsigned int KEYS::nrOfJoys;
 SDL_Joystick *KEYS::sdlJoys[2];
+unsigned int KEYS::activejoy = 0;
 
 KEYS::KEYS() 
 {
-	int i;
-	
-	memset(joytrans,0xFF,sizeof(joytrans));
-	activejoy=0;
-	for (i=0;i<5;++i)
-		joytrans[joystick[i]]=joykeys[activejoy][i];
-
+	//activejoy=0;
 	empty();
 	block(false);
 }
@@ -205,7 +200,7 @@ unsigned char KEYS::keyReadMatrixRow(unsigned int r)
 				|(kbstate[SDL_SCANCODE_TAB]<<7));
 			break;
 	}
-	return tmp;
+	return tmp | blockMask;
 }
 
 unsigned char KEYS::feedkey(unsigned char latch)
@@ -249,7 +244,7 @@ unsigned char KEYS::getPcJoyState(unsigned int joyNr, unsigned int activeJoy)
 
 	state = SDL_JoystickGetButton(sdlJoys[joyNr], 0);
 	state |= SDL_JoystickGetButton(sdlJoys[joyNr], 10);
-	state <<= (6 + activeJoy);
+	state <<= fireButtonIndex(activeJoy);
 	// if (state)
 // 	  fprintf(stderr,"Joy(%i) state: %X ", joyNr, state);
 	x_move = SDL_JoystickGetAxis(sdlJoys[joyNr], 0);
@@ -286,34 +281,17 @@ unsigned char KEYS::feedjoy(unsigned char latch)
 	return tmp;
 }
 
-void KEYS::joyinit(void)
-{
-	register int i;
-
-	for (i=0;i<5;++i) {
-		joytrans[joystick[i]]=joykeys[activejoy][i];
-//		sdltrans[joystick[i]]=0xFF;
-	}
-}
-
 void KEYS::swapjoy()
 {
-//	register int i;
-
 	activejoy=1-activejoy;
-	//for (i=0;i<5;++i)
-	//	joytrans[joystick[i]]=joykeys[activejoy][i];
-}
-
-void KEYS::releasejoy()
-{
-	//register int i;
-
-	//for (i=0;i<5;++i)
-	//	sdltrans[joystick[i]]=origkeys[i];
 }
 
 KEYS::~KEYS() 
+{
+
+}
+
+void KEYS::closePcJoys()
 {
 	int i = nrOfJoys;
 	while (i) {

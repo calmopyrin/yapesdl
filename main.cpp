@@ -184,7 +184,6 @@ bool start_file(char *szFile )
 bool autostart_file(char *szFile)
 {
 	machineReset(true);
-	unsigned int cyclesPerRow = ted8360->getCyclesPerRow();
 	// do some frames
 	unsigned int frames = ted8360->getAutostartDelay();
 	machineDoSomeFrames(frames);
@@ -246,8 +245,8 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 		}
     }
     //
-	SDL_UpdateTexture(sdlTexture, NULL, texture, pixelsPerRow * sizeof (unsigned int));
-	SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
+	int e = SDL_UpdateTexture(sdlTexture, NULL, texture, pixelsPerRow * sizeof (unsigned int));
+	e = SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
 	SDL_RenderPresent(sdlRenderer);
 }
 
@@ -279,7 +278,6 @@ bool SaveSettings(char *inifileName)
 		fprintf(ini,"DisplayFrameRate = %d\n",g_FrameRate);
 		fprintf(ini,"DisplayQuickDebugInfo = %d\n",g_inDebug);
 		fprintf(ini,"50HzTimerActive = %d\n",g_50Hz);
-		fprintf(ini,"JoystickEmulation = %d\n",ted8360->joyemu);
 		fprintf(ini,"ActiveJoystick = %d\n",ted8360->getKeys()->activejoy);
 		rammask = ted8360->getRamMask();
 		fprintf(ini,"RamMask = %x\n",rammask);
@@ -325,8 +323,6 @@ bool LoadSettings(char *inifileName)
 					g_inDebug = !!atoi(value);
 				else if (!strcmp(keyword, "50HzTimerActive"))
 					g_50Hz = !!atoi(value);
-				else if (!strcmp(keyword, "JoystickEmulation"))
-					ted8360->joyemu = !!atoi(value);
 				else if (!strcmp(keyword, "ActiveJoystick"))
 					ted8360->getKeys()->activejoy = atoi(value);
 				else if (!strcmp(keyword, "RamMask")) {
@@ -565,17 +561,6 @@ inline static void poll_events(void)
 								}
 								PopupMsg(textout);
 								break;
-							case SDLK_j :
-								ted8360->joyemu=!ted8360->joyemu;
-								if (ted8360->joyemu) {
-									sprintf(textout , " JOYSTICK EMULATION IS ON ");
-									ted8360->getKeys()->joyinit();
-								} else {
-									sprintf(textout , " JOYSTICK EMULATION IS OFF ");
-									ted8360->getKeys()->releasejoy();
-								};
-								PopupMsg(textout);
-								break;
 							case SDLK_i :
 								doSwapJoy();
 								break;
@@ -775,6 +760,7 @@ static void app_close()
 		delete [] inifile;
 		inifile = NULL;
 	}
+	KEYS::closePcJoys();
 	if (sdlRenderer)
 		SDL_DestroyRenderer(sdlRenderer);
 	if (sdlTexture)

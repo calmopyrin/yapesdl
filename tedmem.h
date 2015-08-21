@@ -86,8 +86,6 @@ class TED : public CSerial , public MemoryHandler {
 	unsigned int crsrpos;
 	int crsrphase;
 	bool crsrblinkon;
-	// is joy emulated?
-	bool joyemu;
 	// CPU class pointer
 	CPU	*cpuptr;
 	// TED process (main loop of emulation)

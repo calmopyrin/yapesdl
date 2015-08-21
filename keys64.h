@@ -15,4 +15,5 @@ public:
 protected:
 	unsigned char keyReadMatrixRow(unsigned int r);
 	unsigned char latchedJoy;
+	virtual unsigned int fireButtonIndex(unsigned int a) const { return 4; };
 };

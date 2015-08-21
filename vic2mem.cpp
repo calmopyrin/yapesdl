@@ -9,9 +9,6 @@
 #include "sound.h"
 #include "tape.h"
 
-#define VRETRACE_LINE 265
-#define BEAMY2RASTER(X) (X < VRETRACE_LINE ? X + (312 - VRETRACE_LINE) : X - VRETRACE_LINE)
-#define RASTER2BEAMY(X) (X < (312 - VRETRACE_LINE) ? VRETRACE_LINE + X : X - (312 - VRETRACE_LINE))
 #define RASTERX2TVCOL(X) (X < 400 ? X + 104 : X - 400)
 #define SET_BITS(REG, VAL) { \
 		unsigned int i = 7; \
@@ -33,7 +30,7 @@ static unsigned char cycleLookup[][128] = {
 //"3 i 4 i 5 i 6 i 7 i r r r r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 0 i 1 i 2 i "
 { "33i344i455i566i677i7r r r r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 0 i 11i122i2"},
 // bad line
-{ "33i344i455i566i677i7r r*r*r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 0 i 11i122i2"}
+{ "33i344i455i566i677i7r r*r*r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 00i011i122i2"}
 };
 
 unsigned int Vic2mem::CIA::refCount = 0;
@@ -46,10 +43,10 @@ Vic2mem::Vic2mem()
 	actram = Ram;
 	loadroms();
 	chrbuf = DMAbuf;
-	clrbuf = DMAbuf + 64;
 	tmpClrbuf = DMAbuf + 128;
 	// setting screen memory pointer
 	scrptr = screen;
+	beamy = beamx = 0;
 	framecol = 0;
 	//
 	mobExtCol[0] = 0xFF;
@@ -61,7 +58,6 @@ Vic2mem::Vic2mem()
 		collisionLookup[1 << i] = 0;
 		mob[i].dataCount = 0;
 	}
-
 	//
 	crsrblinkon = false;
 	vicBase = Ram;
@@ -147,7 +143,7 @@ void Vic2mem::CIA::reset()
 	irq_mask = 0;
 	ta = tb = latcha = latchb = 0;
 	cra = crb = 0;
-	prbTimerOut = prbTimerOut = 0;
+	prbTimerOut = 0;
 	// ToD
 	todCount = 60 * 60 * 50; // set to 1hr at reset
 	alarmCount = -1;
@@ -497,7 +493,6 @@ void Vic2mem::doDelayedDMA()
 {
 	if (attribFetch) {
 		if (vshift == (beamy & 7)) {
-			BadLine = 1;
 			// Delayed DMA?
 			if (beamx >=2 && beamx < 82) {
 				unsigned char idleread = Read((cpuptr->getPC()+1) & 0xFFFF);
@@ -508,15 +503,18 @@ void Vic2mem::doDelayedDMA()
 				unsigned int newdmapos = (invalidpos+invalidcount < 40) ? invalidpos+invalidcount : 40;
 				unsigned int newdmacount = 40 - newdmapos ;
 				unsigned int oldcount = 40 - newdmacount - invalidcount;
-				memcpy(tmpClrbuf, chrbuf, oldcount);
-				memset(tmpClrbuf + oldcount, idleread, invalidcount);
-				memcpy(tmpClrbuf + oldcount + invalidcount, VideoBase + CharacterCount + oldcount
+				//memcpy(tmpClrbuf, chrbuf, oldcount);
+				memset(chrbuf + oldcount, idleread, invalidcount);
+				memcpy(chrbuf + oldcount + invalidcount, VideoBase + CharacterCount + oldcount
 					+ invalidcount, newdmacount);
 				BadLine = 1;
 				delayedDMA = true;
-			} else if (BadLine) {
-				BadLine = 0;
+				x = newdmapos;
+				VertSubActive = true;
+				vertSubCount = 0;
 			}
+		} else if (BadLine) {
+			BadLine = 0;
 		}
 	}
 }
@@ -556,9 +554,9 @@ unsigned char Vic2mem::Read(unsigned int addr)
 						addr &= 0x3F;
 						switch (addr) {
 							case 0x12:
-								return (BEAMY2RASTER(beamy)) & 0xFF;
+								return ((beamy)) & 0xFF;
 							case 0x11:
-								return (vicReg[0x11] & 0x7f) | (((BEAMY2RASTER(beamy)) & 0x100) >> 1);
+								return (vicReg[0x11] & 0x7f) | ((((beamy)) & 0x100) >> 1);
 							case 0x13: // LPX
 								return beamx << 1;
 							case 0x16:
@@ -605,8 +603,8 @@ unsigned char Vic2mem::Read(unsigned int addr)
 							unsigned char retval;
 							switch (addr & 0x0F) {
 								case 0x00:
-									retval = cia[0].read(0) 
-										& keys64->getJoyState(1) 
+									retval = cia[0].read(0)
+										& keys64->getJoyState(1)
 										& keys64->feedKeyColumn(cia[0].prb | ~cia[0].ddrb);
 									break;
 								case 0x01: // port B usually not driven low by port A.
@@ -679,7 +677,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 						addr &= 0x3F;
 						switch (addr) {
 							case 0x12:
-								irqline = RASTER2BEAMY(((BEAMY2RASTER(irqline) & 0x100) | value));
+								irqline = ((((irqline) & 0x100) | value));
 								if (beamy == irqline) {
 									vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
 									checkIRQflag();
@@ -687,7 +685,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 								break;
 							case 0x11:
 								// raster IRQ line
-								irqline = RASTER2BEAMY(((BEAMY2RASTER(irqline) & 0xFF)
+								irqline = ((((irqline) & 0xFF)
 									| ((value & 0x80) << 1)));
 								if (beamy == irqline) {
 									vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
@@ -702,15 +700,26 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 								// check for graphics mode (5th b14it)
 								scrattr = (scrattr & ~(GRAPHMODE|EXTCOLOR))|(value & (GRAPHMODE|EXTCOLOR));
 								// Check if screen is turned on
-								if (value & 0x10 && !beamy && !attribFetch) {
+								if (value & 0x10 && beamy == 48 && !attribFetch) {
 									attribFetch = true;
 									vertSubCount = 7;
-								} else if (attribFetch && ((fltscr && beamy == 8) || (!fltscr && beamy == 4))) {
+								} else if (attribFetch && ((fltscr && beamy == 48+7) || (!fltscr && beamy == 48+3))) {
 									ScreenOn = true;
-								} else if ((beamy == 200 && fltscr) || (beamy == 204 && !fltscr)) {
+								} else if ((beamy == 48+199 && fltscr) || (beamy == 48+203 && !fltscr)) {
 									ScreenOn = false;
 								}
-								//doDelayedDMA();
+#if 1
+								if (attribFetch) {
+									bool nowBadLine = (vshift == (beamy & 7)) & (beamy != 247);
+									if (!BadLine && nowBadLine) {
+										vertSubCount = 0;
+										BadLine = 1;
+										VertSubActive = true;
+									}
+								}
+#else
+								doDelayedDMA();
+#endif
 								break;
 							case 0x16:
 								// check for narrow screen (38 columns)
@@ -777,7 +786,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 							case 0x0B:
 							case 0x0D:
 							case 0x0F:
-								mob[addr >> 1].y = RASTER2BEAMY(value);
+								mob[addr >> 1].y = (value);
 								//fprintf(stderr, "Sprite%i:%i : %u\n", addr >> 1, value, mob[addr >> 1].y);
 								break;
 							case 0x10:
@@ -895,55 +904,54 @@ void Vic2mem::doHRetrace()
 inline void Vic2mem::newLine()
 {
 	beamy += 1;
-	ff1d_latch = beamy;
 	switch (beamy) {
 
-		case 4:
-			if (!fltscr && attribFetch) ScreenOn = true;
-			break;
-
-		case 8:
-			if (fltscr && attribFetch) ScreenOn = true;
-			break;
-
-		case 200:
-			if (fltscr) ScreenOn = false;
-			break;
-
-		case 204:
-			if (!fltscr) ScreenOn = false;
-			break;
-
-		case 205:
-			CharacterCount = 0;
-			VertSubActive = false;
-			break;
-
-		case 251:
-			VBlanking = true;
-			break;
-
-		case VRETRACE_LINE: // Vertical retrace 261 or 265?
-			doVRetrace();
-			// CIA ToD count @ 50 Hz
-			cia[0].todUpdate();
-			cia[1].todUpdate();
-			break;
-
-		case 271:
-			VBlanking = false;
-			break;
-
-		case 512:
-		case 312:
-			beamy = 0;
-			CharacterPositionReload = 0;
+		case 48:
 			if (!attribFetch) {
 				endOfScreen = true;
 			}
 			attribFetch = (vicReg[0x11] & 0x10) != 0;
 			// skip checking raster IRQ
 			return;
+
+		case 48 + 3:
+			if (!fltscr && attribFetch) ScreenOn = true;
+			break;
+
+		case 48 + 7:
+			if (fltscr && attribFetch) ScreenOn = true;
+			break;
+
+		case 199 + 48:
+			if (fltscr) ScreenOn = false;
+			break;
+
+		case 203 + 48:
+			if (!fltscr) ScreenOn = false;
+			break;
+
+		case 204 + 48:
+			CharacterCount = 0;
+			VertSubActive = false;
+			break;
+
+		case 250 + 48: // VIC article: 300
+			VBlanking = true;
+			break;
+
+		case 512:
+		case 312: // Vertical retrace
+			beamy = 0;
+			CharacterPositionReload = 0;
+			doVRetrace();
+			// CIA ToD count @ 50/60 Hz
+			cia[0].todUpdate();
+			cia[1].todUpdate();
+			break;
+
+		case 6: // BEAMY2RASTER(271):
+			VBlanking = false;
+			break;
 	}
 	// is there raster interrupt?
 	if (!endOfScreen && beamy == irqline) {
@@ -972,7 +980,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				if (VertSubActive)
 					vertSubCount = (vertSubCount+1)&7;
 				if (endOfScreen) {
-					vertSubCount = 7;
 					// is there raster interrupt? line 0 IRQ is delayed by 0 cycle
 					if (beamy == irqline) {
 						vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
@@ -984,18 +991,21 @@ void Vic2mem::ted_process(const unsigned int continuous)
 
 			case 122:
 				HBlanking = false;
-				break;
+//				break;
 
-			case 124:
+//			case 124:
 				if (attribFetch) {
-					BadLine = (vshift == (beamy & 7)) & (beamy != 203);
+					BadLine = (vshift == (beamy & 7));
 					if (BadLine) {
-						vertSubCount = 7;
+						VertSubActive = true;
+						vertSubCount = 0;
 					}
-					if (beamy == 203) {
+					if (beamy == 247) {
 						attribFetch = false;
 					}
 				}
+				//fprintf(stderr, "Line %03i - AttribFetch:%i Badline:%i VertSub:%i Screen:%i\n", beamy, attribFetch,
+				//	BadLine, VertSubActive, ScreenOn);
 				break;
 
 			case 126:
@@ -1008,7 +1018,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case 2:
 				if (BadLine) {
 					if (!delayedDMA)
-						doDMA(tmpClrbuf, 0);
+						doDMA(chrbuf, 0);
 				}
 				break;
 
@@ -1031,6 +1041,9 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case 82:
 				if (VertSubActive && vertSubCount == 6)
 					CharacterCount = (CharacterCount + 40) & 0x3FF;
+				if (BadLine) {
+					BadLine = 0;
+				}
 				break;
 
 			case 84:
@@ -1054,19 +1067,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
 			case 96:
-				if (BadLine) {
-					VertSubActive = true;
-					BadLine = 0;
-					// swap DMA pointers
-					unsigned char *tmpbuf = chrbuf;
-					chrbuf = tmpClrbuf;
-					tmpClrbuf = tmpbuf;
-				}
-				break;
-
-			case 256:
-			case 128: // overflow
-				beamx = 0;
 				break;
 		}
 		// drawing the visible part of the screen
@@ -1306,7 +1306,7 @@ inline void Vic2mem::render()
 			mcec();
 			break;
 	}
-} 
+}
 
 void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsigned int cx, const unsigned int six)
 {
@@ -1314,11 +1314,12 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 	const unsigned int priority = m.priority;
 
 	if (!m.multicolor) {
-		unsigned char spc = m.color;
+		const unsigned char spc = m.color;
 		if (m.expandX) {
 			unsigned short *cb = (unsigned short *) (spriteCollisions + cx);
 			unsigned short cd = (six << 8) | six;
 			// sprite X expansion, hires mode
+			// TODO proper border detection
 			for(i = 0; i < 3; i++, out += 16) {
 				unsigned char data = in[i];
 				if (data & 0x80) {
@@ -1414,7 +1415,7 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 		} else {
 			// sprite, normal size, hires mode
 			for(i = 0; i < 3; i++, out += 8, cx += 8) {
-				unsigned char data = in[i];
+				const unsigned char data = in[i];
 				if (data & 0x80) {
 					spriteCollisions[cx] |= six;
 					if (!(out[0] & 0x80)) {
@@ -1480,8 +1481,9 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 			unsigned int cDword = (six << 24) | (six << 16) | (six << 8) | six;
 			// sprite X expansion, multi mode
 			for(i = 0; i < 3; i++, out += 16) {
-				unsigned char data = in[i];
+				const unsigned char data = in[i];
 				unsigned int bitlet = data & 0xC0;
+				// TODO background collision, proper border detection
 				if (bitlet) {
 					cb[i] |= cDword;
 					if (!(out[0] & 0x80))
@@ -1509,7 +1511,7 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 		} else {
 			// normal size, multicolor
 			for(i = 0; i < 3; i++, out += 8) {
-				unsigned char data = in[i];
+				const unsigned char data = in[i];
 				unsigned int bitlet = data & 0xC0;
 				if (bitlet) {
 					spriteCollisions[cx] |= six;
@@ -1519,12 +1521,12 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 						if (!(out[0] & 0x40)) {
 							spriteBckgColl[cx] |= six;
 							if (!priority) out[0] = mobExtCol[bitlet];
-						} else  
+						} else
 							out[0] = 0x40 | mobExtCol[bitlet];
 						if (!(out[1] & 0x40)) {
 							spriteBckgColl[cx + 1] |= six;
 							if (!priority) out[1] = mobExtCol[bitlet];
-						} else 
+						} else
 							out[1] = 0x40 | mobExtCol[bitlet];
 					}
 				}
@@ -1588,25 +1590,26 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 
 inline void Vic2mem::drawSpritesPerLine()
 {
-	unsigned char *spd = VideoBase + 0x03F8;
 	unsigned int i = 7;
-	
+
 	do {
 		if (mob[i].enabled) {
-			const unsigned int exy = mob[i].expandY;
-			if (!mob[i].dataCount) {
+			unsigned int &dc = mob[i].dataCount;
+            const unsigned int exy = mob[i].expandY;
+			if (!dc) {
 				unsigned int rY = mob[i].y;
-				if (rY == beamy)
-					mob[i].dataCount = 21 << exy;
-			} else {
-				unsigned int dc = mob[i].dataCount;
-				if (dc) {
-					unsigned int tvX = RASTERX2TVCOL(mob[i].x);
-					unsigned char *d = vicBase + (spd[i] << 6) + (21 - ((dc + exy) >> exy)) * 3;
-					unsigned char *p = screen + TVScanLineCounter * VIC_PIXELS_PER_ROW + tvX;
-					renderSprite(d, p, mob[i], tvX, 1 << i);
-					mob[i].dataCount -= 1;
+				if (rY + 1 == beamy) {
+					unsigned char *spd = VideoBase + 0x03F8;
+                    dc = 21 << exy;
+					mob[i].dataCountReload = (spd[i] << 6);
 				}
+			}
+			if (dc) {
+                unsigned int tvX = RASTERX2TVCOL(mob[i].x);
+                unsigned char *d = vicBase + mob[i].dataCountReload + (21 - ((dc + exy) >> exy)) * 3;
+                unsigned char *p = screen + TVScanLineCounter * VIC_PIXELS_PER_ROW + tvX;
+                renderSprite(d, p, mob[i], tvX, 1 << i);
+                dc -= 1;
 			}
 		}
 	} while (i--);
@@ -1639,8 +1642,7 @@ void Vic2mem::drawSprites()
 	do {
 		if (mob[i].enabled) {
 			unsigned int tvX = RASTERX2TVCOL(mob[i].x);
-			unsigned int tvY = RASTER2BEAMY(mob[i].y + 1);
-			//fprintf(stderr, "Sprite%i x: %u(%u) y: %u(%u)\n", i, mob[i].x, tvX, mob[i].y, tvY);
+			unsigned int tvY = (mob[i].y + 1);
 			unsigned char *d = vicBase + (spd[i] << 6);
 			unsigned int j = 21;
 			unsigned char *p = screen + tvY * VIC_PIXELS_PER_ROW + tvX;

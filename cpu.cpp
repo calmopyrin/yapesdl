@@ -121,7 +121,7 @@ void CPU::process()
 	if (!cycle) {		// in the first cycle the CPU fetches the opcode
 		if (IRQcount>=3 && currins != 0x58) {
 			IRQcount = 0;
-			if (!(ST&0x04) || currins == 0x78) { //
+			if (!(ST&0x04) || currins == 0x78 || irqVector == INTERRUPT_NMI) { //
 				irq_sequence = 0x10; // this is 0x10 to match the B flag later
 				currins = 0x00;	 // we could use BRK for the IRQ routine!
 				cycle = 1;

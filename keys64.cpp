@@ -130,7 +130,7 @@ unsigned char KEYS64::keyReadMatrixRow(unsigned int r)
 				|(kbstate[SDL_SCANCODE_TAB]<<7));
 			break;
 	}
-	return tmp;
+	return tmp | blockMask;
 }
 
 unsigned char KEYS64::feedkey(unsigned char rowselect)
@@ -198,7 +198,7 @@ unsigned char KEYS64::getJoyState(unsigned int j)
 	if (activejoy == j) {
 		tmp &= feedjoy();
 	}
-	if (sdlJoys[j ^ activejoy ^ 1])
-		tmp &= getPcJoyState(j ^ activejoy, activejoy ^ j ^ 1);
+	if (sdlJoys[1 ^ activejoy ^ j])
+		tmp &= getPcJoyState(1 ^ activejoy ^ j, 0);
 	return tmp;
 }

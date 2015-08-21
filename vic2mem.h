@@ -61,8 +61,8 @@ class Vic2mem : public TED
 		} mob[8];
 		unsigned char spriteCollisionReg;
 		unsigned char spriteBckgCollReg;
-		unsigned char spriteCollisions[VIC_PIXELS_PER_ROW];
-		unsigned char spriteBckgColl[VIC_PIXELS_PER_ROW];
+		unsigned char spriteCollisions[512 + 48];
+		unsigned char spriteBckgColl[512 + 48];
 		unsigned char collisionLookup[256];
 		unsigned char mobExtCol[4];
 		void renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsigned int cx, const unsigned int six);

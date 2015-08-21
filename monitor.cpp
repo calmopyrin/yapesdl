@@ -21,6 +21,7 @@ static struct {
 	//	{ "b [<address>]", MON_CMD_BREAKPOINT, "List all or set breakpoint to <address>.") },
 	{ "> [<address>] [<arg1>] [<arg2>] .. [<arg#>]", MON_CMD_CHANGEMEM, "Show/change memory from <address>." },
 	{ "d [<address>]", MON_CMD_DISASS, "Disassemble (from <address>)." },
+	{ "f <src_from> <src_to> <value>", MON_CMD_FILLMEM, "Fill memory range with <value>." },
 	{ "g [<address>]", MON_CMD_GO, "Go (to [<address>])." },
 	{ "m [<address>]", MON_CMD_MEM, "Memory dump (from [<address>])." },
 	{ "t <src_from> <src_to> <target>", MON_CMD_TRANSFER, "Memory copy transfer (from start address)." },
@@ -319,6 +320,14 @@ void executeCmd(unsigned int cmd, vector<string> &args, char *wholeLine)
 
 		case MON_CMD_CHANGEMEM:
 			memChange(args);
+			break;
+
+		case MON_CMD_FILLMEM:
+			if (argCount == 3) {
+				while (argval[0] <= argval[1]) {
+					cpuptr->getMem().Write(argval[0]++, argval[2]);
+				}
+			}
 			break;
 
 		case MON_CMD_TRANSFER:

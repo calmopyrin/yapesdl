@@ -29,20 +29,19 @@ class KEYS {
 		unsigned char latched;
 		unsigned char keyReadMatrixRow(unsigned int r);
 		unsigned char blockMask;
+		virtual unsigned int fireButtonIndex(unsigned int a) const { return 6 + a; };
 
 	public:
 		KEYS();
-		~KEYS();
+		virtual ~KEYS();
 		static void initPcJoys();
+		static void closePcJoys();
 		void latch(unsigned int keyrow, unsigned int joyrow);
 		unsigned char feedkey(unsigned char latch);
 		unsigned char feedjoy(unsigned char latch);
-		void joyinit(void);
 		void swapjoy(void);
-		void releasejoy(void);
 		void empty(void);
-		unsigned int activejoy;
-		unsigned char joytrans[512];
+		static unsigned int activejoy;
 		unsigned char readLatch() { return latched | blockMask; };
 		void block(bool isBlocked) { blockMask = isBlocked ? 0xFF : 0x00; };
 };
