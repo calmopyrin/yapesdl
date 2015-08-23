@@ -2702,10 +2702,13 @@ void CPU::process()
 				case 2: nextins+=X;
 						break;
 				case 3: ptr=mem->Read(nextins);
+						nextins += 1;
 						break;
-				case 4: ptr|=(mem->Read(nextins+1)<<8);
+				case 4: ptr|=(mem->Read(nextins)<<8);
 						break;
-				case 5: nextins=mem->Read(ptr)>>1;
+				case 5: nextins=mem->Read(ptr);
+						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
+						nextins >>= 1;
 						break;
 				case 6: mem->Write(ptr,nextins);
 						break;
@@ -3069,8 +3072,9 @@ void CPU::process()
 				case 2: nextins+=X;
 						break;
 				case 3: ptr=mem->Read(nextins);
+						nextins++;
 						break;
-				case 4: ptr|=(mem->Read(nextins+1)<<8);
+				case 4: ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 5: mem->Write(ptr,AC&X);
 						cycle=0;
@@ -3089,14 +3093,13 @@ void CPU::process()
 			break;
 
 		case 0x8B : // TAN/ANE/XAA $00 -	M <-[(A)/\$EE] \/ (X)/\(M)
-			switch (cycle++) {
-				case 1: PC++;
-						//mem->Write(nextins,(AC&0xEE)|(X&mem->Read(nextins)));
-						AC=X&nextins&(AC|0xEE);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			};
+			{
+				nextins=mem->Read(PC);
+				PC++;
+				AC=(X&nextins&(AC|0xEE))|( (X&nextins)&((AC<<1)&0x10) );
+				SETFLAGS_ZN(AC);
+				cycle=0;
+			}
 			break;
 
 		case 0x8F : // AAX/SAX $0000
@@ -3302,9 +3305,11 @@ void CPU::process()
 
 		case 0xBB : // LAE/TSA Stack-Pointer AND with memory, TSX, TXA
 			switch (cycle++) {
-				case 1: PC++;
+				case 1: nextins=mem->Read(PC);
+						PC++;
 						break;
-				case 2: PC++;
+				case 2: ptr=nextins|(mem->Read(PC)<<8);
+						PC++;
 						ptr+=Y;
 						break;
 				case 3: if (nextins+Y<0x100) {
@@ -4158,7 +4163,7 @@ void CPU::stopcycle()
 
 		case 0x83 : // AXX/SAX ($00,X) -	M <- (A) /\ (X)
 			if (cycle==5) {
-				mem->Write(ptr,nextins);
+				mem->Write(ptr,AC&X);
 				cycle=0;
 			};
 			break;

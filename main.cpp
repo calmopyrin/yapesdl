@@ -736,6 +736,8 @@ static void machineInit()
 	ted8360->HookTCBM(tcbm);
 	ted8360->cpuptr = machine;
 	ted8360->Reset(true);
+	// Serial init
+	CSerial::InitPorts();
 	// calculate and initialise palette
 	init_palette(ted8360);
 }

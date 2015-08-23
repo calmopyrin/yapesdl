@@ -528,7 +528,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 				case 0:
 					return prddr;
 				case 1:
-					return prp | ~prddr; // (!tap->IsButtonPressed() << 4)
+					return (prp & prddr) | ((portState | 0x17) & ~prddr & 0xDF); // (!tap->IsButtonPressed() << 4)
 				default:
 					return actram[addr & 0xFFFF];
 			}
@@ -647,7 +647,8 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 		case 0x0000:
 			switch ( addr & 0xFFFF ) {
 				case 0:
-					prddr = value & 0xDF;
+					prddr = value;
+					portState = (portState & ~prddr) | (prp & 0xC8 & prddr);
 					return;
 				case 1:
 					if ((prp ^ value) & 8)
@@ -656,6 +657,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 					mem_8000_bfff = ((prp & 3) == 3) ? RomLo[0] : Ram + 0xa000; // a000..bfff
 					mem_c000_ffff = ((prp & 2) == 2) ? RomHi[0] : Ram + 0xe000; // e000..ffff
 					charrom = (!(prp & 4) && (prp & 3));
+					portState = (portState & ~prddr) | (prp & 0xC8 & prddr);
 					return;
 				default:
 					actram[addr & 0xFFFF] = value;
@@ -677,16 +679,17 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 						addr &= 0x3F;
 						switch (addr) {
 							case 0x12:
-								irqline = ((((irqline) & 0x100) | value));
+								irqline = (irqline & 0x100) | value;
 								if (beamy == irqline) {
 									vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
 									checkIRQflag();
 								}
+								//fprintf(stderr, "Raster IRQ set to %03i(%03X) @ PC=0%04X @ cycle=%i\n", 
+								//	irqline, irqline, cpuptr->getPC(), CycleCounter);
 								break;
 							case 0x11:
 								// raster IRQ line
-								irqline = ((((irqline) & 0xFF)
-									| ((value & 0x80) << 1)));
+								irqline = (irqline & 0xFF) | ((value & 0x80) << 1);
 								if (beamy == irqline) {
 									vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
 									checkIRQflag();
@@ -740,6 +743,8 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 								else
 									vicReg[0x19] &= 0x7F;
 								checkIRQflag();
+								//fprintf(stderr, "IRQ ack. write:%02X value:%02X @ PC=%04X @ cycle=%i\n", 
+								//	value, vicReg[0x19], cpuptr->getPC(), CycleCounter);
 								return;
 							case 0x1a:
 								// check if we have a pending IRQ
@@ -853,8 +858,10 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 					case 0xDD: // CIA2
 						switch (addr & 0x0F) {
 							case 2:
+								cia[1].write(2, value);
+								return;
 							case 0:
-								cia[1].write(addr, value);
+								cia[1].write(0, value & 0x3F);							
 								// VIC base
 								changeCharsetBank();
 								// serial IEC

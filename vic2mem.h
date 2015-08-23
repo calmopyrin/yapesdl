@@ -123,6 +123,7 @@ class Vic2mem : public TED
 		unsigned char colorRAM[0x0400];
 		KEYS64 *keys64;
     private:
+		unsigned char portState;
 };
 
 #endif // VIC2MEM_H

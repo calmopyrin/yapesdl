@@ -296,3 +296,838 @@
 	<stdio.h>
 	"keys64.h"
 
+1437939456 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\1541mem.cpp
+	"1541mem.h"
+	"FdcGcr.h"
+
+1434918883 d:\users\attila\documents\visual studio 2010\projects\yapesdl\1541mem.h
+	"mem.h"
+	"serial.h"
+
+1437913675 d:\users\attila\documents\visual studio 2010\projects\yapesdl\mem.h
+	"types.h"
+
+1426458441 d:\users\attila\documents\visual studio 2010\projects\yapesdl\types.h
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl.h
+	"SDL_main.h"
+	"SDL_stdinc.h"
+	"SDL_assert.h"
+	"SDL_atomic.h"
+	"SDL_audio.h"
+	"SDL_clipboard.h"
+	"SDL_cpuinfo.h"
+	"SDL_endian.h"
+	"SDL_error.h"
+	"SDL_events.h"
+	"SDL_filesystem.h"
+	"SDL_joystick.h"
+	"SDL_gamecontroller.h"
+	"SDL_haptic.h"
+	"SDL_hints.h"
+	"SDL_loadso.h"
+	"SDL_log.h"
+	"SDL_messagebox.h"
+	"SDL_mutex.h"
+	"SDL_power.h"
+	"SDL_render.h"
+	"SDL_rwops.h"
+	"SDL_system.h"
+	"SDL_thread.h"
+	"SDL_timer.h"
+	"SDL_version.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_main.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_stdinc.h
+	"SDL_config.h"
+	<sys/types.h>
+	<stdio.h>
+	<stdlib.h>
+	<stddef.h>
+	<stdarg.h>
+	<stdlib.h>
+	<malloc.h>
+	<stddef.h>
+	<stdarg.h>
+	<memory.h>
+	<string.h>
+	<strings.h>
+	<inttypes.h>
+	<stdint.h>
+	<ctype.h>
+	<math.h>
+	<iconv.h>
+	"begin_code.h"
+	<alloca.h>
+	<malloc.h>
+	<malloc.h>
+	<malloc.h>
+	<stdlib.h>
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_config.h
+	"SDL_platform.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_platform.h
+	"AvailabilityMacros.h"
+	"TargetConditionals.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\begin_code.h
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\close_code.h
+
+1341010380 d:\program files (x86)\codeblocks\mingw\include\sys\types.h
+	<_mingw.h>
+	<stddef.h>
+
+1341010370 d:\program files (x86)\codeblocks\mingw\include\_mingw.h
+
+1341010376 d:\program files (x86)\codeblocks\mingw\include\stdio.h
+	<_mingw.h>
+	<stddef.h>
+	<stdarg.h>
+	<sys/types.h>
+
+1341010376 d:\program files (x86)\codeblocks\mingw\include\stdlib.h
+	<_mingw.h>
+	<stddef.h>
+
+1341010374 d:\program files (x86)\codeblocks\mingw\include\malloc.h
+	<_mingw.h>
+	<stdlib.h>
+
+1341010374 d:\program files (x86)\codeblocks\mingw\include\memory.h
+	<string.h>
+
+1341010376 d:\program files (x86)\codeblocks\mingw\include\string.h
+	<_mingw.h>
+	<stddef.h>
+
+1341010376 d:\program files (x86)\codeblocks\mingw\include\strings.h
+	<string.h>
+
+1341010372 d:\program files (x86)\codeblocks\mingw\include\inttypes.h
+	<_mingw.h>
+	<stdint.h>
+	<stddef.h>
+
+1341010376 d:\program files (x86)\codeblocks\mingw\include\stdint.h
+	<stddef.h>
+
+1341010370 d:\program files (x86)\codeblocks\mingw\include\ctype.h
+	<_mingw.h>
+	<stddef.h>
+
+1341010374 d:\program files (x86)\codeblocks\mingw\include\math.h
+	<_mingw.h>
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_assert.h
+	"SDL_config.h"
+	"begin_code.h"
+	<signal.h>
+	"close_code.h"
+
+1341010376 d:\program files (x86)\codeblocks\mingw\include\signal.h
+	<_mingw.h>
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_atomic.h
+	"SDL_stdinc.h"
+	"SDL_platform.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_audio.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_endian.h"
+	"SDL_mutex.h"
+	"SDL_thread.h"
+	"SDL_rwops.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_error.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_endian.h
+	"SDL_stdinc.h"
+	<endian.h>
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_mutex.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_thread.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_atomic.h"
+	"SDL_mutex.h"
+	"begin_code.h"
+	<process.h>
+	"close_code.h"
+
+1341010374 d:\program files (x86)\codeblocks\mingw\include\process.h
+	<_mingw.h>
+	<sys/types.h>
+	<stdint.h>
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_rwops.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_clipboard.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_cpuinfo.h
+	"SDL_stdinc.h"
+	<intrin.h>
+	<intrin.h>
+	<altivec.h>
+	<mmintrin.h>
+	<mm3dnow.h>
+	<xmmintrin.h>
+	<emmintrin.h>
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_events.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_video.h"
+	"SDL_keyboard.h"
+	"SDL_mouse.h"
+	"SDL_joystick.h"
+	"SDL_gamecontroller.h"
+	"SDL_quit.h"
+	"SDL_gesture.h"
+	"SDL_touch.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_video.h
+	"SDL_stdinc.h"
+	"SDL_pixels.h"
+	"SDL_rect.h"
+	"SDL_surface.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_pixels.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_rect.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_pixels.h"
+	"SDL_rwops.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_surface.h
+	"SDL_stdinc.h"
+	"SDL_pixels.h"
+	"SDL_rect.h"
+	"SDL_blendmode.h"
+	"SDL_rwops.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_blendmode.h
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_keyboard.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_keycode.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_keycode.h
+	"SDL_stdinc.h"
+	"SDL_scancode.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_scancode.h
+	"SDL_stdinc.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_mouse.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_joystick.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_gamecontroller.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_rwops.h"
+	"SDL_joystick.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_quit.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_gesture.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_video.h"
+	"SDL_touch.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_touch.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_filesystem.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_haptic.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_joystick.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_hints.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_loadso.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_log.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_messagebox.h
+	"SDL_stdinc.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_power.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_render.h
+	"SDL_stdinc.h"
+	"SDL_rect.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_system.h
+	"SDL_stdinc.h"
+	"SDL_keyboard.h"
+	"SDL_render.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_timer.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"begin_code.h"
+	"close_code.h"
+
+1394257193 d:\program files (x86)\codeblocks\mingw\include\sdl\sdl_version.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1438266188 d:\users\attila\documents\visual studio 2010\projects\yapesdl\serial.h
+
+1434892579 d:\users\attila\documents\visual studio 2010\projects\yapesdl\fdcgcr.h
+	<stdio.h>
+	"types.h"
+
+1438250652 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\archdep.cpp
+	"archdep.h"
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+	<stdio.h>
+	<stdio.h>
+	<unistd.h>
+	<glob.h>
+	<dirent.h>
+	<ctype.h>
+	<string.h>
+	<stdlib.h>
+	<signal.h>
+	<sys/stat.h>
+	<sys/types.h>
+
+1437302654 d:\users\attila\documents\visual studio 2010\projects\yapesdl\archdep.h
+	<SDL/SDL.h>
+	<windows.h>
+	<SDL2/SDL.h>
+	<unistd.h>
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\windows.h
+	<winresrc.h>
+	<stdarg.h>
+	<windef.h>
+	<wincon.h>
+	<winbase.h>
+	<wingdi.h>
+	<winuser.h>
+	<winnls.h>
+	<winver.h>
+	<winnetwk.h>
+	<winreg.h>
+	<winsvc.h>
+	<cderr.h>
+	<dde.h>
+	<ddeml.h>
+	<dlgs.h>
+	<imm.h>
+	<lzexpand.h>
+	<mmsystem.h>
+	<nb30.h>
+	<rpc.h>
+	<shellapi.h>
+	<winperf.h>
+	<commdlg.h>
+	<winspool.h>
+	<winsock2.h>
+	<winsock.h>
+	<ole2.h>
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\winresrc.h
+	<winuser.h>
+	<winnt.h>
+	<winver.h>
+	<dde.h>
+	<dlgs.h>
+	<commctrl.h>
+
+1301114764 d:\program files (x86)\codeblocks\mingw\include\winuser.h
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\winnt.h
+	<winerror.h>
+	<string.h>
+	<basetsd.h>
+	<pshpack4.h>
+	<poppack.h>
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\winerror.h
+
+1301114748 d:\program files (x86)\codeblocks\mingw\include\basetsd.h
+
+1301114756 d:\program files (x86)\codeblocks\mingw\include\pshpack4.h
+
+1301114756 d:\program files (x86)\codeblocks\mingw\include\poppack.h
+
+1301114764 d:\program files (x86)\codeblocks\mingw\include\winver.h
+
+1301114748 d:\program files (x86)\codeblocks\mingw\include\dde.h
+
+1301114750 d:\program files (x86)\codeblocks\mingw\include\dlgs.h
+
+1301114748 d:\program files (x86)\codeblocks\mingw\include\commctrl.h
+	<prsht.h>
+
+1301114756 d:\program files (x86)\codeblocks\mingw\include\prsht.h
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\windef.h
+	<winnt.h>
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\wincon.h
+
+1301114760 d:\program files (x86)\codeblocks\mingw\include\winbase.h
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\wingdi.h
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\winnls.h
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\winnetwk.h
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\winreg.h
+
+1301114764 d:\program files (x86)\codeblocks\mingw\include\winsvc.h
+
+1301114748 d:\program files (x86)\codeblocks\mingw\include\cderr.h
+
+1301114748 d:\program files (x86)\codeblocks\mingw\include\ddeml.h
+
+1301114750 d:\program files (x86)\codeblocks\mingw\include\imm.h
+
+1301114754 d:\program files (x86)\codeblocks\mingw\include\lzexpand.h
+
+1301114754 d:\program files (x86)\codeblocks\mingw\include\mmsystem.h
+
+1301114754 d:\program files (x86)\codeblocks\mingw\include\nb30.h
+
+1301114758 d:\program files (x86)\codeblocks\mingw\include\rpc.h
+	<windows.h>
+	<rpcdce.h>
+	<rpcnsi.h>
+	<rpcnterr.h>
+	<winerror.h>
+	<excpt.h>
+
+1301114758 d:\program files (x86)\codeblocks\mingw\include\rpcdce.h
+	<basetyps.h>
+	<rpcdcep.h>
+
+1301114748 d:\program files (x86)\codeblocks\mingw\include\basetyps.h
+
+1301114758 d:\program files (x86)\codeblocks\mingw\include\rpcdcep.h
+
+1301114758 d:\program files (x86)\codeblocks\mingw\include\rpcnsi.h
+
+1301114758 d:\program files (x86)\codeblocks\mingw\include\rpcnterr.h
+
+1341010372 d:\program files (x86)\codeblocks\mingw\include\excpt.h
+	<_mingw.h>
+	<windef.h>
+
+1301114760 d:\program files (x86)\codeblocks\mingw\include\shellapi.h
+	<pshpack2.h>
+	<poppack.h>
+
+1301114756 d:\program files (x86)\codeblocks\mingw\include\pshpack2.h
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\winperf.h
+
+1301114748 d:\program files (x86)\codeblocks\mingw\include\commdlg.h
+	<unknwn.h>
+	<prsht.h>
+
+1301114760 d:\program files (x86)\codeblocks\mingw\include\unknwn.h
+	<windows.h>
+	<objfwd.h>
+	<wtypes.h>
+
+1301114756 d:\program files (x86)\codeblocks\mingw\include\objfwd.h
+	<basetyps.h>
+
+1301114764 d:\program files (x86)\codeblocks\mingw\include\wtypes.h
+	<rpc.h>
+	<rpcndr.h>
+
+1301114758 d:\program files (x86)\codeblocks\mingw\include\rpcndr.h
+	<rpcnsip.h>
+	<objfwd.h>
+
+1301114758 d:\program files (x86)\codeblocks\mingw\include\rpcnsip.h
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\winspool.h
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\winsock2.h
+	<windows.h>
+
+1301114762 d:\program files (x86)\codeblocks\mingw\include\winsock.h
+	<windows.h>
+	<mswsock.h>
+
+1301114754 d:\program files (x86)\codeblocks\mingw\include\mswsock.h
+
+1301114756 d:\program files (x86)\codeblocks\mingw\include\ole2.h
+	<winerror.h>
+	<objbase.h>
+	<olectlid.h>
+	<oleauto.h>
+	<oleidl.h>
+
+1301114754 d:\program files (x86)\codeblocks\mingw\include\objbase.h
+	<rpc.h>
+	<rpcndr.h>
+	<stdlib.h>
+	<basetyps.h>
+	<wtypes.h>
+	<unknwn.h>
+	<objidl.h>
+	<cguid.h>
+
+1301114756 d:\program files (x86)\codeblocks\mingw\include\objidl.h
+	<objfwd.h>
+
+1301114748 d:\program files (x86)\codeblocks\mingw\include\cguid.h
+
+1301114756 d:\program files (x86)\codeblocks\mingw\include\olectlid.h
+
+1301114756 d:\program files (x86)\codeblocks\mingw\include\oleauto.h
+	<oaidl.h>
+
+1301114754 d:\program files (x86)\codeblocks\mingw\include\oaidl.h
+	<windows.h>
+	<ole2.h>
+
+1301114756 d:\program files (x86)\codeblocks\mingw\include\oleidl.h
+	<objfwd.h>
+
+1341010376 d:\program files (x86)\codeblocks\mingw\include\unistd.h
+	<io.h>
+	<process.h>
+	<getopt.h>
+	<sys/types.h>
+
+1341010374 d:\program files (x86)\codeblocks\mingw\include\io.h
+	<_mingw.h>
+	<sys/types.h>
+
+1341010372 d:\program files (x86)\codeblocks\mingw\include\getopt.h
+	<_mingw.h>
+
+1341010372 d:\program files (x86)\codeblocks\mingw\include\dirent.h
+	<_mingw.h>
+	<io.h>
+
+1341010378 d:\program files (x86)\codeblocks\mingw\include\sys\stat.h
+	<_mingw.h>
+	<stddef.h>
+	<sys/types.h>
+
+1439919014 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\cpu.cpp
+	<stdio.h>
+	<stdlib.h>
+	<memory.h>
+	"cpu.h"
+
+1439763463 d:\users\attila\documents\visual studio 2010\projects\yapesdl\cpu.h
+	"mem.h"
+
+1433885076 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\dis.cpp
+	"cpu.h"
+	"mnemonic.h"
+	"types.h"
+	"tedmem.h"
+	<stdio.h>
+	<string.h>
+
+1150732920 d:\users\attila\documents\visual studio 2010\projects\yapesdl\mnemonic.h
+
+1439930009 d:\users\attila\documents\visual studio 2010\projects\yapesdl\tedmem.h
+	"types.h"
+	"mem.h"
+	"serial.h"
+
+1434910221 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\diskfs.cpp
+	"device.h"
+	"iec.h"
+	"diskfs.h"
+	<string.h>
+	<ctype.h>
+
+1436472065 d:\users\attila\documents\visual studio 2010\projects\yapesdl\device.h
+	"types.h"
+	<string.h>
+
+1436472425 d:\users\attila\documents\visual studio 2010\projects\yapesdl\iec.h
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+	"device.h"
+
+1434838924 d:\users\attila\documents\visual studio 2010\projects\yapesdl\diskfs.h
+	<stdio.h>
+	"archdep.h"
+	"device.h"
+
+1437170773 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\dos.cpp
+	<ctype.h>
+	<stdio.h>
+	"device.h"
+
+1434993083 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\drive.cpp
+	"drive.h"
+	"device.h"
+	"diskfs.h"
+	"iec.h"
+	"tcbm.h"
+	"FdcGcr.h"
+	"1541rom.h"
+	"1541mem.h"
+
+1434993083 d:\users\attila\documents\visual studio 2010\projects\yapesdl\drive.h
+	<cstddef>
+	"Clockable.h"
+
+1436991279 d:\users\attila\documents\visual studio 2010\projects\yapesdl\clockable.h
+	"mem.h"
+	"cpu.h"
+
+1436472822 d:\users\attila\documents\visual studio 2010\projects\yapesdl\tcbm.h
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+	"mem.h"
+	"iec.h"
+
+1107607185 d:\users\attila\documents\visual studio 2010\projects\yapesdl\1541rom.h
+	"types.h"
+
+1439745812 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\fdcgcr.cpp
+	<memory.h>
+	<string.h>
+	<stdio.h>
+	"FdcGcr.h"
+
+1434739183 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\iec.cpp
+	"iec.h"
+
+1440012386 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\interface.cpp
+	<string.h>
+	<stdlib.h>
+	<stdio.h>
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+	"monitor.h"
+	"tedmem.h"
+	"interface.h"
+	"archdep.h"
+	"prg.h"
+	"tape.h"
+	"drive.h"
+	"roms.h"
+
+1440056018 d:\users\attila\documents\visual studio 2010\projects\yapesdl\monitor.h
+
+1438084216 d:\users\attila\documents\visual studio 2010\projects\yapesdl\interface.h
+	"archdep.h"
+
+1439830502 d:\users\attila\documents\visual studio 2010\projects\yapesdl\prg.h
+
+1176752404 d:\users\attila\documents\visual studio 2010\projects\yapesdl\tape.h
+	"types.h"
+
+1438077476 d:\users\attila\documents\visual studio 2010\projects\yapesdl\roms.h
+
+1439931292 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\keyboard.cpp
+	<memory.h>
+	<stdio.h>
+	"keyboard.h"
+
+1439931310 d:\users\attila\documents\visual studio 2010\projects\yapesdl\keyboard.h
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+
+1439932407 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\keys64.cpp
+	<stdio.h>
+	"keys64.h"
+
+1439931546 d:\users\attila\documents\visual studio 2010\projects\yapesdl\keys64.h
+	"keyboard.h"
+
+1440056239 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\monitor.cpp
+	<ctype.h>
+	<stdio.h>
+	<stdlib.h>
+	<cstring>
+	<vector>
+	<string>
+	"cpu.h"
+	"monitor.h"
+
+1439839665 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\prg.cpp
+	<stdio.h>
+	<string.h>
+	"tedmem.h"
+	"types.h"
+
+1437943027 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\serial.cpp
+	<stdio.h>
+	"serial.h"
+
+1440018962 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\sid.cpp
+	<math.h>
+	<memory.h>
+	"Sid.h"
+	"tedmem.h"
+	"sound.h"
+
+1434904439 d:\users\attila\documents\visual studio 2010\projects\yapesdl\sid.h
+
+1425596917 d:\users\attila\documents\visual studio 2010\projects\yapesdl\sound.h
+	"types.h"
+
+1437976077 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\sound.cpp
+	<stdio.h>
+	<stdlib.h>
+	<memory.h>
+	<math.h>
+	"sound.h"
+
+1433883005 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\tape.cpp
+	"tape.h"
+	"tedmem.h"
+	"cpu.h"
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+
+1434739302 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\tcbm.cpp
+	"tcbm.h"
+
+1438081022 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\tedmem.cpp
+	<stdio.h>
+	<string.h>
+	<ctype.h>
+	<stdlib.h>
+	<ctype.h>
+	"tedmem.h"
+	"Sid.h"
+	"sound.h"
+	"cpu.h"
+	"keyboard.h"
+	"tape.h"
+	"roms.h"
+	"tcbm.h"
+	"Clockable.h"
+	"video.h"
+
+1437771040 d:\users\attila\documents\visual studio 2010\projects\yapesdl\video.h
+
+1425596930 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\tedsound.cpp
+	"sound.h"
+	"tedmem.h"
+	"Sid.h"
+
+1438425123 source:d:\users\attila\documents\visual studio 2010\projects\yapesdl\video.cpp
+	<math.h>
+	"tedmem.h"
+	"video.h"
+
