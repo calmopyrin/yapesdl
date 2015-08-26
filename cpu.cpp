@@ -3128,11 +3128,12 @@ void CPU::process()
 				case 1: PC++;
 						break;
 				case 2: ptr=mem->Read(nextins);
+						nextins+=1;
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: ptr|=mem->Read(nextins)<<8;
 						break;
 				case 4: break;
-				case 5: mem->Write(ptr+Y,AC&X&(nextins+1));//check this!
+				case 5: mem->Write(ptr+Y,AC&X&((ptr >> 8)+1));//check this!
 						cycle=0;
 						break;
 			};
@@ -3160,8 +3161,7 @@ void CPU::process()
 						break;
 				case 3: SP=AC&X;
 						break;
-				case 4: //mem->Write(ptr,AC&X&mem->Read(ptr+1)+1);
-						mem->Write(ptr+Y,SP&(nextins+1));
+				case 4: mem->Write(ptr,SP&((ptr >> 8)+1));
 						cycle=0;
 						break;
 			};
@@ -3175,9 +3175,11 @@ void CPU::process()
 				case 2: PC++;
 						break;
 				case 3: break;
-				case 4: //mem->Write(ptr,AC&Y&(((ptr+X)>>8)+1));
-						if (nextins+X<256) {
-							mem->Write(ptr+X,Y&(nextins+1));
+				case 4: if (nextins+X<256) {
+							mem->Write(ptr+X,Y&(((ptr+X)>>8)+1));
+						} else {
+							unsigned char t = Y & (((ptr+X)>>8)+1);
+							mem->Write( (nextins+X)|(t << 8), t);
 						}
 						cycle=0;
 						break;
@@ -3192,9 +3194,11 @@ void CPU::process()
 				case 2: PC++;
 						break;
 				case 3: break;
-				case 4: //mem->Write(ptr,X&(((ptr+Y)>>8)+1));
-						if (nextins+Y<256) {
-							mem->Write(ptr+Y,X&(nextins+1));
+				case 4: if (nextins+Y<256) {
+							mem->Write(ptr+Y, X & (((ptr+Y)>>8)+1));
+						} else {
+							unsigned char t = X & (((ptr+Y)>>8)+1);
+							mem->Write( (nextins+Y)|(t << 8), t);
 						}
 						cycle=0;
 						break;
@@ -3210,7 +3214,12 @@ void CPU::process()
 				case 2: PC++;
 						break;
 				case 3: break;
-				case 4: mem->Write(ptr+Y,AC&X&(nextins+1));
+				case 4: if (nextins+Y<256) {
+							mem->Write(ptr+Y,AC&X&(((ptr+Y)>>8)+1));
+						} else {
+							unsigned char t = AC&X & (((ptr+Y)>>8)+1);
+							mem->Write( (nextins+Y)|(t << 8), t);
+						}
 						cycle=0;
 						break;
 			};

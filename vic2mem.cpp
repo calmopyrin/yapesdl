@@ -17,6 +17,17 @@
 		} while(i--); \
 	}
 
+#define MOB_DO_PIXEL(X, COLOR) \
+    do { \
+        if (!(out[X] & 0x80)) { \
+            if (!(out[X] & 0x40)) { \
+                spriteBckgColl[cx + X] |= six; \
+                if (!priority) out[X] = COLOR; \
+            } else \
+                out[X] = 0x40 | COLOR;\
+        } \
+    } while(0);
+
 static unsigned char cycleLookup[][128] = {
 // SCREEN:             |===========0102030405060708091011121314151617181920212223242526272829303132333435363738391111=========
 //     coordinate:                                                                                    111111111111111111111111111111
@@ -705,7 +716,6 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 								// Check if screen is turned on
 								if (value & 0x10 && beamy == 48 && !attribFetch) {
 									attribFetch = true;
-									vertSubCount = 7;
 								} else if (attribFetch && ((fltscr && beamy == 48+7) || (!fltscr && beamy == 48+3))) {
 									ScreenOn = true;
 								} else if ((beamy == 48+199 && fltscr) || (beamy == 48+203 && !fltscr)) {
@@ -1323,100 +1333,56 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 	if (!m.multicolor) {
 		const unsigned char spc = m.color;
 		if (m.expandX) {
-			unsigned short *cb = (unsigned short *) (spriteCollisions + cx);
-			unsigned short cd = (six << 8) | six;
 			// sprite X expansion, hires mode
-			// TODO proper border detection
-			for(i = 0; i < 3; i++, out += 16) {
+			for(i = 0; i < 3; i++, out += 16, cx += 16) {
 				unsigned char data = in[i];
 				if (data & 0x80) {
-					cb[i] |= cd;
-					if (!(out[0] & 0x80)) {
-						if (!(out[0] & 0x40)) spriteBckgColl[cx] |= six;
-						out[0] = (out[0] & 0xF0) | spc;
-					}
+					spriteCollisions[cx] |= six;
 					spriteCollisions[cx + 1] |= six;
-					if (!(out[1] & 0x80)) {
-						if (!(out[1] & 0x40)) spriteBckgColl[cx + 1] |= six;
-						out[1] = (out[1] & 0xF0) | spc;
-					}
+					MOB_DO_PIXEL(0, spc);
+					MOB_DO_PIXEL(1, spc);
 				}
 				if (data & 0x40) {
-					cb[i + 1] |= cd;
-					if (!(out[2] & 0x80)) {
-						if (!(out[2] & 0x40)) spriteBckgColl[cx + 2] |= six;
-						out[2] = (out[2] & 0xF0) | spc;
-					}
-					if (!(out[3] & 0x80)) {
-						if (!(out[3] & 0x40)) spriteBckgColl[cx + 3] |= six;
-						out[3] = (out[3] & 0xF0) | spc;
-					}
+					spriteCollisions[cx + 2] |= six;
+					spriteCollisions[cx + 3] |= six;
+					MOB_DO_PIXEL(2, spc);
+					MOB_DO_PIXEL(3, spc);
 				}
 				if (data & 0x20) {
-					cb[i + 2] |= cd;
-					if (!(out[4] & 0x80)) {
-						if (!(out[4] & 0x40)) spriteBckgColl[cx + 4] |= six;
-						out[4] = (out[4] & 0xF0) | spc;
-					}
-					if (!(out[5] & 0x80))  {
-						if (!(out[5] & 0x40)) spriteBckgColl[cx + 5] |= six;
-						out[5] = (out[5] & 0xF0) | spc;
-					}
+					spriteCollisions[cx + 4] |= six;
+					spriteCollisions[cx + 5] |= six;
+					MOB_DO_PIXEL(4, spc);
+					MOB_DO_PIXEL(5, spc);
 				}
 				if (data & 0x10) {
-					cb[i + 3] |= cd;
-					if (!(out[6] & 0x80)) {
-						if (!(out[6] & 0x40)) spriteBckgColl[cx + 6] |= six;
-						out[6] = (out[6] & 0xF0) | spc;
-					}
-					if (!(out[7] & 0x80)) {
-						if (!(out[7] & 0x40)) spriteBckgColl[cx + 7] |= six;
-						out[7] = (out[7] & 0xF0) | spc;
-					}
+					spriteCollisions[cx + 6] |= six;
+					spriteCollisions[cx + 7] |= six;
+					MOB_DO_PIXEL(6, spc);
+					MOB_DO_PIXEL(7, spc);
 				}
 				if (data & 0x08) {
-					cb[i + 4] |= cd;
-					if (!(out[8] & 0x80)) {
-						if (!(out[8] & 0x40)) spriteBckgColl[cx + 8] |= six;
-						out[8] = (out[8] & 0xF0) | spc;
-					}
-					if (!(out[9] & 0x80)) {
-						if (!(out[9] & 0x40)) spriteBckgColl[cx + 9] |= six;
-						out[9] = (out[8] & 0xF0) | spc;
-					}
+					spriteCollisions[cx + 8] |= six;
+					spriteCollisions[cx + 9] |= six;
+					MOB_DO_PIXEL(8, spc);
+					MOB_DO_PIXEL(9, spc);
 				}
 				if (data & 0x04) {
-					cb[i + 5] |= cd;
-					if (!(out[10] & 0x80)) {
-						if (!(out[10] & 0x40)) spriteBckgColl[cx + 10] |= six;
-						out[10] = (out[10] & 0xF0) | spc;
-					}
-					if (!(out[11] & 0x80)) {
-						if (!(out[11] & 0x40)) spriteBckgColl[cx + 11] |= six;
-						out[11] = (out[11] & 0xF0) | spc;
-					}
+					spriteCollisions[cx + 10] |= six;
+					spriteCollisions[cx + 11] |= six;
+					MOB_DO_PIXEL(10, spc);
+					MOB_DO_PIXEL(11, spc);
 				}
 				if (data & 0x02) {
-					cb[i + 6] |= cd;
-					if (!(out[12] & 0x80)) {
-						if (!(out[12] & 0x40)) spriteBckgColl[cx + 12] |= six;
-						out[12] = (out[12] & 0xF0) | spc;
-					}
-					if (!(out[13] & 0x80)) {
-						if (!(out[13] & 0x40)) spriteBckgColl[cx + 13] |= six;
-						out[13] = (out[13] & 0xF0) | spc;
-					}
+					spriteCollisions[cx + 12] |= six;
+					spriteCollisions[cx + 13] |= six;
+					MOB_DO_PIXEL(12, spc);
+					MOB_DO_PIXEL(13, spc);
 				}
 				if (data & 0x01) {
-					cb[i + 7] |= cd;
-					if (!(out[14] & 0x80)) {
-						if (!(out[14] & 0x40)) spriteBckgColl[cx + 14] |= six;
-						out[14] = (out[14] & 0xF0) | spc;
-					}
-					if (!(out[15] & 0x80)) {
-						if (!(out[15] & 0x40)) spriteBckgColl[cx + 15] |= six;
-						out[15] = (out[15] & 0xF0) | spc;
-					}
+					spriteCollisions[cx + 14] |= six;
+					spriteCollisions[cx + 15] |= six;
+					MOB_DO_PIXEL(14, spc);
+					MOB_DO_PIXEL(15, spc);
 				}
 			}
 		} else {
@@ -1425,170 +1391,109 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 				const unsigned char data = in[i];
 				if (data & 0x80) {
 					spriteCollisions[cx] |= six;
-					if (!(out[0] & 0x80)) {
-						if (!(out[0] & 0x40)) spriteBckgColl[cx] |= six;
-						out[0] = (out[0] & 0xF0) | spc;
-					}
+					MOB_DO_PIXEL(0, spc);
 				}
 				if (data & 0x40) {
 					spriteCollisions[cx + 1] |= six;
-					if (!(out[1] & 0x80)) {
-						if (!(out[1] & 0x40)) spriteBckgColl[cx + 1] |= six;
-						out[1] = (out[1] & 0xF0) | spc;
-					}
+					MOB_DO_PIXEL(1, spc);
 				}
 				if (data & 0x20) {
 					spriteCollisions[cx + 2] |= six;
-					if (!(out[2] & 0x80)) {
-						if (!(out[2] & 0x40)) spriteBckgColl[cx + 2] |= six;
-						out[2] = (out[2] & 0xF0) | spc;
-					}
+					MOB_DO_PIXEL(2, spc);
 				}
 				if (data & 0x10) {
 					spriteCollisions[cx + 3] |= six;
-					if (!(out[3] & 0x80)) {
-						if (!(out[3] & 0x40)) spriteBckgColl[cx + 3] |= six;
-						out[3] = (out[3] & 0xF0) | spc;
-					}
+					MOB_DO_PIXEL(3, spc);
 				}
 				if (data & 0x08) {
 					spriteCollisions[cx + 4] |= six;
-					if (!(out[4] & 0x80)) {
-						if (!(out[4] & 0x40)) spriteBckgColl[cx + 4] |= six;
-						out[4] = (out[4] & 0xF0) | spc;
-					}
+					MOB_DO_PIXEL(4, spc);
 				}
 				if (data & 0x04) {
 					spriteCollisions[cx + 5] |= six;
-					if (!(out[5] & 0x80)) {
-						if (!(out[5] & 0x40)) spriteBckgColl[cx + 5] |= six;
-						out[5] = (out[5] & 0xF0) | spc;
-					}
+					MOB_DO_PIXEL(5, spc);
 				}
 				if (data & 0x02) {
 					spriteCollisions[cx + 6] |= six;
-					if (!(out[6] & 0x80)) {
-						if (!(out[6] & 0x40)) spriteBckgColl[cx + 6] |= six;
-						out[6] = (out[6] & 0xF0) | spc;
-					}
+					MOB_DO_PIXEL(6, spc);
 				}
 				if (data & 0x01) {
 					spriteCollisions[cx + 7] |= six;
-					if (!(out[7] & 0x80)) {
-						if (!(out[7] & 0x40)) spriteBckgColl[cx + 7] |= six;
-						out[7] = (out[7] & 0xF0) | spc;
-					}
+					MOB_DO_PIXEL(7, spc);
 				}
 			}
 		}
 	} else {
 		mobExtCol[2] = m.color;
 		if (m.expandX) {
-			unsigned int *cb = (unsigned int *) (spriteCollisions + cx);
 			unsigned int cDword = (six << 24) | (six << 16) | (six << 8) | six;
 			// sprite X expansion, multi mode
-			for(i = 0; i < 3; i++, out += 16) {
+			for(i = 0; i < 3; i++, out += 16, cx += 16) {
 				const unsigned char data = in[i];
 				unsigned int bitlet = data & 0xC0;
-				// TODO background collision, proper border detection
 				if (bitlet) {
-					cb[i] |= cDword;
-					if (!(out[0] & 0x80))
-						out[0] = out[1] = out[2] = out[3] = mobExtCol[bitlet >> 6];
+					*((unsigned int*)(spriteCollisions + cx)) |= cDword;
+					MOB_DO_PIXEL(0, mobExtCol[bitlet >> 6]);
+					MOB_DO_PIXEL(1, mobExtCol[bitlet >> 6]);
+					MOB_DO_PIXEL(2, mobExtCol[bitlet >> 6]);
+					MOB_DO_PIXEL(3, mobExtCol[bitlet >> 6]);
 				}
 				bitlet = data & 0x30;
 				if (bitlet) {
-					cb[i + 1] |= cDword;
-					if (!(out[4] & 0x80))
-						out[4] = out[5] = out[6] = out[7] = mobExtCol[bitlet >> 4];
+					*((unsigned int*)(spriteCollisions + cx + 4)) |= cDword;
+					MOB_DO_PIXEL(4, mobExtCol[bitlet >> 4]);
+					MOB_DO_PIXEL(5, mobExtCol[bitlet >> 4]);
+					MOB_DO_PIXEL(6, mobExtCol[bitlet >> 4]);
+					MOB_DO_PIXEL(7, mobExtCol[bitlet >> 4]);
 				}
 				bitlet = data & 0x0C;
 				if (bitlet) {
-					cb[i + 2] |= cDword;
-					if (!(out[8] & 0x80))
-						out[8] = out[9] = out[10] = out[11] = mobExtCol[bitlet >> 2];
+					*((unsigned int*)(spriteCollisions + cx + 8)) |= cDword;
+					MOB_DO_PIXEL(8, mobExtCol[bitlet >> 2]);
+					MOB_DO_PIXEL(9, mobExtCol[bitlet >> 2]);
+					MOB_DO_PIXEL(10, mobExtCol[bitlet >> 2]);
+					MOB_DO_PIXEL(11, mobExtCol[bitlet >> 2]);
 				}
 				bitlet = data & 0x03;
 				if (bitlet) {
-					cb[i + 3] |= cDword;
-					if (!(out[12] & 0x80))
-						out[12] = out[13] = out[14] = out[15] = mobExtCol[bitlet];
+					*((unsigned int*)(spriteCollisions + cx + 12)) |= cDword;
+					MOB_DO_PIXEL(12, mobExtCol[bitlet]);
+					MOB_DO_PIXEL(13, mobExtCol[bitlet]);
+					MOB_DO_PIXEL(14, mobExtCol[bitlet]);
+					MOB_DO_PIXEL(15, mobExtCol[bitlet]);
 				}
 			}
 		} else {
 			// normal size, multicolor
-			for(i = 0; i < 3; i++, out += 8) {
+			for(i = 0; i < 3; i++, out += 8, cx += 8) {
 				const unsigned char data = in[i];
 				unsigned int bitlet = data & 0xC0;
 				if (bitlet) {
 					spriteCollisions[cx] |= six;
 					spriteCollisions[cx + 1] |= six;
-					if (!(out[0] & 0x80)) {
-						bitlet >>= 6;
-						if (!(out[0] & 0x40)) {
-							spriteBckgColl[cx] |= six;
-							if (!priority) out[0] = mobExtCol[bitlet];
-						} else
-							out[0] = 0x40 | mobExtCol[bitlet];
-						if (!(out[1] & 0x40)) {
-							spriteBckgColl[cx + 1] |= six;
-							if (!priority) out[1] = mobExtCol[bitlet];
-						} else
-							out[1] = 0x40 | mobExtCol[bitlet];
-					}
+					MOB_DO_PIXEL(0, mobExtCol[bitlet >> 6]);
+					MOB_DO_PIXEL(1, mobExtCol[bitlet >> 6]);
 				}
 				bitlet = data & 0x30;
 				if (bitlet) {
 					spriteCollisions[cx + 2] |= six;
 					spriteCollisions[cx + 3] |= six;
-					if (!(out[2] & 0x80)) {
-						bitlet >>= 4;
-						if (!(out[2] & 0x40)) {
-							spriteBckgColl[cx + 2] |= six;
-							if (!priority) out[2] = mobExtCol[bitlet];
-						} else
-							out[2] = 0x40 | mobExtCol[bitlet];
-						if (!(out[3] & 0x40)) {
-							spriteBckgColl[cx + 3] |= six;
-							if (!priority) out[3] = mobExtCol[bitlet];
-						} else
-							out[3] = 0x40 | mobExtCol[bitlet];
-					}
+					MOB_DO_PIXEL(2, mobExtCol[bitlet >> 4]);
+					MOB_DO_PIXEL(3, mobExtCol[bitlet >> 4]);
 				}
 				bitlet = data & 0x0C;
 				if (bitlet) {
 					spriteCollisions[cx + 4] |= six;
 					spriteCollisions[cx + 5] |= six;
-					if (!(out[4] & 0x80)) {
-						bitlet >>= 2;
-						if (!(out[4] & 0x40)) {
-							spriteBckgColl[cx + 4] |= six;
-							if (!priority) out[4] = mobExtCol[bitlet];
-						} else
-							out[4] = 0x40 | mobExtCol[bitlet];
-						if (!(out[5] & 0x40)) {
-							spriteBckgColl[cx + 5] |= six;
-							if (!priority) out[5] = mobExtCol[bitlet];
-						} else
-							out[5] = 0x40 | mobExtCol[bitlet];
-					}
+					MOB_DO_PIXEL(4, mobExtCol[bitlet >> 2]);
+					MOB_DO_PIXEL(5, mobExtCol[bitlet >> 2]);
 				}
 				bitlet = data & 0x03;
 				if (bitlet) {
 					spriteCollisions[cx + 6] |= six;
 					spriteCollisions[cx + 7] |= six;
-					if (!(out[6] & 0x80)) {
-						if (!(out[6] & 0x40)) {
-							spriteBckgColl[cx + 6] |= six;
-							if (!priority) out[6] = mobExtCol[bitlet];
-						} else
-							out[6] = 0x40 | mobExtCol[bitlet];
-						if (!(out[7] & 0x40)) {
-							spriteBckgColl[cx + 7] |= six;
-							if (!priority) out[7] = mobExtCol[bitlet];
-						} else
-							out[7] = 0x40 | mobExtCol[bitlet];
-					}
+					MOB_DO_PIXEL(6, mobExtCol[bitlet]);
+					MOB_DO_PIXEL(7, mobExtCol[bitlet]);
 				}
 			}
 		}
