@@ -106,19 +106,19 @@ void updateAudio(unsigned int nrsamples)
 	//_ASSERT(sndBufferPos <= BufferLength);
 }
 
-static inline unsigned int getNrOfSamplesToGenerate(ClockCycle clock)
+static inline unsigned int getNrOfSamplesToGenerate(ClockCycle clock, unsigned int deviceFrq)
 {
 	// OK this should really be INT but I'm tired right now
-	unsigned int samplePos = (unsigned int) ((double) clock * (double) MixingFreq / (originalFrequency * 8));
+	unsigned int samplePos = (unsigned int) ((double) clock * (double) MixingFreq / deviceFrq);
 	unsigned int samplesToDo = samplePos - lastSamplePos;
 	//fprintf( stderr, "Sound: %i cycles/%f samples\n", clock, (double) clock * (double) MixingFreq / (1778400.0/8.0));
 	lastSamplePos = samplePos;
 	return samplesToDo;
 }
 
-void flushBuffer(ClockCycle cycle)
+void flushBuffer(ClockCycle cycle, unsigned int frq)
 {
-	updateAudio(getNrOfSamplesToGenerate(cycle));
+	updateAudio(getNrOfSamplesToGenerate(cycle, frq));
 	lastUpdateCycle = cycle;
 }
 

@@ -1208,7 +1208,7 @@ inline void TED::newLine()
 	beamx = 0;
 	beamy = ff1d_latch;
 	doHRetrace();
-	flushBuffer(CycleCounter);
+	flushBuffer(CycleCounter, TED_SOUND_CLOCK);
 	switch (beamy) {
 
 		case 4:

@@ -240,7 +240,7 @@ inline int SIDsound::getWaveSample(SIDVoice &v)
 		case WAVE_NOISE:
 			return waveNoise(v);
 		default:
-			return 0x800;
+			return 0x000;
 	}
 }
 

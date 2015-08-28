@@ -97,6 +97,7 @@ class CPU {
                 irqVector = INTERRUPT_NMI;
                 nmiLevel = 1;
                 IRQcount = 1;
+				irq_sequence = 0x10;
 		    }
         }
         void clearNmi() {

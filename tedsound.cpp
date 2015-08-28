@@ -112,7 +112,7 @@ inline void setFreq(unsigned int channel, int freq)
 
 void writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value)
 {
-	flushBuffer(cycle);
+	flushBuffer(cycle, TED_SOUND_CLOCK);
 
 	switch (reg) {
 		case 0:

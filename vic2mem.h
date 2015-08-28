@@ -9,7 +9,8 @@ struct Color;
 #define FAST_BOOT 1
 #define VIC_PIXELS_PER_ROW 504
 #define VIC_REAL_CLOCK_M10 9852480 // 9852480 19704960
-#define VIC_SOUND_CLOCK (VIC_REAL_CLOCK_M10 / 8 / 10)
+#define VIC_SOUND_CLOCK (312*63*50)
+#define VIC_REAL_SOUND_CLOCK (VIC_REAL_CLOCK_M10 / 8 / 10)
 
 class Vic2mem : public TED
 {
@@ -104,6 +105,7 @@ class Vic2mem : public TED
 			unsigned char read(unsigned int addr);
 			void setIRQflag(unsigned int mask);
 			void countTimers();
+			void countTimerB();
 			void todUpdate();
 			static unsigned int bcd2hex(unsigned int bcd);
 			static unsigned int hex2bcd(unsigned int hex);

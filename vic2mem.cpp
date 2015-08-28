@@ -412,7 +412,6 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 			{
 				unsigned char retval = icr;
 				icr = 0;
-				//setIRQflag(0);
 				return retval & 0x9F;
 			}
 		case 0x0E:
@@ -421,6 +420,28 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 			return crb;
 	}
 	return reg[addr];
+}
+
+void Vic2mem::CIA::countTimerB()
+{
+	if (!tb--) {
+		icr |= 0x02; // Set timer B IRQ flag
+		setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay
+		prbTimerToggle ^= 0x80; // PRB7 underflow count toggle
+		// timer A output to PRB6?
+		if (crb & 2) {
+			// set PRB7 high for one clock cycle
+			if (crb & 4) {
+				prbTimerOut ^= 0x80; // toggle PRB7 between 1 and 0
+			} else {
+				prbTimerOut |= 0x80; // set high for one clock
+			}
+		}
+		if (crb & 8) // One-shot?
+			crb &= 0xFE; // Stop timer
+		// Reload from latch
+		tb = latchb;
+	}
 }
 
 void Vic2mem::CIA::countTimers()
@@ -435,6 +456,8 @@ void Vic2mem::CIA::countTimers()
 	if ((cra & 0x20) == 0x00 && cra & 1 ) {
 		if (!ta--) {
 			icr |= 0x01; // Set timer A IRQ flag
+			if ((crb & 0x40) == 0x40) // cascaded timer? CNT pin is high by default
+				countTimerB();
 			setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay
 			prbTimerToggle ^= 0x40; // PRA7 underflow count toggle
 			// timer A output to PB6?
@@ -452,25 +475,8 @@ void Vic2mem::CIA::countTimers()
 			ta = latcha;
 		}
 	}
-	if ((crb & 0x20) == 0x00 && crb & 1) {
-		if (!tb--) {
-			icr |= 0x02; // Set timer B IRQ flag
-			setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay
-			prbTimerToggle ^= 0x80; // PRB7 underflow count toggle
-			// timer A output to PRB6?
-			if (crb & 2) {
-				// set PRB7 high for one clock cycle
-				if (crb & 4) {
-					prbTimerOut ^= 0x80; // toggle PRB7 between 1 and 0
-				} else {
-					prbTimerOut |= 0x80; // set high for one clock
-				}
-			}
-			if (crb & 8) // One-shot?
-				crb &= 0xFE; // Stop timer
-			// Reload from latch
-			tb = latchb;
-		}
+	if (!(crb & 0x40) && crb & 1) { // TimerB counting phi clock cycles?
+		countTimerB();
 	}
 }
 
@@ -496,7 +502,11 @@ void Vic2mem::changeCharsetBank()
 
 void Vic2mem::checkIRQflag()
 {
-	irqFlag = (cia[0].icr | vicReg[0x19]) & 0x80;
+	if (cia[0].icr & 0x80) {
+		irqFlag = 0x80;
+		return;
+	}
+	irqFlag = vicReg[0x19] & 0x80;
 	if (cia[1].icr & 0x80) cpuptr->triggerNmi();
 }
 
@@ -624,6 +634,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 									break;
 								case 0x0D:
 									retval = cia[0].read(0x0D);
+									irqFlag = 0;
 									checkIRQflag();
 									break;
 								default:
@@ -990,12 +1001,12 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				// the beam reached a new line
 				doHRetrace();
 				newLine();
-				flushBuffer(CycleCounter);
+				if (attribFetch)
+					BadLine = (vshift == (beamy & 7));
+				flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
 				break;
 
 			case 102:
-				if (VertSubActive)
-					vertSubCount = (vertSubCount+1)&7;
 				if (endOfScreen) {
 					// is there raster interrupt? line 0 IRQ is delayed by 0 cycle
 					if (beamy == irqline) {
@@ -1008,18 +1019,8 @@ void Vic2mem::ted_process(const unsigned int continuous)
 
 			case 122:
 				HBlanking = false;
-//				break;
-
-//			case 124:
-				if (attribFetch) {
-					BadLine = (vshift == (beamy & 7));
-					if (BadLine) {
-						VertSubActive = true;
-						vertSubCount = 0;
-					}
-					if (beamy == 247) {
-						attribFetch = false;
-					}
+				if (beamy == 247) {
+					attribFetch = false;
 				}
 				//fprintf(stderr, "Line %03i - AttribFetch:%i Badline:%i VertSub:%i Screen:%i\n", beamy, attribFetch,
 				//	BadLine, VertSubActive, ScreenOn);
@@ -1028,6 +1029,10 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case 126:
 				beamx = 0;
 			case 0:
+				if (BadLine) {
+					VertSubActive = true;
+					vertSubCount = 0;
+				}
 				if (VertSubActive)
 					CharacterPosition = CharacterPositionReload;
 				break;
@@ -1056,7 +1061,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
 			case 82:
-				if (VertSubActive && vertSubCount == 6)
+				if (VertSubActive && vertSubCount == 7)
 					CharacterCount = (CharacterCount + 40) & 0x3FF;
 				if (BadLine) {
 					BadLine = 0;
@@ -1064,8 +1069,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
 			case 84:
-				if ( VertSubActive && charPosLatchFlag) // FIXME
-					CharacterPositionReload = (CharacterPosition + 40) & 0x3FF;
 				if (!nrwscr)
 					SideBorderFlipFlop = CharacterWindow = false;
 				break;
@@ -1075,15 +1078,15 @@ void Vic2mem::ted_process(const unsigned int continuous)
 					SideBorderFlipFlop = CharacterWindow = false;
 				break;
 
+			case 88:
+				if (vertSubCount == 7) // FIXME
+					CharacterPositionReload = (CharacterPosition + 40) & 0x3FF;
+				if (VertSubActive)
+					vertSubCount = (vertSubCount + 1) & 7;
+				break;
+
 			case 98:
 				HBlanking = true;
-				break;
-
-			case 94: // $BC (376)
-				charPosLatchFlag = vertSubCount == 6;
-				break;
-
-			case 96:
 				break;
 		}
 		// drawing the visible part of the screen

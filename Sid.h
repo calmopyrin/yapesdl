@@ -145,7 +145,7 @@ inline int SIDsound::waveTriangle(SIDVoice &v)
 
 inline int SIDsound::waveSaw(SIDVoice &v)
 {
-	return (v.accu >> 16) & 0xFFF;
+	return v.accu >> 16;
 }
 
 inline int SIDsound::wavePulse(SIDVoice &v)
