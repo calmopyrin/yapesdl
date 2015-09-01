@@ -126,6 +126,7 @@ class Vic2mem : public TED
 		KEYS64 *keys64;
     private:
 		unsigned char portState;
+		unsigned int dmaCount;
 };
 
 #endif // VIC2MEM_H

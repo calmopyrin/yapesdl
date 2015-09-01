@@ -39,7 +39,7 @@ static unsigned char cycleLookup[][128] = {
 // 012345678901234567890123450123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
 // NO BADLINE
 //"3 i 4 i 5 i 6 i 7 i r r r r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 0 i 1 i 2 i "
-{ "33i344i455i566i677i7r r r r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 0 i 11i122i2"},
+{ "33i344i455i566i677i7r r r r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 00i011i122i2"},
 // bad line
 { "33i344i455i566i677i7r r*r*r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 00i011i122i2"}
 };
@@ -529,7 +529,6 @@ void Vic2mem::doDelayedDMA()
 				memcpy(chrbuf + oldcount + invalidcount, VideoBase + CharacterCount + oldcount
 					+ invalidcount, newdmacount);
 				BadLine = 1;
-				delayedDMA = true;
 				x = newdmapos;
 				VertSubActive = true;
 				vertSubCount = 0;
@@ -735,10 +734,23 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 #if 1
 								if (attribFetch) {
 									bool nowBadLine = (vshift == (beamy & 7)) & (beamy != 247);
-									if (!BadLine && nowBadLine) {
+									if (nowBadLine && !BadLine && beamx < 82 && beamx > 2) {
 										vertSubCount = 0;
 										BadLine = 1;
 										VertSubActive = true;
+										unsigned int delay = ((beamx) >> 1) + 1;
+										if (delay <= 40) {
+											dmaCount = 40 - delay;
+											if (CharacterCount >= 0x03d9) {
+												/*memcpy(chrbuf + delay, VideoBase + CharacterCount, 0x400 - CharacterCount);
+												memcpy(chrbuf + delay + 0x400 - CharacterCount, 
+													VideoBase + dmaCount, (CharacterCount + dmaCount) & 0x03FF);*/
+											} else {
+												memcpy(chrbuf + delay, VideoBase + CharacterCount, dmaCount);
+											}
+										} else {
+											dmaCount = 0;
+										}
 									}
 								}
 #else
@@ -1039,8 +1051,8 @@ void Vic2mem::ted_process(const unsigned int continuous)
 
 			case 2:
 				if (BadLine) {
-					if (!delayedDMA)
-						doDMA(chrbuf, 0);
+					doDMA(chrbuf, 0);
+					dmaCount = 40;
 				}
 				break;
 
@@ -1062,10 +1074,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 
 			case 82:
 				if (VertSubActive && vertSubCount == 7)
-					CharacterCount = (CharacterCount + 40) & 0x3FF;
-				if (BadLine) {
-					BadLine = 0;
-				}
+					CharacterCount = (CharacterCount + dmaCount) & 0x3FF;
 				break;
 
 			case 84:
@@ -1080,7 +1089,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 
 			case 88:
 				if (vertSubCount == 7) // FIXME
-					CharacterPositionReload = (CharacterPosition + 40) & 0x3FF;
+					CharacterPositionReload = (CharacterPosition + dmaCount) & 0x3FF;
 				if (VertSubActive)
 					vertSubCount = (vertSubCount + 1) & 7;
 				break;
