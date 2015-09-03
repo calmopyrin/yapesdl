@@ -39,9 +39,10 @@ static unsigned char cycleLookup[][128] = {
 // 012345678901234567890123450123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
 // NO BADLINE
 //"3 i 4 i 5 i 6 i 7 i r r r r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 0 i 1 i 2 i "
-{ "33i344i455i566i677i7r r r r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 00i011i122i2"},
+{ "r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 00i011i122i233i344i455i566i677i7r r r "},
 // bad line
-{ "33i344i455i566i677i7r r*r*r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 00i011i122i2"}
+//{ "33i344i455i566i677i7r r*r*r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 00i011i122i2"}
+{ "r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 00i011i122i233i344i455i566i677i7r r*r*"}
 };
 
 unsigned int Vic2mem::CIA::refCount = 0;
@@ -513,29 +514,36 @@ void Vic2mem::checkIRQflag()
 void Vic2mem::doDelayedDMA()
 {
 	if (attribFetch) {
-		if (vshift == (beamy & 7)) {
-			// Delayed DMA?
-			if (beamx >=2 && beamx < 82) {
-				unsigned char idleread = Read((cpuptr->getPC()+1) & 0xFFFF);
-				unsigned int delay = (beamx - 1) >> 1;
-				unsigned int invalidcount = (delay > 3) ? 3 : delay;
-				unsigned int invalidpos = delay - invalidcount;
-				invalidcount = (invalidcount < 40-invalidpos) ? invalidcount : 40-invalidpos;
-				unsigned int newdmapos = (invalidpos+invalidcount < 40) ? invalidpos+invalidcount : 40;
-				unsigned int newdmacount = 40 - newdmapos ;
-				unsigned int oldcount = 40 - newdmacount - invalidcount;
-				//memcpy(tmpClrbuf, chrbuf, oldcount);
-				memset(chrbuf + oldcount, idleread, invalidcount);
-				memcpy(chrbuf + oldcount + invalidcount, VideoBase + CharacterCount + oldcount
-					+ invalidcount, newdmacount);
-				BadLine = 1;
-				x = newdmapos;
-				VertSubActive = true;
-				vertSubCount = 0;
+		bool nowBadLine = (vshift == (beamy & 7)) & (beamy != 247);
+		if (nowBadLine && !BadLine && (beamx <= 82 || beamx >= 124)) {
+			vertSubCount = 0;
+			BadLine = 1;
+			VertSubActive = true;
+			int delay = (beamx <= 82) ? ((beamx) >> 1) + 1 : (beamx - 124) >> 1;
+			unsigned int invalidcount = (delay > 3) ? 3 : delay;
+			unsigned int invalidpos = delay - invalidcount;
+			invalidcount = (invalidcount < 40-invalidpos) ? invalidcount : 40-invalidpos;
+            unsigned int newdmapos = (invalidpos+invalidcount < 40) ? invalidpos+invalidcount : 40;
+            unsigned int newdmacount = 40 - newdmapos ;
+            unsigned int oldcount = 40 - newdmacount - invalidcount;
+			if (delay <= 40) {
+				dmaCount = 40 - delay;
+				if (CharacterPosition >= 0x03d9) {
+					memcpy(chrbuf, VideoBase + CharacterPosition, 0x400 - CharacterPosition);
+					memcpy(chrbuf + 0x400 - CharacterPosition, 
+						VideoBase + dmaCount, (CharacterPosition + dmaCount) & 0x03FF);
+				} else {
+					memcpy(chrbuf, VideoBase + CharacterPosition, dmaCount);
+				}
+			} else {
+				dmaCount = 0;
 			}
-		} else if (BadLine) {
-			BadLine = 0;
-		}
+            fprintf(stderr, "Delayed DMA:%02i count:%i @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", delay, 
+                    dmaCount, hshift, beamx, beamy,  beamy, cpuptr->getPC());
+		}/* else {
+			fprintf(stderr, "D011 write:% i(%02X) count:%i @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", vicReg[0x11], 
+				vicReg[0x11], dmaCount, hshift, beamx, beamy,  beamy, cpuptr->getPC());
+		}*/
 	}
 }
 
@@ -731,31 +739,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 								} else if ((beamy == 48+199 && fltscr) || (beamy == 48+203 && !fltscr)) {
 									ScreenOn = false;
 								}
-#if 1
-								if (attribFetch) {
-									bool nowBadLine = (vshift == (beamy & 7)) & (beamy != 247);
-									if (nowBadLine && !BadLine && beamx < 82 && beamx > 2) {
-										vertSubCount = 0;
-										BadLine = 1;
-										VertSubActive = true;
-										unsigned int delay = ((beamx) >> 1) + 1;
-										if (delay <= 40) {
-											dmaCount = 40 - delay;
-											if (CharacterCount >= 0x03d9) {
-												/*memcpy(chrbuf + delay, VideoBase + CharacterCount, 0x400 - CharacterCount);
-												memcpy(chrbuf + delay + 0x400 - CharacterCount, 
-													VideoBase + dmaCount, (CharacterCount + dmaCount) & 0x03FF);*/
-											} else {
-												memcpy(chrbuf + delay, VideoBase + CharacterCount, dmaCount);
-											}
-										} else {
-											dmaCount = 0;
-										}
-									}
-								}
-#else
 								doDelayedDMA();
-#endif
 								break;
 							case 0x16:
 								// check for narrow screen (38 columns)
@@ -1045,13 +1029,18 @@ void Vic2mem::ted_process(const unsigned int continuous)
 					VertSubActive = true;
 					vertSubCount = 0;
 				}
-				if (VertSubActive)
 					CharacterPosition = CharacterPositionReload;
+				CharacterPosition = CharacterPositionReload;
 				break;
 
 			case 2:
 				if (BadLine) {
-					doDMA(chrbuf, 0);
+					if (CharacterPosition >= 0x03d9) {
+						memcpy(chrbuf, VideoBase + CharacterPosition, 0x400 - CharacterPosition);
+						memcpy(chrbuf + 0x400 - CharacterPosition, VideoBase, (CharacterPosition + 40) & 0x03FF);
+					} else {
+						memcpy(chrbuf, VideoBase + CharacterPosition, 40);
+					}
 					dmaCount = 40;
 				}
 				break;
@@ -1073,8 +1062,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
 			case 82:
-				if (VertSubActive && vertSubCount == 7)
-					CharacterCount = (CharacterCount + dmaCount) & 0x3FF;
 				break;
 
 			case 84:
@@ -1088,10 +1075,15 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
 			case 88:
-				if (vertSubCount == 7) // FIXME
-					CharacterPositionReload = (CharacterPosition + dmaCount) & 0x3FF;
-				if (VertSubActive)
+				if (VertSubActive) {
+					if (vertSubCount == 7) {// FIXME
+						CharacterPositionReload = (CharacterPosition + dmaCount) & 0x3FF;
+						dmaCount = 0;
+					}
 					vertSubCount = (vertSubCount + 1) & 7;
+				}
+				if (BadLine)
+                    BadLine = 0;
 				break;
 
 			case 98:
@@ -1523,6 +1515,7 @@ inline void Vic2mem::drawSpritesPerLine()
 			if (!dc) {
 				unsigned int rY = mob[i].y;
 				if (rY + 1 == beamy) {
+				if (rY + 1 == (beamy & 0xff)) {
 					unsigned char *spd = VideoBase + 0x03F8;
                     dc = 21 << exy;
 					mob[i].dataCountReload = (spd[i] << 6);
