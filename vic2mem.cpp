@@ -1029,7 +1029,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 					VertSubActive = true;
 					vertSubCount = 0;
 				}
-					CharacterPosition = CharacterPositionReload;
 				CharacterPosition = CharacterPositionReload;
 				break;
 
@@ -1514,7 +1513,6 @@ inline void Vic2mem::drawSpritesPerLine()
             const unsigned int exy = mob[i].expandY;
 			if (!dc) {
 				unsigned int rY = mob[i].y;
-				if (rY + 1 == beamy) {
 				if (rY + 1 == (beamy & 0xff)) {
 					unsigned char *spd = VideoBase + 0x03F8;
                     dc = 21 << exy;
