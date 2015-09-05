@@ -516,16 +516,15 @@ void Vic2mem::doDelayedDMA()
 	if (attribFetch) {
 		bool nowBadLine = (vshift == (beamy & 7)) & (beamy != 247);
 		if (nowBadLine && !BadLine && (beamx <= 82 || beamx >= 124)) {
-			vertSubCount = 0;
-			BadLine = 1;
-			VertSubActive = true;
-			int delay = (beamx <= 82) ? ((beamx) >> 1) + 1 : (beamx - 124) >> 1;
-			unsigned int invalidcount = (delay > 3) ? 3 : delay;
-			unsigned int invalidpos = delay - invalidcount;
-			invalidcount = (invalidcount < 40-invalidpos) ? invalidcount : 40-invalidpos;
-            unsigned int newdmapos = (invalidpos+invalidcount < 40) ? invalidpos+invalidcount : 40;
-            unsigned int newdmacount = 40 - newdmapos ;
-            unsigned int oldcount = 40 - newdmacount - invalidcount;
+			int delay;
+			if (!VertSubActive) {
+				cycleLookup[0][beamx|1] ^= 0x40;
+				VertSubActive = true;
+				delay = (beamx <= 82) ? ((beamx) >> 1) + 1 : (beamx - 124) >> 1;
+				delayedDMA = true;
+			} else {
+				delay = 0;
+			}
 			if (delay <= 40) {
 				dmaCount = 40 - delay;
 				if (CharacterPosition >= 0x03d9) {
@@ -538,12 +537,9 @@ void Vic2mem::doDelayedDMA()
 			} else {
 				dmaCount = 0;
 			}
-            fprintf(stderr, "Delayed DMA:%02i count:%i @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", delay, 
-                    dmaCount, hshift, beamx, beamy,  beamy, cpuptr->getPC());
-		}/* else {
-			fprintf(stderr, "D011 write:% i(%02X) count:%i @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", vicReg[0x11], 
-				vicReg[0x11], dmaCount, hshift, beamx, beamy,  beamy, cpuptr->getPC());
-		}*/
+            //fprintf(stderr, "Delayed DMA:%02i count:%i @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", delay, 
+            //        dmaCount, hshift, beamx, beamy,  beamy, cpuptr->getPC());
+		}
 	}
 }
 
@@ -955,8 +951,7 @@ inline void Vic2mem::newLine()
 			break;
 
 		case 204 + 48:
-			CharacterCount = 0;
-			VertSubActive = false;
+			//VertSubActive = false;
 			break;
 
 		case 250 + 48: // VIC article: 300
@@ -973,7 +968,7 @@ inline void Vic2mem::newLine()
 			cia[1].todUpdate();
 			break;
 
-		case 6: // BEAMY2RASTER(271):
+		case 6:
 			VBlanking = false;
 			break;
 	}
@@ -1032,8 +1027,8 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				CharacterPosition = CharacterPositionReload;
 				break;
 
-			case 2:
-				if (BadLine) {
+			case 4:
+				if (BadLine && !delayedDMA) {
 					if (CharacterPosition >= 0x03d9) {
 						memcpy(chrbuf, VideoBase + CharacterPosition, 0x400 - CharacterPosition);
 						memcpy(chrbuf + 0x400 - CharacterPosition, VideoBase, (CharacterPosition + 40) & 0x03FF);
@@ -1074,15 +1069,18 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
 			case 88:
-				if (VertSubActive) {
-					if (vertSubCount == 7) {// FIXME
-						CharacterPositionReload = (CharacterPosition + dmaCount) & 0x3FF;
-						dmaCount = 0;
-					}
-					vertSubCount = (vertSubCount + 1) & 7;
+				if (vertSubCount == 7) {// FIXME
+					CharacterPositionReload = (CharacterPosition + dmaCount) & 0x3FF;
+					dmaCount = 0;
+					VertSubActive = false;
 				}
-				if (BadLine)
+				if (BadLine) {
                     BadLine = 0;
+                    delayedDMA = false;
+                    VertSubActive = true;
+				}
+				if (VertSubActive)
+					vertSubCount = (vertSubCount + 1) & 7;
 				break;
 
 			case 98:
@@ -1107,6 +1105,9 @@ void Vic2mem::ted_process(const unsigned int continuous)
 		cia[1].countTimers();
 		unsigned char cycleChr = cycleLookup[BadLine][beamx|1];
 		switch (cycleChr) {
+            case ' '^0x40:
+                cycleLookup[0][beamx|1] ^= 0x40;
+                BadLine = 1;
 			case ' ':
 				cpuptr->process();
 				break;
@@ -1148,7 +1149,7 @@ inline void Vic2mem::hi_text()
 	unsigned char	*wbuffer = scrptr + hshift;
 
 	if (VertSubActive) {
-		charcol = colorRAM[CharacterPosition + x];
+		charcol = colorRAM[CharacterPosition + x] & 0x0F;
 		mask = cset[(chrbuf[x] << 3) | vertSubCount];
 	} else {
 		charcol = 0;
@@ -1174,7 +1175,7 @@ inline void Vic2mem::ec_text()
 	unsigned char *wbuffer = scrptr + hshift;
 
 	if (VertSubActive) {
-		charcol = colorRAM[CharacterPosition + x];
+		charcol = colorRAM[CharacterPosition + x] & 0x0F;
 		chr = chrbuf[x];
 		mask = cset[((chr & 0x3F) << 3) | vertSubCount];
 		chr >>= 6;
@@ -1202,7 +1203,7 @@ inline void Vic2mem::mc_text()
 	unsigned char mask;
 
 	if (VertSubActive) {
-		charcol = colorRAM[CharacterPosition + x];
+		charcol = colorRAM[CharacterPosition + x] & 0x0F;
 		chr = chrbuf[x];
 		mask = cset[(chr << 3) | vertSubCount];
 	} else {
