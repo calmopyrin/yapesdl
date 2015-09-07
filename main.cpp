@@ -480,7 +480,7 @@ static void setEmulationLevel(unsigned int level)
 		//ted8360->Reset();
 		machine->setMem(ted8360, ted8360->getIrqReg(), &(ted8360->Ram[0x0100]));
 		ted8360->HookTCBM(tcbm);
-		ted8360->cpuptr = machine;
+		ted8360->setCpuPtr(machine);
 		// restore RAM
 		memcpy(ted8360->Ram, ram, RAMSIZE);
 		// reload ROMs for machine type switch
@@ -734,7 +734,7 @@ static void machineInit()
 	ted8360 = new TED;
 	machine = new CPU(ted8360, ted8360->getIrqReg(), &(ted8360->Ram[0x0100]));
 	ted8360->HookTCBM(tcbm);
-	ted8360->cpuptr = machine;
+	ted8360->setCpuPtr(machine);
 	ted8360->Reset(true);
 	// Serial init
 	CSerial::InitPorts();

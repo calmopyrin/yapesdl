@@ -101,6 +101,7 @@ class TED : public CSerial , public MemoryHandler {
 	bool t1on, t2on, t3on;
 	unsigned int timer1, timer2, timer3, t1start;
 
+	virtual void setCpuPtr(CPU *cpu) { cpuptr = cpu; };
 	void HookTCBM(CTCBM *pTcbmbus) { tcbmbus = pTcbmbus; };
 	ClockCycle GetClockCount();
 	static TED *instance() { return instance_; };

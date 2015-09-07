@@ -26,6 +26,7 @@ class Vic2mem : public TED
         virtual void Write(unsigned int addr, unsigned char value);
 		virtual void poke(unsigned int addr, unsigned char data) { Ram[addr & 0xffff] = data; }
         virtual void ted_process(const unsigned int continuous);
+		virtual void setCpuPtr(CPU *cpu);
 		//virtual unsigned int getColorCount() { return 256; };
 		virtual Color getColor(unsigned int ix);
 		virtual unsigned int getCyclesPerRow() const { return 504; }
@@ -71,7 +72,7 @@ class Vic2mem : public TED
 		void drawSpritesPerLine();
 		//
 		struct CIA {
-			CIA() { refCount++; }
+			CIA() { refCount++; irqCallback = 0;}
 			~CIA() { refCount--; }
 			unsigned char pra;
 			unsigned char prb;
@@ -79,10 +80,10 @@ class Vic2mem : public TED
 			unsigned char prbTimerOut;
 			unsigned char ddra;
 			unsigned char ddrb;
-			unsigned short ta;
-			unsigned short tb;
-			unsigned short latcha;
-			unsigned short latchb;
+			int ta;
+			int tb;
+			int latcha;
+			int latchb;
 			unsigned char cra;
 			unsigned char crb;
 			unsigned char sdr;
@@ -113,12 +114,22 @@ class Vic2mem : public TED
 			static void frames2tod(unsigned int frames, TOD &todout, unsigned int frq);
 			unsigned int todCount, alarmCount;
 			static unsigned int refCount;
+			void (*irqCallback)(void *param);
+			void *callBackParam;
+			void setIrqCallback(void (*irqCallback_)(void *), void *param) {
+				irqCallback = irqCallback_;
+				callBackParam = param;
+			}
 		} cia[2];
+		static void setCiaIrq(void *param);
+		static void setCiaNmi(void *param);
 		unsigned char *vicBase;
 		void	hi_text();
 		void	mc_text();
 		void	ec_text();
 		void	mcec();
+		void	hi_bmec();
+		void	mc_bmec();
 		void	hi_bitmap();
 		void	mc_bitmap();
 		void render();

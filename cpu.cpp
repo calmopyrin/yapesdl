@@ -115,7 +115,7 @@ inline void CPU::DoCompare(unsigned char reg, unsigned char value)
 
 void CPU::process()
 {
-	if (IRQcount || ((*irq_register)&0x80 && !irq_sequence && !(ST&0x04)))
+	if (IRQcount || (*irq_register && !irq_sequence && !(ST&0x04)))
 		IRQcount++;
 
 	if (!cycle) {		// in the first cycle the CPU fetches the opcode
@@ -132,7 +132,6 @@ void CPU::process()
 		nextins=mem->Read(PC+1);			// prefetch next opcode/operand
 		cycle = 1;							// increment the CPU cycle counter
 		PC=(PC+1)&0xFFFF;
-		//if ((PC & 0xf000) == 0xf000) fprintf(stderr, "$%04X\n", PC);
 #ifdef CPUS_STATS
 		stats[currins]++;
 #endif

@@ -21,7 +21,7 @@
     do { \
         if (!(out[X] & 0x80)) { \
             if (!(out[X] & 0x40)) { \
-                spriteBckgColl[cx + X] |= six; \
+                spriteBckgCollReg |= six; \
                 if (!priority) out[X] = COLOR; \
             } else \
                 out[X] = 0x40 | COLOR;\
@@ -71,12 +71,16 @@ Vic2mem::Vic2mem()
 		mob[i].dataCount = 0;
 	}
 	//
+	irqFlag = 0;
 	crsrblinkon = false;
 	vicBase = Ram;
 	charrombank = charRomC64;
 	charrom = false;
 	tap = new TAP;
 	keys64 = new KEYS64;
+	// CIA's
+	cia[0].setIrqCallback(setCiaIrq, this);
+	//
 	Reset(true);
 }
 
@@ -119,6 +123,12 @@ void Vic2mem::loadroms()
 	memset(mem_c000_ffff + 0x1D68, 0xEA, 0x24);
 	memcpy(mem_c000_ffff + 0x1D68, patch, sizeof(patch));
 #endif
+}
+
+void Vic2mem::setCpuPtr(CPU *cpu)
+{
+	cpuptr = cpu;
+	cia[1].setIrqCallback(setCiaNmi, cpuptr);
 }
 
 void Vic2mem::copyToKbBuffer(const char *text, unsigned int length)
@@ -169,6 +179,7 @@ void Vic2mem::CIA::setIRQflag(unsigned int mask)
 {
 	if (mask & 0x1F) {
 		icr |= 0x80;
+		irqCallback(callBackParam);
 	} else {
 		icr &= 0x7F;
 	}
@@ -373,12 +384,20 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 		case 0x03:
 			return ddrb;
 		case 0x04:
+			if (!ta)
+				return latcha & 0xFF;
 			return ta & 0xFF;
 		case 0x05:
+			if (!ta)
+				return latcha >>  8;
 			return ta >> 8;
 		case 0x06:
+			if (!tb)
+				return latchb & 0xFF;
 			return tb & 0xFF;
 		case 0x07:
+			if (!tb)
+				return latchb >> 8;
 			return tb >> 8;
 		case 0x08:
 			if (tod.latched) {
@@ -501,14 +520,22 @@ void Vic2mem::changeCharsetBank()
 #endif
 }
 
+void Vic2mem::setCiaIrq(void *param)
+{
+	Vic2mem *mh = reinterpret_cast<Vic2mem*>(param);
+	mh->irqFlag = 0x80;
+}
+
+void Vic2mem::setCiaNmi(void *param)
+{
+	CPU *cpu = reinterpret_cast<CPU*>(param);
+	cpu->triggerNmi();
+}
+
 void Vic2mem::checkIRQflag()
 {
-	if (cia[0].icr & 0x80) {
-		irqFlag = 0x80;
-		return;
-	}
-	irqFlag = vicReg[0x19] & 0x80;
-	if (cia[1].icr & 0x80) cpuptr->triggerNmi();
+	irqFlag = (vicReg[0x19] & 0x80);
+	//irqFlag = (irqFlag & 0x7F) | (vicReg[0x19] & 0x80);
 }
 
 void Vic2mem::doDelayedDMA()
@@ -629,16 +656,17 @@ unsigned char Vic2mem::Read(unsigned int addr)
 								case 0x00:
 									retval = cia[0].read(0)
 										& keys64->getJoyState(1)
-										& keys64->feedKeyColumn(cia[0].prb | ~cia[0].ddrb);
+										& keys64->feedKeyColumn((cia[0].prb | ~cia[0].ddrb) & keys64->getJoyState(0));
 									break;
 								case 0x01: // port B usually not driven low by port A.
-									retval = (keys64->feedkey(cia[0].pra | ~cia[0].ddra) & ~cia[0].ddrb) | (cia[0].prb & cia[0].ddrb);
+									retval = (keys64->feedkey((cia[0].pra | ~cia[0].ddra) & keys64->getJoyState(1)) 
+											& ~cia[0].ddrb) 
+										| (cia[0].prb & cia[0].ddrb);
 									//fprintf(stderr, "$Kb(%02X,%02X) read: %02X\n", cia[0].pra, cia[0].ddra, retval);
 									break;
 								case 0x0D:
 									retval = cia[0].read(0x0D);
 									irqFlag = 0;
-									checkIRQflag();
 									break;
 								default:
 									retval = cia[0].read(addr);
@@ -705,20 +733,20 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 						switch (addr) {
 							case 0x12:
 								irqline = (irqline & 0x100) | value;
-								if (beamy == irqline) {
+								/*if (beamy == irqline) {
 									vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
 									checkIRQflag();
-								}
+								}*/
 								//fprintf(stderr, "Raster IRQ set to %03i(%03X) @ PC=0%04X @ cycle=%i\n", 
 								//	irqline, irqline, cpuptr->getPC(), CycleCounter);
 								break;
 							case 0x11:
 								// raster IRQ line
 								irqline = (irqline & 0xFF) | ((value & 0x80) << 1);
-								if (beamy == irqline) {
+								/*if (beamy == irqline) {
 									vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
 									checkIRQflag();
-								}
+								}*/
 								// get vertical offset of screen when smooth scroll
 								vshift = value & 0x07;
 								// check for flat screen (23 rows)
@@ -743,6 +771,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 								// get horizontal offset of screen when smooth scroll
 								hshift = value & 0x07;
 								scrattr = (scrattr & ~(MULTICOLOR)) | (value & (MULTICOLOR));
+								//fprintf(stderr, "$D016 write: %02X @ PC=%04X @ X=%i\n", value, cpuptr->getPC(), beamx);
 								break;
 							case 0x18:
 								vicReg[0x18] = value;
@@ -897,6 +926,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 							default:
 								break;
 						}
+						fprintf(stderr, "CIA2(%02X) write: %02X @ PC=%04X\n", addr & 0x0f, value, cpuptr->getPC());
 						cia[1].write(addr, value);
 						return;
 					default: // $DExx/$DFxx open I/O
@@ -1100,11 +1130,11 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				*((int*)(scrptr + 4)) = framecol;
 			}
 		}
-		checkIRQflag();
 		cia[0].countTimers();
 		cia[1].countTimers();
 		unsigned char cycleChr = cycleLookup[BadLine][beamx|1];
 		switch (cycleChr) {
+			//delayed DMA
             case ' '^0x40:
                 cycleLookup[0][beamx|1] ^= 0x40;
                 BadLine = 1;
@@ -1114,7 +1144,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case '0': case '1':	case '2': case '3':
 			case '4': case '5': case '6': case '7':
 				// FIXME: not really accurate
-				if (!mob[cycleChr - '0'].dataCount)
+				if (!mob[cycleChr ^ '0'].dataCount)
 					cpuptr->process();
 				break;
 			case '*':
@@ -1149,7 +1179,7 @@ inline void Vic2mem::hi_text()
 	unsigned char	*wbuffer = scrptr + hshift;
 
 	if (VertSubActive) {
-		charcol = colorRAM[CharacterPosition + x] & 0x0F;
+		charcol = colorRAM[(CharacterPosition + x) & 0x03FF] & 0x0F;
 		mask = cset[(chrbuf[x] << 3) | vertSubCount];
 	} else {
 		charcol = 0;
@@ -1175,7 +1205,7 @@ inline void Vic2mem::ec_text()
 	unsigned char *wbuffer = scrptr + hshift;
 
 	if (VertSubActive) {
-		charcol = colorRAM[CharacterPosition + x] & 0x0F;
+		charcol = colorRAM[(CharacterPosition + x) & 0x03FF] & 0x0F;
 		chr = chrbuf[x];
 		mask = cset[((chr & 0x3F) << 3) | vertSubCount];
 		chr >>= 6;
@@ -1203,7 +1233,7 @@ inline void Vic2mem::mc_text()
 	unsigned char mask;
 
 	if (VertSubActive) {
-		charcol = colorRAM[CharacterPosition + x] & 0x0F;
+		charcol = colorRAM[(CharacterPosition + x) & 0x03FF] & 0x0F;
 		chr = chrbuf[x];
 		mask = cset[(chr << 3) | vertSubCount];
 	} else {
@@ -1231,27 +1261,6 @@ inline void Vic2mem::mc_text()
 		wbuffer[6] = (mask & 0x02) ? charcol : mcol[0];
 		wbuffer[7] = (mask & 0x01) ? charcol : mcol[0];
 	}
-}
-
-// when multi and extended color modes are all on the screen is blank
-inline void Vic2mem::mcec()
-{
-	unsigned char *wbuffer = scrptr + hshift;
-	unsigned char mask;
-
-	if (VertSubActive)
-		mask = cset[((chrbuf[x] & 0x3F) << 3) | vertSubCount];
-	else
-		mask = vicBase[0x3FFF];
-
-	wbuffer[0] = (mask & 0x80) ? 0 : 0x40;
-	wbuffer[1] = (mask & 0x40) ? 0 : 0x40;
-	wbuffer[2] = (mask & 0x20) ? 0 : 0x40;
-	wbuffer[3] = (mask & 0x10) ? 0 : 0x40;
-	wbuffer[4] = (mask & 0x08) ? 0 : 0x40;
-	wbuffer[5] = (mask & 0x04) ? 0 : 0x40;
-	wbuffer[6] = (mask & 0x02) ? 0 : 0x40;
-	wbuffer[7] = (mask & 0x01) ? 0 : 0x40;
 }
 
 // renders hires bitmap graphics
@@ -1289,10 +1298,11 @@ inline void Vic2mem::mc_bitmap()
 	unsigned char	*wbuffer = scrptr + hshift;
 
 	if (VertSubActive) {
+		unsigned int cp = (CharacterPosition + x) & 0x03FF;
 		bmmcol[1] = chrbuf[x] >> 4;
 		bmmcol[2] = chrbuf[x] & 0x0F;
-		bmmcol[3] = colorRAM[CharacterPosition + x] & 0x0F;
-		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) | vertSubCount];
+		bmmcol[3] = colorRAM[cp] & 0x0F;
+		mask = grbank[(cp << 3) | vertSubCount];
 	} else {// FIXME
 		bmmcol[1] = bmmcol[2] = bmmcol[3] = 0;
 		mask = vicBase[0x3FFF];
@@ -1304,6 +1314,81 @@ inline void Vic2mem::mc_bitmap()
 	wbuffer[6]= wbuffer[7] = bmmcol[mask & 0x03];
 }
 
+// when multi and extended color modes are all on the screen is blank
+inline void Vic2mem::mcec()
+{
+	unsigned char *wbuffer = scrptr + hshift;
+	unsigned char mask, charcol;
+	unsigned char imcol[4] = { 0x40, 0x40, 0, 0 };
+
+	if (VertSubActive) {
+		mask = cset[((chrbuf[x] & 0x3F) << 3) | vertSubCount];
+		charcol = colorRAM[(CharacterPosition + x) & 0x03FF] & 0x0F;
+	} else {
+		mask = vicBase[0x39FF];
+		charcol = 0;
+	}
+
+	if (charcol & 8) {
+		wbuffer[0] = wbuffer[1] = imcol[ (mask & 0xC0) >> 6 ];
+		wbuffer[2] = wbuffer[3] = imcol[ (mask & 0x30) >> 4 ];
+		wbuffer[4] = wbuffer[5] = imcol[ (mask & 0x0C) >> 2 ];
+		wbuffer[6] = wbuffer[7] = imcol[ mask & 0x03 ];
+	} else {
+		wbuffer[0] = (mask & 0x80) ? 0 : 0x40;
+		wbuffer[1] = (mask & 0x40) ? 0 : 0x40;
+		wbuffer[2] = (mask & 0x20) ? 0 : 0x40;
+		wbuffer[3] = (mask & 0x10) ? 0 : 0x40;
+		wbuffer[4] = (mask & 0x08) ? 0 : 0x40;
+		wbuffer[5] = (mask & 0x04) ? 0 : 0x40;
+		wbuffer[6] = (mask & 0x02) ? 0 : 0x40;
+		wbuffer[7] = (mask & 0x01) ? 0 : 0x40;
+	}
+}
+
+// renders hires bitmap graphics
+inline void Vic2mem::hi_bmec()
+{
+	unsigned char mask;
+	unsigned char *wbuffer = scrptr + hshift;
+	unsigned char hcol0 = 0;
+	unsigned char hcol1 = 0x40;
+
+	if (VertSubActive) {
+		mask = grbank[(((CharacterPosition + x) << 3) & 0x19FF) | vertSubCount];
+	} else {
+		mask = vicBase[0x39FF];
+	}
+
+	wbuffer[0] = (mask & 0x80) ? hcol1 : hcol0;
+	wbuffer[1] = (mask & 0x40) ? hcol1 : hcol0;
+	wbuffer[2] = (mask & 0x20) ? hcol1 : hcol0;
+	wbuffer[3] = (mask & 0x10) ? hcol1 : hcol0;
+	wbuffer[4] = (mask & 0x08) ? hcol1 : hcol0;
+	wbuffer[5] = (mask & 0x04) ? hcol1 : hcol0;
+	wbuffer[6] = (mask & 0x02) ? hcol1 : hcol0;
+	wbuffer[7] = (mask & 0x01) ? hcol1 : hcol0;
+}
+
+inline void Vic2mem::mc_bmec()
+{
+	unsigned char	mask;
+	unsigned char	*wbuffer = scrptr + hshift;
+	unsigned char	imcol[4] = { 0x40, 0x40, 0, 0 };
+
+	if (VertSubActive) {
+		unsigned int cp = (CharacterPosition + x) & 0x039F;
+		mask = grbank[(cp << 3) | vertSubCount];
+	} else {
+		mask = vicBase[0x39FF];
+	}
+
+	wbuffer[0]= wbuffer[1] = imcol[(mask & 0xC0) >> 6 ];
+	wbuffer[2]= wbuffer[3] = imcol[(mask & 0x30) >> 4 ];
+	wbuffer[4]= wbuffer[5] = imcol[(mask & 0x0C) >> 2 ];
+	wbuffer[6]= wbuffer[7] = imcol[mask & 0x03];
+}
+
 inline void Vic2mem::render()
 {
 	// call the relevant rendering function
@@ -1311,18 +1396,26 @@ inline void Vic2mem::render()
 		case 0:
 			hi_text();
 			break;
-		case MULTICOLOR :
+		case MULTICOLOR:
 			mc_text();
 			break;
-		case EXTCOLOR :
+		case EXTCOLOR:
 			ec_text();
 			break;
-		case GRAPHMODE :
+		case GRAPHMODE:
 			hi_bitmap();
 			break;
-		case GRAPHMODE|MULTICOLOR :
+		case GRAPHMODE|MULTICOLOR:
 			mc_bitmap();
 			break;
+		// illegal modes
+		case GRAPHMODE|EXTCOLOR:
+			hi_bmec();
+			break;
+		case GRAPHMODE|EXTCOLOR|MULTICOLOR:
+			mc_bmec();
+			break;
+		case EXTCOLOR|MULTICOLOR:
 		default:
 			mcec();
 			break;
@@ -1535,10 +1628,10 @@ inline void Vic2mem::drawSpritesPerLine()
 			spriteCollisionReg |= collisionLookup[spriteCollisions[i]];
 			spriteCollisions[i] = 0;
 		}
-		if (spriteBckgColl[i]) {
-			spriteBckgCollReg |= spriteBckgColl[i];
-			spriteBckgColl[i] = 0;
-		}
+		//if (spriteBckgColl[i]) {
+		//	spriteBckgCollReg |= spriteBckgColl[i];
+		//	spriteBckgColl[i] = 0;
+		//}
 	}
 	if (spriteCollisionReg) {
 		vicReg[0x19] |= (vicReg[0x1A] & 4) ? 0x84 : 0x04;
