@@ -253,7 +253,7 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 static void frameUpdate()
 {
 	const unsigned int cyclesPerRow = ted8360->getCyclesPerRow();
-	const int offset = cyclesPerRow == 504 ? -68 : 8;
+	const int offset = cyclesPerRow == 504 ? -72 : 8;
 
 	if (popupMessageTimeOut)
 		showPopUpMessage();
@@ -565,7 +565,9 @@ inline static void poll_events(void)
 								doSwapJoy();
 								break;
 							case SDLK_m :
+								sound_pause();
 								monitorEnter(machine);
+								sound_resume();
 								break;
                             case SDLK_p:
                                 g_bUseOverlay = !g_bUseOverlay;

@@ -523,7 +523,7 @@ void Vic2mem::changeCharsetBank()
 void Vic2mem::setCiaIrq(void *param)
 {
 	Vic2mem *mh = reinterpret_cast<Vic2mem*>(param);
-	mh->irqFlag = 0x80;
+	mh->irqFlag |= 0x40;
 }
 
 void Vic2mem::setCiaNmi(void *param)
@@ -534,7 +534,7 @@ void Vic2mem::setCiaNmi(void *param)
 
 void Vic2mem::checkIRQflag()
 {
-	irqFlag = (vicReg[0x19] & 0x80);
+	irqFlag |= (vicReg[0x19] & 0x80);
 	//irqFlag = (irqFlag & 0x7F) | (vicReg[0x19] & 0x80);
 }
 
@@ -542,30 +542,36 @@ void Vic2mem::doDelayedDMA()
 {
 	if (attribFetch) {
 		bool nowBadLine = (vshift == (beamy & 7)) & (beamy != 247);
-		if (nowBadLine && !BadLine && (beamx <= 82 || beamx >= 124)) {
-			int delay;
-			if (!VertSubActive) {
-				cycleLookup[0][beamx|1] ^= 0x40;
-				VertSubActive = true;
-				delay = (beamx <= 82) ? ((beamx) >> 1) + 1 : (beamx - 124) >> 1;
-				delayedDMA = true;
-			} else {
-				delay = 0;
-			}
-			if (delay <= 40) {
-				dmaCount = 40 - delay;
-				if (CharacterPosition >= 0x03d9) {
-					memcpy(chrbuf, VideoBase + CharacterPosition, 0x400 - CharacterPosition);
-					memcpy(chrbuf + 0x400 - CharacterPosition, 
-						VideoBase + dmaCount, (CharacterPosition + dmaCount) & 0x03FF);
+		if (nowBadLine) {
+			if (!BadLine && (beamx <= 82 /*|| beamx >= 124*/)) {
+				int delay;
+				if (!VertSubActive) {
+					//cycleLookup[0][beamx|1] ^= 0x40;
+					BadLine = 1;
+					VertSubActive = true;
+					delay = (beamx <= 82) ? ((beamx) >> 1) + 0 : (beamx - 124) >> 0;
+					delayedDMA = true;
 				} else {
-					memcpy(chrbuf, VideoBase + CharacterPosition, dmaCount);
+					delay = 0;
 				}
+				if (delay <= 40) {
+					dmaCount = 40 - delay;
+					if (CharacterPosition + dmaCount >= 0x0400) {
+						memcpy(chrbuf, VideoBase + CharacterPosition, 0x400 - CharacterPosition);
+						memcpy(chrbuf + 0x400 - CharacterPosition, VideoBase, (CharacterPosition + dmaCount) & 0x03FF);
+					} else {
+						memcpy(chrbuf, VideoBase + CharacterPosition, dmaCount);
+					}
+				} else {
+					dmaCount = 0;
+				}
+				//fprintf(stderr, "Delayed DMA:%02i count:%i @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", delay, 
+				//        dmaCount, hshift, beamx, beamy,  beamy, cpuptr->getPC());
 			} else {
-				dmaCount = 0;
+				BadLine = 1;
 			}
-            //fprintf(stderr, "Delayed DMA:%02i count:%i @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", delay, 
-            //        dmaCount, hshift, beamx, beamy,  beamy, cpuptr->getPC());
+		} else {
+			BadLine = 0;
 		}
 	}
 }
@@ -605,9 +611,9 @@ unsigned char Vic2mem::Read(unsigned int addr)
 						addr &= 0x3F;
 						switch (addr) {
 							case 0x12:
-								return ((beamy)) & 0xFF;
+								return beamy & 0xFF;
 							case 0x11:
-								return (vicReg[0x11] & 0x7f) | ((((beamy)) & 0x100) >> 1);
+								return (vicReg[0x11] & 0x7f) | ((beamy & 0x100) >> 1);
 							case 0x13: // LPX
 								return beamx << 1;
 							case 0x16:
@@ -666,7 +672,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 									break;
 								case 0x0D:
 									retval = cia[0].read(0x0D);
-									irqFlag = 0;
+									irqFlag &= ~0x40;
 									break;
 								default:
 									retval = cia[0].read(addr);
@@ -732,21 +738,27 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 						addr &= 0x3F;
 						switch (addr) {
 							case 0x12:
-								irqline = (irqline & 0x100) | value;
-								/*if (beamy == irqline) {
-									vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
-									checkIRQflag();
-								}*/
-								//fprintf(stderr, "Raster IRQ set to %03i(%03X) @ PC=0%04X @ cycle=%i\n", 
-								//	irqline, irqline, cpuptr->getPC(), CycleCounter);
+								if ((irqline ^ value) & 0xFF ) 
+								{
+/*									fprintf(stderr, "Raster IRQ set to %03i(%03X) @ PC=0%04X @ cycle=%i\n", 
+										irqline, value, cpuptr->getPC(), CycleCounter);	*/
+									irqline = (irqline & 0x100) | value;
+									if (beamy == irqline) {
+										vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
+										checkIRQflag();
+									}
+								}
 								break;
 							case 0x11:
 								// raster IRQ line
-								irqline = (irqline & 0xFF) | ((value & 0x80) << 1);
-								/*if (beamy == irqline) {
-									vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
-									checkIRQflag();
-								}*/
+								if (((irqline >> 1) ^ value) & 0x80 ) 
+								{
+									irqline = (irqline & 0xFF) | ((value & 0x80) << 1);
+									if (beamy == irqline) {
+										vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
+										checkIRQflag();
+									}
+								}
 								// get vertical offset of screen when smooth scroll
 								vshift = value & 0x07;
 								// check for flat screen (23 rows)
@@ -780,21 +792,25 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 							case 0x19:
 								vicReg[0x19] &= (0x0F & ~value);
 								// check if we have a pending IRQ
-								if ((vicReg[0x1a]) & 0x0F & vicReg[0x19])
+								if ((vicReg[0x1a]) & 0x0F & vicReg[0x19]) {
 									vicReg[0x19] |= 0x80;
-								else
+									irqFlag |= 0x80;
+								} else {
 									vicReg[0x19] &= 0x7F;
-								checkIRQflag();
+									irqFlag &= ~0x80;
+								}
 								//fprintf(stderr, "IRQ ack. write:%02X value:%02X @ PC=%04X @ cycle=%i\n", 
 								//	value, vicReg[0x19], cpuptr->getPC(), CycleCounter);
 								return;
 							case 0x1a:
 								// check if we have a pending IRQ
-								if ((vicReg[0x19]) & 0x0F & value)
+								if ((vicReg[0x19]) & 0x0F & value) {
 									vicReg[0x19] |= 0x80;
-								else
+									irqFlag |= 0x80;
+								} else {
 									vicReg[0x19] &= 0x7F;
-								checkIRQflag();
+									irqFlag &= ~0x80;
+								}
 								break;
 							case 0x20:
 								// distinguish border in the rendered screen with 0x80
@@ -926,7 +942,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 							default:
 								break;
 						}
-						fprintf(stderr, "CIA2(%02X) write: %02X @ PC=%04X\n", addr & 0x0f, value, cpuptr->getPC());
+						//fprintf(stderr, "CIA2(%02X) write: %02X @ PC=%04X\n", addr & 0x0f, value, cpuptr->getPC());
 						cia[1].write(addr, value);
 						return;
 					default: // $DExx/$DFxx open I/O
@@ -1245,7 +1261,7 @@ inline void Vic2mem::mc_text()
 
 		mcol[3] = charcol & 0x07;
 
-		wbuffer[0] = wbuffer[1] = mcol[ (mask & 0xC0) >> 6 ];
+		wbuffer[0] = wbuffer[1] = mcol[ mask>> 6 ];
 		wbuffer[2] = wbuffer[3] = mcol[ (mask & 0x30) >> 4 ];
 		wbuffer[4] = wbuffer[5] = mcol[ (mask & 0x0C) >> 2 ];
 		wbuffer[6] = wbuffer[7] = mcol[ mask & 0x03 ];
@@ -1275,7 +1291,7 @@ inline void Vic2mem::hi_bitmap()
 		// get the actual color attributes
 		hcol0 = chrbuf[x] & 0x0F;
 		hcol1 = chrbuf[x] >> 4;
-		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) | vertSubCount];
+		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FF8) | vertSubCount];
 	} else {
 		hcol0 = hcol1 = 0;
 		mask = vicBase[0x3FFF];
@@ -1308,7 +1324,7 @@ inline void Vic2mem::mc_bitmap()
 		mask = vicBase[0x3FFF];
 	}
 
-	wbuffer[0]= wbuffer[1] = bmmcol[(mask & 0xC0) >> 6 ];
+	wbuffer[0]= wbuffer[1] = bmmcol[mask >> 6];
 	wbuffer[2]= wbuffer[3] = bmmcol[(mask & 0x30) >> 4 ];
 	wbuffer[4]= wbuffer[5] = bmmcol[(mask & 0x0C) >> 2 ];
 	wbuffer[6]= wbuffer[7] = bmmcol[mask & 0x03];
@@ -1330,10 +1346,10 @@ inline void Vic2mem::mcec()
 	}
 
 	if (charcol & 8) {
-		wbuffer[0] = wbuffer[1] = imcol[ (mask & 0xC0) >> 6 ];
-		wbuffer[2] = wbuffer[3] = imcol[ (mask & 0x30) >> 4 ];
-		wbuffer[4] = wbuffer[5] = imcol[ (mask & 0x0C) >> 2 ];
-		wbuffer[6] = wbuffer[7] = imcol[ mask & 0x03 ];
+		wbuffer[0] = wbuffer[1] = imcol[mask >> 6];
+		wbuffer[2] = wbuffer[3] = imcol[(mask & 0x30) >> 4];
+		wbuffer[4] = wbuffer[5] = imcol[(mask & 0x0C) >> 2];
+		wbuffer[6] = wbuffer[7] = imcol[mask & 0x03];
 	} else {
 		wbuffer[0] = (mask & 0x80) ? 0 : 0x40;
 		wbuffer[1] = (mask & 0x40) ? 0 : 0x40;
@@ -1383,7 +1399,7 @@ inline void Vic2mem::mc_bmec()
 		mask = vicBase[0x39FF];
 	}
 
-	wbuffer[0]= wbuffer[1] = imcol[(mask & 0xC0) >> 6 ];
+	wbuffer[0]= wbuffer[1] = imcol[mask >> 6];
 	wbuffer[2]= wbuffer[3] = imcol[(mask & 0x30) >> 4 ];
 	wbuffer[4]= wbuffer[5] = imcol[(mask & 0x0C) >> 2 ];
 	wbuffer[6]= wbuffer[7] = imcol[mask & 0x03];
@@ -1527,13 +1543,13 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 			// sprite X expansion, multi mode
 			for(i = 0; i < 3; i++, out += 16, cx += 16) {
 				const unsigned char data = in[i];
-				unsigned int bitlet = data & 0xC0;
+				unsigned int bitlet = data >> 6;
 				if (bitlet) {
 					*((unsigned int*)(spriteCollisions + cx)) |= cDword;
-					MOB_DO_PIXEL(0, mobExtCol[bitlet >> 6]);
-					MOB_DO_PIXEL(1, mobExtCol[bitlet >> 6]);
-					MOB_DO_PIXEL(2, mobExtCol[bitlet >> 6]);
-					MOB_DO_PIXEL(3, mobExtCol[bitlet >> 6]);
+					MOB_DO_PIXEL(0, mobExtCol[bitlet]);
+					MOB_DO_PIXEL(1, mobExtCol[bitlet]);
+					MOB_DO_PIXEL(2, mobExtCol[bitlet]);
+					MOB_DO_PIXEL(3, mobExtCol[bitlet]);
 				}
 				bitlet = data & 0x30;
 				if (bitlet) {
@@ -1564,12 +1580,12 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 			// normal size, multicolor
 			for(i = 0; i < 3; i++, out += 8, cx += 8) {
 				const unsigned char data = in[i];
-				unsigned int bitlet = data & 0xC0;
+				unsigned int bitlet = data >> 6;
 				if (bitlet) {
 					spriteCollisions[cx] |= six;
 					spriteCollisions[cx + 1] |= six;
-					MOB_DO_PIXEL(0, mobExtCol[bitlet >> 6]);
-					MOB_DO_PIXEL(1, mobExtCol[bitlet >> 6]);
+					MOB_DO_PIXEL(0, mobExtCol[bitlet]);
+					MOB_DO_PIXEL(1, mobExtCol[bitlet]);
 				}
 				bitlet = data & 0x30;
 				if (bitlet) {

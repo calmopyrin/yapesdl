@@ -70,3 +70,5 @@ Network Trash Folder
 Temporary Items
 .apdisk
 vic2mem.cpp.bak
+*.ipch
+*.depend

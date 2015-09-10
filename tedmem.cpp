@@ -1001,7 +1001,7 @@ inline void TED::mc_text_rvs()
 
 		mcol[3]=charcol & 0xF7;
 
-		wbuffer[0] = wbuffer[1] = mcol[(mask & 0xC0) >> 6];
+		wbuffer[0] = wbuffer[1] = mcol[mask >> 6];
 		wbuffer[2] = wbuffer[3] = mcol[(mask & 0x30) >> 4];
 		wbuffer[4] = wbuffer[5] = mcol[(mask & 0x0C) >> 2];
 		wbuffer[6] = wbuffer[7] = mcol[mask & 0x03];
@@ -1036,7 +1036,7 @@ inline void TED::mc_text()
 
 		mcol[3] = charcol & 0xF7;
 
-		wbuffer[0] = wbuffer[1] = mcol[(mask & 0xC0) >> 6];
+		wbuffer[0] = wbuffer[1] = mcol[mask >> 6];
 		wbuffer[2] = wbuffer[3] = mcol[(mask & 0x30) >> 4];
 		wbuffer[4] = wbuffer[5] = mcol[(mask & 0x0C) >> 2];
 		wbuffer[6] = wbuffer[7] = mcol[mask & 0x03];
@@ -1092,7 +1092,7 @@ inline void TED::mc_bitmap()
 	else
 		mask = Read(0xFFFF);
 
-	wbuffer[0]= wbuffer[1] = bmmcol[ (mask & 0xC0) >> 6 ];
+	wbuffer[0]= wbuffer[1] = bmmcol[ mask >> 6 ];
 	wbuffer[2]= wbuffer[3] = bmmcol[ (mask & 0x30) >> 4 ];
 	wbuffer[4]= wbuffer[5] = bmmcol[ (mask & 0x0C) >> 2 ];
 	wbuffer[6]= wbuffer[7] = bmmcol[  mask & 0x03 ];
