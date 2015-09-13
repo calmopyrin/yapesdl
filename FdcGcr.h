@@ -191,7 +191,7 @@ inline unsigned char FdcGcr::getMotorState()
 */
 inline void FdcGcr::SpinMotor()
 {
-	if (motorSpinning && !gcrCurrentBitcount--)
+	if (motorSpinning && !--gcrCurrentBitcount)
 	{
 		gcrCurrentBitcount = gcrCurrentBitRate;
 		// here set byte ready line high, but

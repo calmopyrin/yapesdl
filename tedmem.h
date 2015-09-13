@@ -113,7 +113,7 @@ class TED : public CSerial , public MemoryHandler {
 	virtual unsigned int getColorCount() { return 128; };
 	virtual Color getColor(unsigned int ix);
 	virtual unsigned int getCyclesPerRow() const { return SCR_HSIZE; }
-	virtual unsigned char *getIrqReg() { return Ram + 0xff09; }
+	virtual unsigned char *getIrqReg() { return &irqFlag; }
 	virtual unsigned int getSoundClock() { return TED_SOUND_CLOCK; }
 	virtual unsigned int getEmulationLevel() { return 0; }
 	virtual unsigned int getAutostartDelay() { return 30; }

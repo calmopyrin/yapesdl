@@ -163,9 +163,10 @@ void Vic2mem::CIA::reset()
 	ddra = ddrb = 0;
 	icr = 0;
 	irq_mask = 0;
-	ta = tb = latcha = latchb = 0;
+	ta = tb = taFeed = tbFeed = 0;
+	latcha = latchb = 0xFFFF;
 	cra = crb = 0;
-	prbTimerOut = 0;
+	prbTimerOut = prbTimerToggle = 0;
 	// ToD
 	todCount = 60 * 60 * 50; // set to 1hr at reset
 	alarmCount = -1;
@@ -178,11 +179,13 @@ void Vic2mem::CIA::reset()
 void Vic2mem::CIA::setIRQflag(unsigned int mask)
 {
 	if (mask & 0x1F) {
-		icr |= 0x80;
-		irqCallback(callBackParam);
-	} else {
+		if (!(icr & 0x80)) {
+			irqCallback(callBackParam);
+			icr |= 0x80;
+		}
+	}/* else {
 		icr &= 0x7F;
-	}
+	}*/
 }
 
 unsigned int Vic2mem::CIA::bcd2hex(unsigned int bcd)
@@ -272,8 +275,10 @@ void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 		case 0x05:
 			latcha = (latcha & 0xFF) | (value << 8);
 			// Reload timer A if stopped
-			if (!(cra & 1))
+			if (!(cra & 1)) {
 				ta = latcha;
+				taFeed &= ~1;
+			}
 			break;
 
 		case 0x06:
@@ -283,8 +288,10 @@ void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 		case 0x07:
 			latchb = (latchb & 0xFF) | (value << 8);
 			// Reload timer B if stopped
-			if (!(crb & 1))
+			if (!(crb & 1)) {
 				tb = latchb;
+				tbFeed &= ~1;
+			}
 			break;
 
 		case 0x08:
@@ -344,24 +351,28 @@ void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 
 		case 0x0D:
 			if (value & 0x80)
-				irq_mask |= value & 0x9F;
+				irq_mask |= (value & 0x1F);
 			else
-				irq_mask &= ~value;
+				irq_mask &= ~(value & 0x1F);
 			setIRQflag(icr & irq_mask);
 			break;
 
 		case 0x0E:
 			cra = value & 0xEF;
+			prbTimerToggle = (prbTimerToggle & ~0x40) | ((value & 2) << 5);
 			// ToD clock rate
 			todIn = value & 0x80 ? 50 : 60;
-			if (value & 0x10) // Forced reload
+			if (value & 0x10) { // Forced reload
 				ta = latcha;
+			}
 			break;
 
 		case 0x0F:
 			crb = value & 0xEF;
-			if (value & 0x10) // Forced reload
+			prbTimerToggle = (prbTimerToggle & ~0x80) | ((value & 2) << 6);
+			if (value & 0x10) {// Forced reload
 				tb = latchb;
+			}
 			break;
 	}
 	reg[addr] = value;
@@ -376,7 +387,7 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 		case 0x01:
 			{
 				unsigned char retval;
-				retval = prb ^ prbTimerOut | ~ddrb;
+				retval = ((prb | ~ddrb) & ~prbTimerToggle) | (prbTimerOut & prbTimerToggle);
 				return retval;
 			}
 		case 0x02:
@@ -384,20 +395,12 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 		case 0x03:
 			return ddrb;
 		case 0x04:
-			if (!ta)
-				return latcha & 0xFF;
 			return ta & 0xFF;
 		case 0x05:
-			if (!ta)
-				return latcha >>  8;
 			return ta >> 8;
 		case 0x06:
-			if (!tb)
-				return latchb & 0xFF;
 			return tb & 0xFF;
 		case 0x07:
-			if (!tb)
-				return latchb >> 8;
 			return tb >> 8;
 		case 0x08:
 			if (tod.latched) {
@@ -430,9 +433,9 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 			return sdr;
 		case 0x0D:
 			{
-				unsigned char retval = icr;
+				unsigned char retval = icr & 0x9F;
 				icr = 0;
-				return retval & 0x9F;
+				return retval;
 			}
 		case 0x0E:
 			return cra;
@@ -442,12 +445,16 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 	return reg[addr];
 }
 
-void Vic2mem::CIA::countTimerB()
+void Vic2mem::CIA::countTimerB(bool cascaded)
 {
-	if (!tb--) {
+    tb -= (tbFeed & 1);
+	tbFeed = (tbFeed >> 1) | ((crb & 1) << 2);
+    if (!tb) {
+	    if (!cascaded)
+			tbFeed &= ~1;
 		icr |= 0x02; // Set timer B IRQ flag
 		setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay
-		prbTimerToggle ^= 0x80; // PRB7 underflow count toggle
+		//prbTimerToggle ^= 0x80; // PRB7 underflow count toggle
 		// timer A output to PRB6?
 		if (crb & 2) {
 			// set PRB7 high for one clock cycle
@@ -457,8 +464,10 @@ void Vic2mem::CIA::countTimerB()
 				prbTimerOut |= 0x80; // set high for one clock
 			}
 		}
-		if (crb & 8) // One-shot?
+		if (crb & 8) {// One-shot?
 			crb &= 0xFE; // Stop timer
+			tbFeed = 0;
+		}
 		// Reload from latch
 		tb = latchb;
 	}
@@ -473,30 +482,37 @@ void Vic2mem::CIA::countTimers()
 			setIRQflag(icr & irq_mask);
 		}
 	}
-	if ((cra & 0x20) == 0x00 && cra & 1 ) {
-		if (!ta--) {
-			icr |= 0x01; // Set timer A IRQ flag
-			if ((crb & 0x40) == 0x40) // cascaded timer? CNT pin is high by default
-				countTimerB();
+	if ((cra & 0x20) == 0x00) {
+        ta -= (taFeed & 1);
+		taFeed = (taFeed >> 1) | ((cra & 1) << 2);
+        if (!ta) {
+		    icr |= 0x01; // Set timer A IRQ flag
 			setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay
-			prbTimerToggle ^= 0x40; // PRA7 underflow count toggle
+			if ((crb & 0x40) == 0x40) { // cascaded timer? CNT pin is high by default
+                tbFeed |= 1;
+				countTimerB(true);
+			}
+			//prbTimerToggle ^= 0x40; // PRA7 underflow count toggle
 			// timer A output to PB6?
 			if (cra & 2) {
 				// set PRA6 high for one clock cycle
 				if (cra & 4) {
-					prbTimerOut ^= 0x40; // toggle PRA6 between 1 and 0
+					prbTimerOut ^= 0x40; // toggle PRB6 between 1 and 0
 				} else {
 					prbTimerOut |= 0x40; // set high for one clock
 				}
 			}
-			if (cra & 8) // One-shot?
+			if (cra & 8) {// One-shot?
 				cra &= 0xFE; // Stop timer
+				taFeed = 0;
+			}
 			// Reload from latch
+			taFeed &= ~1;
 			ta = latcha;
 		}
 	}
-	if (!(crb & 0x40) && crb & 1) { // TimerB counting phi clock cycles?
-		countTimerB();
+	if (!(crb & 0x40)) { // TimerB counting phi clock cycles?
+		countTimerB(false);
 	}
 }
 
@@ -524,6 +540,7 @@ void Vic2mem::setCiaIrq(void *param)
 {
 	Vic2mem *mh = reinterpret_cast<Vic2mem*>(param);
 	mh->irqFlag |= 0x40;
+	//fprintf(stderr, "CIA1 irq @ PC=%04X @ cycle=%i\n", mh->cpuptr->getPC(), CycleCounter);
 }
 
 void Vic2mem::setCiaNmi(void *param)
@@ -532,10 +549,9 @@ void Vic2mem::setCiaNmi(void *param)
 	cpu->triggerNmi();
 }
 
-void Vic2mem::checkIRQflag()
+inline void Vic2mem::checkIRQflag()
 {
 	irqFlag |= (vicReg[0x19] & 0x80);
-	//irqFlag = (irqFlag & 0x7F) | (vicReg[0x19] & 0x80);
 }
 
 void Vic2mem::doDelayedDMA()
@@ -543,13 +559,13 @@ void Vic2mem::doDelayedDMA()
 	if (attribFetch) {
 		bool nowBadLine = (vshift == (beamy & 7)) & (beamy != 247);
 		if (nowBadLine) {
-			if (!BadLine && (beamx <= 82 /*|| beamx >= 124*/)) {
+			if (!BadLine && (beamx <= 86 /*|| beamx >= 124*/)) {
 				int delay;
 				if (!VertSubActive) {
 					//cycleLookup[0][beamx|1] ^= 0x40;
 					BadLine = 1;
 					VertSubActive = true;
-					delay = (beamx <= 82) ? ((beamx) >> 1) + 0 : (beamx - 124) >> 0;
+					delay = (beamx <= 86) ? ((beamx) >> 1) + 0 : (beamx - 124) >> 0;
 					delayedDMA = true;
 				} else {
 					delay = 0;
@@ -663,13 +679,18 @@ unsigned char Vic2mem::Read(unsigned int addr)
 									retval = cia[0].read(0)
 										& keys64->getJoyState(1)
 										& keys64->feedKeyColumn((cia[0].prb | ~cia[0].ddrb) & keys64->getJoyState(0));
-									break;
+									return retval;
 								case 0x01: // port B usually not driven low by port A.
+#if 1
 									retval = (keys64->feedkey((cia[0].pra | ~cia[0].ddra) & keys64->getJoyState(1)) 
 											& ~cia[0].ddrb) 
 										| (cia[0].prb & cia[0].ddrb);
+#else
+									retval = cia[0].read(1) 
+										& (keys64->feedkey(cia[0].read(0)) & keys64->getJoyState(1) | cia[0].ddrb);
+#endif
 									//fprintf(stderr, "$Kb(%02X,%02X) read: %02X\n", cia[0].pra, cia[0].ddra, retval);
-									break;
+									return retval;
 								case 0x0D:
 									retval = cia[0].read(0x0D);
 									irqFlag &= ~0x40;
@@ -677,6 +698,8 @@ unsigned char Vic2mem::Read(unsigned int addr)
 								default:
 									retval = cia[0].read(addr);
 							}
+							/*fprintf(stderr, "CIA1(%02X) read:%02X @ PC=%04X @ cycle=%i\n", addr & 0x1f, retval, 
+								cpuptr->getPC(), CycleCounter);*/
 							return retval;
 						}
 					case 0xDD: // CIA2
@@ -909,8 +932,12 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 						switch (addr & 0x0F) {
 							// key matrix row select
 							case 0:
-								break;
+							case 1:
+								cia[0].write(addr, value);
+								return;
+							default:;
 						}
+						//fprintf(stderr, "CIA1(%02X) write: %02X @ PC=%04X\n", addr & 0x0f, value, cpuptr->getPC());
 						cia[0].write(addr, value);
 						return;
 					case 0xDD: // CIA2
@@ -973,12 +1000,8 @@ inline void Vic2mem::newLine()
 	switch (beamy) {
 
 		case 48:
-			if (!attribFetch) {
-				endOfScreen = true;
-			}
 			attribFetch = (vicReg[0x11] & 0x10) != 0;
-			// skip checking raster IRQ
-			return;
+			break;
 
 		case 48 + 3:
 			if (!fltscr && attribFetch) ScreenOn = true;
@@ -1004,22 +1027,27 @@ inline void Vic2mem::newLine()
 			VBlanking = true;
 			break;
 
+		case 0:
 		case 512:
 		case 312: // Vertical retrace
+			if (!attribFetch) {
+				endOfScreen = true;
+			}
 			beamy = 0;
 			CharacterPositionReload = 0;
 			doVRetrace();
 			// CIA ToD count @ 50/60 Hz
 			cia[0].todUpdate();
 			cia[1].todUpdate();
-			break;
+			// skip checking raster IRQ
+			return;
 
 		case 6:
 			VBlanking = false;
 			break;
 	}
 	// is there raster interrupt?
-	if (!endOfScreen && beamy == irqline) {
+	if (beamy == irqline) {
 		vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
 		checkIRQflag();
 	}
@@ -1046,7 +1074,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case 102:
 				if (endOfScreen) {
 					// is there raster interrupt? line 0 IRQ is delayed by 0 cycle
-					if (beamy == irqline) {
+					if (0 == irqline) {
 						vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
 						checkIRQflag();
 					}
@@ -1099,9 +1127,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				if (ScreenOn && !nrwscr) {
 					CharacterWindow = true;
 				}
-				break;
-
-			case 82:
 				break;
 
 			case 84:

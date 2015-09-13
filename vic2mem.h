@@ -30,7 +30,6 @@ class Vic2mem : public TED
 		//virtual unsigned int getColorCount() { return 256; };
 		virtual Color getColor(unsigned int ix);
 		virtual unsigned int getCyclesPerRow() const { return 504; }
-		virtual unsigned char *getIrqReg() { return &irqFlag ; }
 		virtual void copyToKbBuffer(const char *text, unsigned int length = 0);
 		virtual unsigned int getSoundClock() { return VIC_SOUND_CLOCK; }
 		virtual unsigned int getEmulationLevel() { return 2; }
@@ -84,6 +83,8 @@ class Vic2mem : public TED
 			int tb;
 			int latcha;
 			int latchb;
+			int taFeed;
+			int tbFeed;
 			unsigned char cra;
 			unsigned char crb;
 			unsigned char sdr;
@@ -106,7 +107,7 @@ class Vic2mem : public TED
 			unsigned char read(unsigned int addr);
 			void setIRQflag(unsigned int mask);
 			void countTimers();
-			void countTimerB();
+			void countTimerB(bool cascaded);
 			void todUpdate();
 			static unsigned int bcd2hex(unsigned int bcd);
 			static unsigned int hex2bcd(unsigned int hex);
