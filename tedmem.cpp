@@ -794,7 +794,6 @@ void TED::Write(unsigned int addr, unsigned char value)
 						case 0xFE8:
 						case 0xFE9:
 							if (sidCard) {
-								sidCard->setFrequency(0);
 								sidCard->write(addr & 0x1f, value);
 							}
 							return;
@@ -1515,6 +1514,7 @@ void TED::enableSidCard(bool enable, unsigned int disableMask)
 			return;
 		sidCard = new SIDsound(SID8580, disableMask);
 		sidCard->setSampleRate(SAMPLE_FREQ);
+		sidCard->setFrequency(TED_SOUND_CLOCK);
 	} else {
 		if (!sidCard)
 			return;

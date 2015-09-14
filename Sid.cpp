@@ -150,15 +150,10 @@ void SIDsound::calcEnvelopeTable()
 	sidCyclesPerSampleInt = (unsigned int) (deltaSampleCyclesFloat + 0.5);
 }
 
-void SIDsound::setFrequency(unsigned int sid_frequency)
+void SIDsound::setFrequency(unsigned int sid_frequency = SOUND_FREQ_PAL_C64)
 {
-	switch (sid_frequency) {
-		case 0:
-			sidBaseFreq = TED_SOUND_CLOCK * 4; // 312 * 114 * 50 / 2;
-			break;
-		default:
-			sidBaseFreq = SOUND_FREQ_PAL_C64;
-			break;
+	if (sid_frequency) {
+		sidBaseFreq = sid_frequency;
 	}
 	calcEnvelopeTable();
 }

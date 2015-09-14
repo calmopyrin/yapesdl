@@ -45,17 +45,18 @@ static unsigned char cycleLookup[][128] = {
 { "r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 00i011i122i233i344i455i566i677i7r r*r*"}
 };
 
+static unsigned char prevY;
+
 unsigned int Vic2mem::CIA::refCount = 0;
 
 Vic2mem::Vic2mem()
 {
 	enableSidCard(true, 0);
-	sidCard->setFrequency(1);
+	sidCard->setFrequency(VIC_SOUND_CLOCK);
 	sidCard->setModel(SID6581R1);
 	actram = Ram;
 	loadroms();
 	chrbuf = DMAbuf;
-	tmpClrbuf = DMAbuf + 128;
 	// setting screen memory pointer
 	scrptr = screen;
 	beamy = beamx = 0;
@@ -72,7 +73,6 @@ Vic2mem::Vic2mem()
 	}
 	//
 	irqFlag = 0;
-	crsrblinkon = false;
 	vicBase = Ram;
 	charrombank = charRomC64;
 	charrom = false;
@@ -562,7 +562,6 @@ void Vic2mem::doDelayedDMA()
 			if (!BadLine && (beamx <= 86 /*|| beamx >= 124*/)) {
 				int delay;
 				if (!VertSubActive) {
-					//cycleLookup[0][beamx|1] ^= 0x40;
 					BadLine = 1;
 					VertSubActive = true;
 					delay = (beamx <= 86) ? ((beamx) >> 1) + 0 : (beamx - 124) >> 0;
@@ -717,7 +716,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 						}
 						return cia[1].read(addr);
 					default: // open address space
-						return beamy ^ beamx;//actram[addr & 0xFFFF];
+						return cpuptr->getcins();// beamy ^ beamx;//actram[addr & 0xFFFF];
 				}
 			}
 	}
@@ -806,7 +805,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 								// get horizontal offset of screen when smooth scroll
 								hshift = value & 0x07;
 								scrattr = (scrattr & ~(MULTICOLOR)) | (value & (MULTICOLOR));
-								//fprintf(stderr, "$D016 write: %02X @ PC=%04X @ X=%i\n", value, cpuptr->getPC(), beamx);
+								//fprintf(stderr, "$D016 write: %02X @ PC=%04X @ X=%03i @ Y=%03i\n", value, cpuptr->getPC(), beamx, beamy);
 								break;
 							case 0x18:
 								vicReg[0x18] = value;
@@ -996,6 +995,7 @@ void Vic2mem::doHRetrace()
 
 inline void Vic2mem::newLine()
 {
+	prevY = beamy;
 	beamy += 1;
 	switch (beamy) {
 
@@ -1117,8 +1117,9 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				if (ScreenOn) {
 					SideBorderFlipFlop = true;
 					memset(scrptr, mcol[0], hshift);
-					if (nrwscr)
+					if (nrwscr) {
 						CharacterWindow = true;
+					}
 					x = 0;
 				}
 				break;
@@ -1175,10 +1176,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 		cia[1].countTimers();
 		unsigned char cycleChr = cycleLookup[BadLine][beamx|1];
 		switch (cycleChr) {
-			//delayed DMA
-            case ' '^0x40:
-                cycleLookup[0][beamx|1] ^= 0x40;
-                BadLine = 1;
 			case ' ':
 				cpuptr->process();
 				break;
@@ -1648,7 +1645,7 @@ inline void Vic2mem::drawSpritesPerLine()
             const unsigned int exy = mob[i].expandY;
 			if (!dc) {
 				unsigned int rY = mob[i].y;
-				if (rY + 1 == (beamy & 0xff)) {
+				if (rY == prevY) {
 					unsigned char *spd = VideoBase + 0x03F8;
                     dc = 21 << exy;
 					mob[i].dataCountReload = (spd[i] << 6);
