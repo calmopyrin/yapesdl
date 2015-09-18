@@ -93,6 +93,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <PreprocessToFile>false</PreprocessToFile>
     </ClCompile>
     <Link>
       <AdditionalDependencies>SDL2main.lib;SDL2.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -195,6 +196,7 @@
     <ClCompile Include="iec.cpp" />
     <ClCompile Include="interface.cpp" />
     <ClCompile Include="keyboard.cpp" />
+    <ClCompile Include="keys64.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="monitor.cpp" />
     <ClCompile Include="prg.cpp" />
@@ -205,6 +207,7 @@
     <ClCompile Include="tcbm.cpp" />
     <ClCompile Include="tedmem.cpp" />
     <ClCompile Include="tedsound.cpp" />
+    <ClCompile Include="vic2mem.cpp" />
     <ClCompile Include="video.cpp" />
   </ItemGroup>
   <ItemGroup>

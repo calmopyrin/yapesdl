@@ -126,6 +126,8 @@ void DRIVEMEM::Reset()
 	via[1].pra = via[1].ddra = via[1].ddrb = 0;
 	via[0].ifr = via[0].ier = via[1].ifr = via[1].ier =0;
 	via[0].acr = via[0].pcr = via[1].acr = via[1].pcr = 0;
+	via[0].sr = via[1].sr = 0;
+	via[0].t1l = via[1].t1l = 0;
 
 	// motor is on after reset
 	fdc->SetDriveMotor(via[1].prb = 0x0C);

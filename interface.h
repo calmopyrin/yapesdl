@@ -80,7 +80,7 @@ class UI {
 		void clear(char color, char shade);  // clears the screen with given C= 264 color and shade
 		void texttoscreen(int x,int y, char *scrtxt, long len);
 		void chrtoscreen(int x,int y, char scrchr);
-		void set_color(char foreground, char background);
+		void set_color(unsigned char foreground, unsigned char background);
 		void hide_sel_bar(struct menu_t *menu);
 		void show_sel_bar(struct menu_t *menu);
 		void show_title(struct menu_t * menu);

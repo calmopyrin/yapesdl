@@ -2074,7 +2074,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: if ((ptr&0x00FF)+Y<0x100) {
 							AC|=mem->Read(ptr+Y);
@@ -2095,7 +2096,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: if ((ptr&0x00FF)+Y<0x100) {
 							AC&=mem->Read(ptr+Y);
@@ -2116,7 +2118,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: if ((ptr&0x00FF)+Y<0x100) {
 							AC^=mem->Read(ptr+Y);
@@ -2137,7 +2140,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: if ((ptr&0x00FF)+Y<0x100) {
 							ADC(mem->Read(ptr+Y));
@@ -2156,7 +2160,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: break;
 				case 5: mem->Write(ptr+Y,AC);
@@ -2171,7 +2176,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: if ((ptr&0x00FF)+Y<0x100) {
 							AC=mem->Read(ptr+Y);
@@ -2192,7 +2198,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: if ((ptr&0x00FF)+Y<0x100) {
 							DoCompare(AC,mem->Read(ptr+Y));
@@ -2211,7 +2218,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: if ((ptr&0x00FF)+Y<0x100) {
 							SBC(mem->Read(ptr+Y));
@@ -2321,7 +2329,8 @@ void CPU::process()
 						break;
 				case 3: ptr=mem->Read(nextins);
 						break;
-				case 4: ptr|=(mem->Read(nextins+1)<<8);
+				case 4: nextins += 1;
+                        ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 5: farins=mem->Read(ptr);
 						break;
@@ -2404,7 +2413,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=(mem->Read(nextins+1)<<8);
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: break;
 				case 5: farins=mem->Read(ptr+Y);
@@ -2540,7 +2550,8 @@ void CPU::process()
 						break;
 				case 3: ptr=mem->Read(nextins);
 						break;
-				case 4: ptr|=(mem->Read(nextins+1)<<8);
+				case 4: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						farins=mem->Read(ptr);
 						break;
 				case 5: nextins=(farins<<1)|(ST&0x01);
@@ -2601,7 +2612,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: break;
 				case 5: farins=mem->Read(ptr+Y);
@@ -2773,7 +2785,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: break;
 				case 5: nextins=mem->Read(ptr+Y);
@@ -2875,7 +2888,8 @@ void CPU::process()
 						break;
 				case 3: ptr=mem->Read(nextins);
 						break;
-				case 4: ptr|=(mem->Read(nextins+1)<<8);
+				case 4: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 5: nextins=mem->Read(ptr);
 						farins=(nextins>>1)|((ST&0x01)<<7);
@@ -2975,7 +2989,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: break;
 				case 5: nextins=mem->Read(ptr+Y);
@@ -3232,7 +3247,8 @@ void CPU::process()
 						break;
 				case 3: ptr=mem->Read(nextins);
 						break;
-				case 4: ptr|=mem->Read(nextins+1)<<8;
+				case 4: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 5: X=AC=mem->Read(ptr);
 						SETFLAGS_ZN(X);
@@ -3283,7 +3299,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: if ((ptr&0x00FF)+Y<0x100) {
 							X=AC=mem->Read(ptr+Y);
@@ -3364,7 +3381,8 @@ void CPU::process()
 						break;
 				case 3: ptr=mem->Read(nextins);
 						break;
-				case 4: ptr|=mem->Read(nextins+1)<<8;
+				case 4: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 5: nextins=mem->Read(ptr)-1;
 						break;
@@ -3432,7 +3450,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: break;
 				case 5: farins=mem->Read(ptr+Y);
@@ -3533,7 +3552,8 @@ void CPU::process()
 						break;
 				case 3: ptr=mem->Read(nextins);
 						break;
-				case 4: ptr|=(mem->Read(nextins+1)<<8);
+				case 4: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 5: nextins=mem->Read(ptr);
 						break;
@@ -3595,7 +3615,8 @@ void CPU::process()
 						break;
 				case 2: ptr=mem->Read(nextins);
 						break;
-				case 3: ptr|=mem->Read(nextins+1)<<8;
+				case 3: nextins += 1;
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 4: break;
 				case 5: farins=mem->Read(ptr+Y);

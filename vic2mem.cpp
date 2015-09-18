@@ -21,7 +21,11 @@
     do { \
         if (!(out[X] & 0x80)) { \
             if (!(out[X] & 0x40)) { \
-                spriteBckgCollReg |= six; \
+				if (!spriteBckgCollReg) { \
+					vicReg[0x19] |= (vicReg[0x1A] & 2) ? 0x82 : 0x02; \
+					checkIRQflag(); \
+				} \
+				spriteBckgCollReg |= six; \
                 if (!priority) out[X] = COLOR; \
             } else \
                 out[X] = 0x40 | COLOR;\
@@ -59,8 +63,11 @@ Vic2mem::Vic2mem()
 	chrbuf = DMAbuf;
 	// setting screen memory pointer
 	scrptr = screen;
+	// important for sprite-bg collisions: fill blank area with border black
+	memset(screen, 0x80, VIC_PIXELS_PER_ROW * 312);
+	TVScanLineCounter = 0;
 	beamy = beamx = 0;
-	framecol = 0;
+	framecol = 0x80808080;
 	//
 	mobExtCol[0] = 0xFF;
 	unsigned int i;
@@ -450,7 +457,7 @@ void Vic2mem::CIA::countTimerB(bool cascaded)
     tb -= (tbFeed & 1);
 	tbFeed = (tbFeed >> 1) | ((crb & 1) << 2);
     if (!tb) {
-	    if (!cascaded)
+	    //if (!cascaded)
 			tbFeed &= ~1;
 		icr |= 0x02; // Set timer B IRQ flag
 		setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay
@@ -563,6 +570,7 @@ void Vic2mem::doDelayedDMA()
 				int delay;
 				if (!VertSubActive) {
 					BadLine = 1;
+					// FIXME one cycle delay
 					VertSubActive = true;
 					delay = (beamx <= 86) ? ((beamx) >> 1) + 0 : (beamx - 124) >> 0;
 					delayedDMA = true;
@@ -680,7 +688,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 										& keys64->feedKeyColumn((cia[0].prb | ~cia[0].ddrb) & keys64->getJoyState(0));
 									return retval;
 								case 0x01: // port B usually not driven low by port A.
-#if 1
+#if 0
 									retval = (keys64->feedkey((cia[0].pra | ~cia[0].ddra) & keys64->getJoyState(1)) 
 											& ~cia[0].ddrb) 
 										| (cia[0].prb & cia[0].ddrb);
@@ -714,6 +722,8 @@ unsigned char Vic2mem::Read(unsigned int addr)
 							default:
 								;
 						}
+						/*fprintf(stderr, "CIA2(%02X) read:%02X @ PC=%04X @ cycle=%i\n", addr & 0x1f, cia[1].read(addr & 0xf), 
+								cpuptr->getPC(), CycleCounter);*/
 						return cia[1].read(addr);
 					default: // open address space
 						return cpuptr->getcins();// beamy ^ beamx;//actram[addr & 0xFFFF];
@@ -726,22 +736,27 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 {
 	switch (addr & 0xF000) {
 		case 0x0000:
-			switch ( addr & 0xFFFF ) {
-				case 0:
-					prddr = value;
+			{
+				unsigned char port;
+				switch ( addr & 0xFFFF ) {
+					case 0:
+						prddr = value;
+						goto skip;
+
+					case 1:
+						if ((prp ^ value) & 8)
+							tap->SetTapeMotor(CycleCounter, value & 8);
+						prp = value;
+skip:
 					portState = (portState & ~prddr) | (prp & 0xC8 & prddr);
-					return;
-				case 1:
-					if ((prp ^ value) & 8)
-						tap->SetTapeMotor(CycleCounter, value & 8);
-					prp = value;
-					mem_8000_bfff = ((prp & 3) == 3) ? RomLo[0] : Ram + 0xa000; // a000..bfff
-					mem_c000_ffff = ((prp & 2) == 2) ? RomHi[0] : Ram + 0xe000; // e000..ffff
-					charrom = (!(prp & 4) && (prp & 3));
-					portState = (portState & ~prddr) | (prp & 0xC8 & prddr);
+					port = prp | ~prddr;
+					mem_8000_bfff = ((port & 3) == 3) ? RomLo[0] : Ram + 0xa000; // a000..bfff
+					mem_c000_ffff = ((port & 2) == 2) ? RomHi[0] : Ram + 0xe000; // e000..ffff
+					charrom = (!(port & 4) && (port & 3));
 					return;
 				default:
 					actram[addr & 0xFFFF] = value;
+				}
 			}
 			return;
 		default:
@@ -798,6 +813,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 									ScreenOn = false;
 								}
 								doDelayedDMA();
+								//fprintf(stderr, "d011: %02X @ PC=%04X\n", value, cpuptr->getPC());
 								break;
 							case 0x16:
 								// check for narrow screen (38 columns)
@@ -1066,8 +1082,11 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				// the beam reached a new line
 				doHRetrace();
 				newLine();
-				if (attribFetch)
+				if (attribFetch) {
 					BadLine = (vshift == (beamy & 7));
+					if (BadLine)
+						VertSubActive = true;
+				}
 				flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
 				break;
 
@@ -1095,7 +1114,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				beamx = 0;
 			case 0:
 				if (BadLine) {
-					VertSubActive = true;
 					vertSubCount = 0;
 				}
 				CharacterPosition = CharacterPositionReload;
@@ -1283,7 +1301,7 @@ inline void Vic2mem::mc_text()
 
 		mcol[3] = charcol & 0x07;
 
-		wbuffer[0] = wbuffer[1] = mcol[ mask>> 6 ];
+		wbuffer[0] = wbuffer[1] = mcol[ mask >> 6 ];
 		wbuffer[2] = wbuffer[3] = mcol[ (mask & 0x30) >> 4 ];
 		wbuffer[4] = wbuffer[5] = mcol[ (mask & 0x0C) >> 2 ];
 		wbuffer[6] = wbuffer[7] = mcol[ mask & 0x03 ];
@@ -1311,11 +1329,12 @@ inline void Vic2mem::hi_bitmap()
 
 	if (VertSubActive) {
 		// get the actual color attributes
-		hcol0 = chrbuf[x] & 0x0F;
+		hcol0 = (chrbuf[x] & 0x0F) | 0x40;
 		hcol1 = chrbuf[x] >> 4;
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FF8) | vertSubCount];
 	} else {
-		hcol0 = hcol1 = 0;
+		hcol0 = 0x40;
+		hcol1 = 0;
 		mask = vicBase[0x3FFF];
 	}
 
@@ -1337,12 +1356,13 @@ inline void Vic2mem::mc_bitmap()
 
 	if (VertSubActive) {
 		unsigned int cp = (CharacterPosition + x) & 0x03FF;
-		bmmcol[1] = chrbuf[x] >> 4;
+		bmmcol[1] = (chrbuf[x] >> 4) | 0x40;
 		bmmcol[2] = chrbuf[x] & 0x0F;
 		bmmcol[3] = colorRAM[cp] & 0x0F;
 		mask = grbank[(cp << 3) | vertSubCount];
 	} else {// FIXME
-		bmmcol[1] = bmmcol[2] = bmmcol[3] = 0;
+		bmmcol[1] = 0x40;
+		bmmcol[2] = bmmcol[3] = 0;
 		mask = vicBase[0x3FFF];
 	}
 
@@ -1389,8 +1409,8 @@ inline void Vic2mem::hi_bmec()
 {
 	unsigned char mask;
 	unsigned char *wbuffer = scrptr + hshift;
-	unsigned char hcol0 = 0;
-	unsigned char hcol1 = 0x40;
+	unsigned char hcol0 = 0x40;
+	unsigned char hcol1 = 0;
 
 	if (VertSubActive) {
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x19FF) | vertSubCount];
@@ -1663,21 +1683,14 @@ inline void Vic2mem::drawSpritesPerLine()
 	// check collisions
 	for(i = 0; i < VIC_PIXELS_PER_ROW; i++) {
 		if (spriteCollisions[i]) {
-			spriteCollisionReg |= collisionLookup[spriteCollisions[i]];
+            const unsigned char newReg = spriteCollisionReg | collisionLookup[spriteCollisions[i]];
+            if (!spriteCollisionReg & newReg) {
+                vicReg[0x19] |= (vicReg[0x1A] & 4) ? 0x84 : 0x04;
+                checkIRQflag();
+            }
+            spriteCollisionReg = newReg;
 			spriteCollisions[i] = 0;
 		}
-		//if (spriteBckgColl[i]) {
-		//	spriteBckgCollReg |= spriteBckgColl[i];
-		//	spriteBckgColl[i] = 0;
-		//}
-	}
-	if (spriteCollisionReg) {
-		vicReg[0x19] |= (vicReg[0x1A] & 4) ? 0x84 : 0x04;
-		checkIRQflag();
-	}
-	if (spriteBckgCollReg) {
-		vicReg[0x19] |= (vicReg[0x1A] & 2) ? 0x82 : 0x02;
-		checkIRQflag();
 	}
 }
 

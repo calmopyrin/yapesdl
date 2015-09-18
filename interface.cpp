@@ -31,7 +31,7 @@ extern bool autostart_file(char *szFile);
 extern void machineDoSomeFrames(unsigned int frames);
 extern void machineEnable1551(bool enable);
 
-#define COLOR( COL, SHADE) (SHADE<<4)|COL
+#define COLOR(COL, SHADE) ((SHADE<<4)|COL|0x80)
 #define MAX_LINES 25
 #define MAX_INDEX (MAX_LINES - 1)
 #define LISTOFFSET (ted8360->getCyclesPerRow() == 456 ? 100 : 160)
@@ -159,7 +159,7 @@ void UI::clear(char color, char shade)
 	screen_update();
 }
 
-void UI::set_color(char foreground, char background)
+void UI::set_color(unsigned char foreground, unsigned char background)
 {
 	bgcol = background;
 	fgcol = foreground;
