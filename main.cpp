@@ -476,6 +476,7 @@ static void setEmulationLevel(unsigned int level)
                 ted8360 = new Vic2mem;
                 break;
 		}
+		uinterface->setNewMachine(ted8360);
 		unsigned int newCpr = ted8360->getCyclesPerRow();
 		//ted8360->Reset();
 		machine->setMem(ted8360, ted8360->getIrqReg(), &(ted8360->Ram[0x0100]));

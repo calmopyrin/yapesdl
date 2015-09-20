@@ -55,6 +55,7 @@ unsigned int Vic2mem::CIA::refCount = 0;
 
 Vic2mem::Vic2mem()
 {
+    instance_ = this;
 	enableSidCard(true, 0);
 	sidCard->setFrequency(VIC_SOUND_CLOCK);
 	sidCard->setModel(SID6581R1);
@@ -83,7 +84,7 @@ Vic2mem::Vic2mem()
 	vicBase = Ram;
 	charrombank = charRomC64;
 	charrom = false;
-	tap = new TAP;
+	tap->mem=this;
 	keys64 = new KEYS64;
 	// CIA's
 	cia[0].setIrqCallback(setCiaIrq, this);
@@ -94,7 +95,6 @@ Vic2mem::Vic2mem()
 Vic2mem::~Vic2mem()
 {
 	delete keys64;
-	delete tap;
 }
 
 void Vic2mem::Reset(bool clearmem)
@@ -588,7 +588,7 @@ void Vic2mem::doDelayedDMA()
 				} else {
 					dmaCount = 0;
 				}
-				//fprintf(stderr, "Delayed DMA:%02i count:%i @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", delay, 
+				//fprintf(stderr, "Delayed DMA:%02i count:%i @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", delay,
 				//        dmaCount, hshift, beamx, beamy,  beamy, cpuptr->getPC());
 			} else {
 				BadLine = 1;
@@ -689,11 +689,11 @@ unsigned char Vic2mem::Read(unsigned int addr)
 									return retval;
 								case 0x01: // port B usually not driven low by port A.
 #if 0
-									retval = (keys64->feedkey((cia[0].pra | ~cia[0].ddra) & keys64->getJoyState(1)) 
-											& ~cia[0].ddrb) 
+									retval = (keys64->feedkey((cia[0].pra | ~cia[0].ddra) & keys64->getJoyState(1))
+											& ~cia[0].ddrb)
 										| (cia[0].prb & cia[0].ddrb);
 #else
-									retval = cia[0].read(1) 
+									retval = cia[0].read(1)
 										& (keys64->feedkey(cia[0].read(0)) & keys64->getJoyState(1) | cia[0].ddrb);
 #endif
 									//fprintf(stderr, "$Kb(%02X,%02X) read: %02X\n", cia[0].pra, cia[0].ddra, retval);
@@ -705,7 +705,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 								default:
 									retval = cia[0].read(addr);
 							}
-							/*fprintf(stderr, "CIA1(%02X) read:%02X @ PC=%04X @ cycle=%i\n", addr & 0x1f, retval, 
+							/*fprintf(stderr, "CIA1(%02X) read:%02X @ PC=%04X @ cycle=%i\n", addr & 0x1f, retval,
 								cpuptr->getPC(), CycleCounter);*/
 							return retval;
 						}
@@ -722,7 +722,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 							default:
 								;
 						}
-						/*fprintf(stderr, "CIA2(%02X) read:%02X @ PC=%04X @ cycle=%i\n", addr & 0x1f, cia[1].read(addr & 0xf), 
+						/*fprintf(stderr, "CIA2(%02X) read:%02X @ PC=%04X @ cycle=%i\n", addr & 0x1f, cia[1].read(addr & 0xf),
 								cpuptr->getPC(), CycleCounter);*/
 						return cia[1].read(addr);
 					default: // open address space
@@ -775,9 +775,9 @@ skip:
 						addr &= 0x3F;
 						switch (addr) {
 							case 0x12:
-								if ((irqline ^ value) & 0xFF ) 
+								if ((irqline ^ value) & 0xFF )
 								{
-/*									fprintf(stderr, "Raster IRQ set to %03i(%03X) @ PC=0%04X @ cycle=%i\n", 
+/*									fprintf(stderr, "Raster IRQ set to %03i(%03X) @ PC=0%04X @ cycle=%i\n",
 										irqline, value, cpuptr->getPC(), CycleCounter);	*/
 									irqline = (irqline & 0x100) | value;
 									if (beamy == irqline) {
@@ -788,7 +788,7 @@ skip:
 								break;
 							case 0x11:
 								// raster IRQ line
-								if (((irqline >> 1) ^ value) & 0x80 ) 
+								if (((irqline >> 1) ^ value) & 0x80 )
 								{
 									irqline = (irqline & 0xFF) | ((value & 0x80) << 1);
 									if (beamy == irqline) {
@@ -837,7 +837,7 @@ skip:
 									vicReg[0x19] &= 0x7F;
 									irqFlag &= ~0x80;
 								}
-								//fprintf(stderr, "IRQ ack. write:%02X value:%02X @ PC=%04X @ cycle=%i\n", 
+								//fprintf(stderr, "IRQ ack. write:%02X value:%02X @ PC=%04X @ cycle=%i\n",
 								//	value, vicReg[0x19], cpuptr->getPC(), CycleCounter);
 								return;
 							case 0x1a:
@@ -961,7 +961,7 @@ skip:
 								cia[1].write(2, value);
 								return;
 							case 0:
-								cia[1].write(0, value & 0x3F);							
+								cia[1].write(0, value & 0x3F);
 								// VIC base
 								changeCharsetBank();
 								// serial IEC

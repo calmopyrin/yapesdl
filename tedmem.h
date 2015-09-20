@@ -46,7 +46,7 @@ typedef void (TED::*delayedEventCallback)();
 class TED : public CSerial , public MemoryHandler {
   public:
   	TED();
-  	~TED();
+  	virtual ~TED();
 	TAP	*tap;
 	virtual KEYS *getKeys() { return keys; }
 	virtual void UpdateSerialState(unsigned char portval);

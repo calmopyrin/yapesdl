@@ -536,7 +536,7 @@ int UI::wait_events()
 		switch (event.type) {
 
 			case SDL_WINDOWEVENT:
-				if (event.window.event == SDL_WINDOWEVENT_RESIZED 
+				if (event.window.event == SDL_WINDOWEVENT_RESIZED
 					|| event.window.event == SDL_WINDOWEVENT_RESTORED) {
 					screen_update();
 				}

@@ -1510,8 +1510,10 @@ void TED::ted_process(const unsigned int continuous)
 void TED::enableSidCard(bool enable, unsigned int disableMask)
 {
 	if (enable) {
-		if (sidCard)
-			return;
+		if (sidCard) {
+			//return;
+			enableSidCard(false, 0);
+        }
 		sidCard = new SIDsound(SID8580, disableMask);
 		sidCard->setSampleRate(SAMPLE_FREQ);
 		sidCard->setFrequency(TED_SOUND_CLOCK);
@@ -1550,8 +1552,14 @@ Color TED::getColor(unsigned int ix)
 
 TED::~TED()
 {
-	delete keys;
-	delete tap;
+    if (keys) {
+        delete keys;
+        keys = NULL;
+    }
+    if (tap) {
+        delete tap;
+        tap = NULL;
+    }
 }
 
 //--------------------------------------------------------------

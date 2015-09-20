@@ -10,6 +10,7 @@ FdcGcr.o \
 iec.o \
 interface.o		\
 keyboard.o \
+keys64.o \
 main.o \
 monitor.o 	\
 prg.o \
@@ -20,10 +21,11 @@ tape.o \
 tcbm.o \
 tedmem.o \
 tedsound.o \
+vic2mem.o \
 video.o
 
 EXENAME = yapesdl
-SRCPACKAGENAME = $(EXENAME)_0.58.1-1
+SRCPACKAGENAME = $(EXENAME)_0.58.2-1
 BINPACKAGENAME = $(SRCPACKAGENAME)_amd64
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LDFLAGS := $(shell sdl2-config --libs)
@@ -81,6 +83,9 @@ interface.o : interface.cpp
 keyboard.o : keyboard.cpp keyboard.h
 	$(CC) $(cflags) -c $<
 
+keys64.o : keys64.cpp keys64.h
+	$(CC) $(cflags) -c $<
+
 main.o : main.cpp
 	$(CC) $(cflags) -c $<
 
@@ -109,6 +114,9 @@ tedmem.o : tedmem.cpp
 	$(CC) $(cflags) -c $<
 
 tedsound.o : tedsound.cpp
+	$(CC) $(cflags) -c $<
+
+vic2mem.o : vic2mem.cpp vic2mem.h
 	$(CC) $(cflags) -c $<
 
 video.o : video.cpp
