@@ -64,6 +64,8 @@
 		<Unit filename="interface.h" />
 		<Unit filename="keyboard.cpp" />
 		<Unit filename="keyboard.h" />
+		<Unit filename="keys64.cpp" />
+		<Unit filename="keys64.h" />
 		<Unit filename="main.cpp" />
 		<Unit filename="mem.h" />
 		<Unit filename="mnemonic.h" />
@@ -84,6 +86,8 @@
 		<Unit filename="tedmem.h" />
 		<Unit filename="tedsound.cpp" />
 		<Unit filename="types.h" />
+		<Unit filename="vic2mem.cpp" />
+		<Unit filename="vic2mem.h" />
 		<Unit filename="video.cpp" />
 		<Unit filename="video.h" />
 		<Extensions>

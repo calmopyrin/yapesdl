@@ -332,7 +332,7 @@ UI_FileTypes ad_return_current_filetype(void)
 {
   // Probably too kludgy but I dunno Unix so who cares...
   DIR *dirp;
-  if ( (dirp = opendir(gl.gl_pathv[gl_curr])) != NULL) {
+  if (gl.gl_pathv && (dirp = opendir(gl.gl_pathv[gl_curr])) != NULL) {
     closedir(dirp);
     return FT_DIR;
   } else
