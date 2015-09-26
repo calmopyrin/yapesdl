@@ -15,13 +15,15 @@
 #include "types.h"
 #include "mem.h"
 #include "serial.h"
+#include "sound.h"
 
 #define RAMSIZE 65536
 #define ROMSIZE 16384
 #define SCR_HSIZE 456
 #define SCR_VSIZE 312
+#define TED_CLOCK (312*114*500)
 #define TED_REAL_CLOCK_M10 17734475
-#define TED_SOUND_CLOCK (312*57*50)
+#define TED_SOUND_CLOCK (TED_CLOCK / 10 )
 #define TED_REAL_SOUND_CLOCK (TED_REAL_CLOCK_M10 / 10 / 8)
 
 #define TEXTMODE	0x00000000
@@ -43,7 +45,7 @@ struct Color;
 
 typedef void (TED::*delayedEventCallback)();
 
-class TED : public CSerial , public MemoryHandler {
+class TED : public CSerial , public MemoryHandler, public SoundSource {
   public:
   	TED();
   	virtual ~TED();
@@ -106,7 +108,7 @@ class TED : public CSerial , public MemoryHandler {
 	ClockCycle GetClockCount();
 	static TED *instance() { return instance_; };
 	unsigned char *getScreenData() { return screen; };
-	void enableSidCard(bool enable, unsigned int disableMask);
+	bool enableSidCard(bool enable, unsigned int disableMask);
 	SIDsound *getSidCard();
 	//
 	void showled(int x, int y, unsigned char onoff);
@@ -118,6 +120,7 @@ class TED : public CSerial , public MemoryHandler {
 	virtual unsigned int getEmulationLevel() { return 0; }
 	virtual unsigned int getAutostartDelay() { return 70; }
 	virtual unsigned short getEndLoadAddressPtr() { return 0x9D; };
+	virtual void calcSamples(short *buffer, unsigned int nrsamples);
 
 private:
 	  KEYS *keys;

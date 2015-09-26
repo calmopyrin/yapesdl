@@ -494,7 +494,7 @@ inline int SIDsound::doEnvelopeGenerator(unsigned int cycles, SIDVoice &v)
 			// LFSR = 0x7fff reset LFSR
 			v.envCounter = 0x7fff;
 
-			if (v.egState == EG_ATTACK || ++v.envExpCounter == envGenDRdivisors[v.envCurrLevel]) {
+			if (v.egState == EG_ATTACK || ++v.envExpCounter == envGenDRdivisors[v.envCurrLevel & 0xff]) {
 
 				v.envExpCounter = 0;
 
@@ -533,7 +533,7 @@ inline int SIDsound::doEnvelopeGenerator(unsigned int cycles, SIDVoice &v)
 	return v.envCurrLevel & 0xFF; // envelope is 8 bits
 }
 
-void SIDsound::calcSamples(short *buf, long count)
+void SIDsound::calcSamples(short *buf, unsigned int count)
 {
 	do {
 		// Outputs for normal and filtered sounds
@@ -581,13 +581,13 @@ void SIDsound::calcSamples(short *buf, long count)
 				// real accu is 24 bit but we use FP integer arithmetic
 				v.accu &= 0xFFFFFFF;
 			}
-			int output = v.disabled ? 0x0800 : getWaveSample(v);
+			int output = v.disabled ? 0x0000 : getWaveSample(v);
 
 			if (v.filter)
 				sumFilteredOutput += (output - dcWave) * envelope + dcVoice;
 			else {
 				if (v.muted)
-					sumOutput += (0x0800 - dcWave) * envelope + dcVoice;
+					sumOutput += (0x0000 - dcWave) * envelope + dcVoice;
 				else
 					sumOutput += (output - dcWave) * envelope + dcVoice;
 			}

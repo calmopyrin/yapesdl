@@ -1,6 +1,8 @@
 #ifndef _SID_H
 #define _SID_H
 
+#include "sound.h"
+
 #define SOUND_FREQ_PAL_C64 985248
 
 enum {
@@ -11,7 +13,7 @@ enum {
 };
 
 // SID class
-class SIDsound
+class SIDsound : public SoundSource
 {
 public:
 	SIDsound(unsigned int model, unsigned int chnlDisableMask);
@@ -26,7 +28,7 @@ public:
 	void calcEnvelopeTable();
 	unsigned char read(unsigned int adr);
 	void write(unsigned int adr, unsigned char byte);
-	void calcSamples(short *buf, long count);
+	virtual void calcSamples(short *buf, unsigned int count);
 	void enableDisableChannel(unsigned int ch, bool enabled) {
 		voice[ch].disabled = !enabled;
 	}
@@ -140,7 +142,7 @@ inline int SIDsound::waveTriangle(SIDVoice &v)
 	unsigned int msb = (v.ring ? v.accu ^ v.modulatedBy->accu : v.accu)
 		& 0x8000000;
 	// triangle wave 15 bit only
- 	return ((msb ? ~v.accu : v.accu) >> 15) & 0xFFE;
+ 	return ((msb ? ~v.accu : v.accu) >> 15) & 0xFFF;
 }
 
 inline int SIDsound::waveSaw(SIDVoice &v)

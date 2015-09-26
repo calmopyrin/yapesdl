@@ -1,0 +1,112 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="1541mem.cpp" />
+    <ClCompile Include="archdep.cpp" />
+    <ClCompile Include="cpu.cpp" />
+    <ClCompile Include="dis.cpp" />
+    <ClCompile Include="diskfs.cpp" />
+    <ClCompile Include="dos.cpp" />
+    <ClCompile Include="drive.cpp" />
+    <ClCompile Include="FdcGcr.cpp" />
+    <ClCompile Include="iec.cpp" />
+    <ClCompile Include="interface.cpp" />
+    <ClCompile Include="keyboard.cpp" />
+    <ClCompile Include="keys64.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="monitor.cpp" />
+    <ClCompile Include="prg.cpp" />
+    <ClCompile Include="serial.cpp" />
+    <ClCompile Include="Sid.cpp" />
+    <ClCompile Include="sound.cpp" />
+    <ClCompile Include="tape.cpp" />
+    <ClCompile Include="tcbm.cpp" />
+    <ClCompile Include="tedmem.cpp" />
+    <ClCompile Include="tedsound.cpp" />
+    <ClCompile Include="vic2mem.cpp" />
+    <ClCompile Include="video.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="1541mem.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="1541rom.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="archdep.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="cpu.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="device.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="diskfs.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="drive.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="FdcGcr.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="iec.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="interface.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="keyboard.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="mem.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="mnemonic.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="monitor.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="prg.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="roms.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="serial.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Sid.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="sound.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="tape.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="tcbm.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="tedmem.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="types.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="video.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Changes" />
+    <None Include="README.SDL" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Headers">
+      <UniqueIdentifier>{b1d68217-3f8d-4cee-829f-89e07768aacf}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -66,7 +66,7 @@ static CIECInterface	*iec = NULL;
 static CIECDrive		*fsdrive = NULL;
 static CTrueDrive		*drive1541 = NULL;
 //
-static char				textout[40];
+static char				textout[64];
 static char				*inipath;
 static char				*inifile;
 
@@ -377,15 +377,17 @@ static bool saveScreenshotBMP(char* filepath, SDL_Window* SDLWindow, SDL_Rendere
 	if (infoSurface == NULL) {
 		return false;
 	} else {
-		unsigned char *pixels = new unsigned char[infoSurface->w * infoSurface->h * infoSurface->format->BytesPerPixel];
+		unsigned char *pxls = new unsigned char[infoSurface->w * infoSurface->h * infoSurface->format->BytesPerPixel];
 		if (pixels == 0) {
 			return false;
 		} else {
-			if (SDL_RenderReadPixels(SDLRenderer, &infoSurface->clip_rect, infoSurface->format->format, pixels, infoSurface->w * infoSurface->format->BytesPerPixel) != 0) {
-				pixels = NULL;
+			if (SDL_RenderReadPixels(SDLRenderer, &infoSurface->clip_rect, infoSurface->format->format, pxls, infoSurface->w * infoSurface->format->BytesPerPixel) != 0) {
+				pxls = NULL;
 				return false;
 			} else {
-				saveSurface = SDL_CreateRGBSurfaceFrom(pixels, infoSurface->w, infoSurface->h, infoSurface->format->BitsPerPixel, infoSurface->w * infoSurface->format->BytesPerPixel, infoSurface->format->Rmask, infoSurface->format->Gmask, infoSurface->format->Bmask, infoSurface->format->Amask);
+				saveSurface = SDL_CreateRGBSurfaceFrom(pixels, infoSurface->w, infoSurface->h, infoSurface->format->BitsPerPixel, 
+					infoSurface->w * infoSurface->format->BytesPerPixel, infoSurface->format->Rmask, 
+					infoSurface->format->Gmask, infoSurface->format->Bmask, infoSurface->format->Amask);
 				if (saveSurface == NULL) {
 					return false;
 				}
@@ -393,7 +395,7 @@ static bool saveScreenshotBMP(char* filepath, SDL_Window* SDLWindow, SDL_Rendere
 				SDL_FreeSurface(saveSurface);
 				saveSurface = NULL;
 			}
-			delete[] pixels;
+			delete[] pxls;
 		}
 		SDL_FreeSurface(infoSurface);
 		infoSurface = NULL;
@@ -765,6 +767,7 @@ static void app_close()
 		delete [] inifile;
 		inifile = NULL;
 	}
+	delete uinterface;
 	KEYS::closePcJoys();
 	if (sdlRenderer)
 		SDL_DestroyRenderer(sdlRenderer);
@@ -830,7 +833,7 @@ static void app_initialise()
                                SDL_TEXTUREACCESS_STREAMING,
 							   WINDOWX, WINDOWY * (g_bUseOverlay ? 2 : 1));
 
-	init_audio(ted8360->getSoundClock());
+	init_audio();
 }
 
 /* ---------- MAIN ---------- */
@@ -863,7 +866,6 @@ int main(int argc, char *argv[])
 	} else
 		fprintf(stderr,"Error loading settings or no .ini file present...\n");
 	app_initialise();
-	ted_sound_init(SAMPLE_FREQ);
 	if (!g_SoundOn || !g_50Hz) sound_pause();
 	KEYS::initPcJoys();
 	machine->Reset();

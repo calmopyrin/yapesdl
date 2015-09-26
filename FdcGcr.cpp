@@ -256,7 +256,7 @@ bool FdcGcr::readSector(int track, int sector, unsigned char *buffer)
 void FdcGcr::trackSector(unsigned int &track, unsigned int &sector)
 {
 	track = ((currentHalfTrack >> 1));
-	sector = ((gcrPtr - gcrTrackBegin) / GCR_SECTOR_SIZE);
+	sector = (unsigned int) ((gcrPtr - gcrTrackBegin) / GCR_SECTOR_SIZE);
 }
 
 /*

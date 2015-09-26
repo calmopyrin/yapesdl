@@ -165,7 +165,7 @@ void UI::set_color(unsigned char foreground, unsigned char background)
 	fgcol = foreground;
 }
 
-void UI::texttoscreen(int x, int y, char *scrtxt, long len = 0)
+void UI::texttoscreen(int x, int y, char *scrtxt, size_t len = 0)
 {
 	int i = 0;
 
@@ -417,7 +417,7 @@ void UI::show_title(struct menu_t * menu)
 	char *subtitle = menu->subtitle;
 	do {
 		const int MAXLEN = 46;//55;
-		int chunklen = (int) titlen > MAXLEN ? MAXLEN : titlen;
+		int chunklen = (int) (titlen > MAXLEN ? MAXLEN : titlen);
 		texttoscreen(CPR / 2 - int(chunklen) * 4, startline,
 			petstr2ascstr(subtitle), chunklen);
 		titlen -= MAXLEN;
@@ -451,18 +451,20 @@ void UI::show_menu(struct menu_t * menu)
 	screen_update();
 }
 
-void UI::enterMenu()
+int UI::enterMenu()
 {
-	ad_get_curr_dir( (char*)&(tap_list.subtitle) );
-	ad_get_curr_dir( (char*)&(file_menu.subtitle) );
-	ad_get_curr_dir( (char*)&(d64_list.subtitle) );
+	int retval;
+	ad_get_curr_dir(tap_list.subtitle);
+	ad_get_curr_dir(file_menu.subtitle);
+	ad_get_curr_dir(d64_list.subtitle);
 
 	clear (1, 5);
 	show_menu( curr_menu);
 	show_sel_bar( curr_menu );
-	wait_events();
+	retval = wait_events();
 
 	clear (0, 0);
+	return retval;
 }
 
 void UI::menuMoveUp()
@@ -663,6 +665,7 @@ int UI::wait_events()
 				};
 				break;
 			case SDL_QUIT:
+				//return 2;
 				exit(0);
 		}
 	}

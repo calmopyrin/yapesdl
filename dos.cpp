@@ -47,7 +47,7 @@ void CIECDrive::SetError(unsigned int error, unsigned int track, unsigned int se
 {
 	sprintf( current_error, "%s,%02d,%02d\r", DriveErrors[error], track, sector);
 	errorPtr = current_error;
-	error_len = strlen(errorPtr);
+	errorLength = strlen(errorPtr);
 	currentError = error;
 }
 

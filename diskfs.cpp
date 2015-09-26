@@ -449,8 +449,8 @@ void CIECFSDrive::ExecuteCommand(char *command)
 					case 'R':
 						adr = (command[4] << 8) | (command[3]);
 						errorPtr = (char *)(ram + (adr & 0x07ff));
-						if (!(error_len = command[5]))
-							error_len = 1;
+						if (!(errorLength = command[5]))
+							errorLength = 1;
 						break;
 
 					case 'W':

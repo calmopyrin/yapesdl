@@ -44,6 +44,8 @@ class CPU;
 class Mem;
 class Cpu;
 
+#pragma warning(push)
+#pragma warning(disable: 4355)
 class Clockable : public StaticList<Clockable>
 {
 public:
@@ -80,6 +82,7 @@ protected:
 	DRVMEM *Mem;
 	unsigned int devNr_;
 };
+#pragma warning(pop)
 
 inline void Clockable::Clock(unsigned int n)
 {

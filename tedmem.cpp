@@ -123,8 +123,12 @@ TED::TED() : sidCard(0)
 	irqFlag = 0;
 	BadLine = 0;
 	CycleCounter = 0;
-
-	enableSidCard(true, 0);
+	
+	ted_sound_init(SAMPLE_FREQ);
+	if (enableSidCard(true, 0)) {
+		sidCard->setFrequency(TED_SOUND_CLOCK);
+		sidCard->setModel(SID8580DB);
+	}
 }
 
 void TED::soundReset()
@@ -175,7 +179,7 @@ void TED::texttoscreen(int x,int y, const char *scrtxt)
 void TED::copyToKbBuffer(const char *text, unsigned int length)
 {
 	if (!length)
-		length = strlen(text);
+		length = (unsigned int) strlen(text);
 	Write(0xEF, length);
 	while (length--)
 		Write(0x0527+length, text[length]);
@@ -1507,22 +1511,23 @@ void TED::ted_process(const unsigned int continuous)
 
 };
 
-void TED::enableSidCard(bool enable, unsigned int disableMask)
+bool TED::enableSidCard(bool enable, unsigned int disableMask)
 {
 	if (enable) {
 		if (sidCard) {
-			//return;
-			enableSidCard(false, 0);
+			return true;
+			//enableSidCard(false, 0);
         }
 		sidCard = new SIDsound(SID8580, disableMask);
 		sidCard->setSampleRate(SAMPLE_FREQ);
-		sidCard->setFrequency(TED_SOUND_CLOCK);
+		sidCard->setFrequency(TED_SOUND_CLOCK / 2);
 	} else {
 		if (!sidCard)
-			return;
+			return false;
 		delete sidCard;
 		sidCard = 0;
 	}
+	return false;
 }
 
 SIDsound *TED::getSidCard()
@@ -1560,6 +1565,8 @@ TED::~TED()
         delete tap;
         tap = NULL;
     }
+	if (sidCard)
+		enableSidCard(false, 0);
 }
 
 //--------------------------------------------------------------

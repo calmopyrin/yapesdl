@@ -83,7 +83,7 @@ protected:
 	unsigned char *ram;		// 2KB 1541/1551 RAM
 	int currentError;
 	char *errorPtr;
-	int error_len;
+	size_t errorLength;
 	char current_error[80];
 	char name_buf[256];
 	char *name_ptr;

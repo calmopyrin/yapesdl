@@ -10,21 +10,20 @@ static int             Snd1Status;
 static int             Snd2Status;
 static int             SndNoiseStatus;
 static int             DAStatus;
-static unsigned short  			  Freq1;
-static unsigned short  			  Freq2;
+static unsigned short  Freq1;
+static unsigned short  Freq2;
 static int             NoiseCounter;
 static int             FlipFlop[2];
 static int             oscCount1;
 static int             oscCount2;
 static int             OscReload[2];
 static int             oscStep;
-static unsigned char            noise[256]; // 0-8
+static unsigned char    noise[256]; // 0-8
 static unsigned int		MixingFreq;
 
 void ted_sound_init(unsigned int mixingFreq)
 {
-	//oscStep = (int) (( 2.0 * 110860.45 * (double) (1 << PRECISION)) / (double) (mixingFreq));
-	oscStep = (int) (( TED_SOUND_CLOCK * (double) (1 << PRECISION)) / (double) (mixingFreq) + 0.5);
+	oscStep = (int) (( TED_SOUND_CLOCK / 8 * (double) (1 << PRECISION) ) / (double) (mixingFreq) + 0.5);
     FlipFlop[0] = 0;
     FlipFlop[1] = 0;
     oscCount1 = 0;
@@ -42,7 +41,7 @@ void ted_sound_init(unsigned int mixingFreq)
     }
 }
 
-inline void render_ted_audio(Sint16 *buffer, unsigned int nrsamples)
+void TED::calcSamples(short *buffer, unsigned int nrsamples)
 {
     // Rendering...
 	// Calculate the buffer...
@@ -82,22 +81,6 @@ inline void render_ted_audio(Sint16 *buffer, unsigned int nrsamples)
 			*buffer++ = result1 + result2;
 		}   // for
 	}
-}
-
-void render_audio(unsigned int nrsamples, short *buffer)
-{
-    render_ted_audio(buffer, nrsamples);
-    SIDsound *sid = theTed->getSidCard();
-
-    if (sid != NULL) {
-        short temp[SAMPLE_FREQ];
-        int i = nrsamples - 1;
-        //sid->calcSamplesLQ(temp, nrsamples);
-		sid->calcSamples(temp, nrsamples);
-        do {
-			buffer[i] += temp[i];
-		} while(i--);
-    }
 }
 
 inline void setFreq(unsigned int channel, int freq)
@@ -148,3 +131,4 @@ void writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value)
 			break;
 	}
 }
+

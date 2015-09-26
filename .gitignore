@@ -72,3 +72,7 @@ Temporary Items
 vic2mem.cpp.bak
 *.ipch
 *.depend
+*.lastcodeanalysissucceeded
+Release/YapeSDL.exe.CodeAnalysisLog.xml
+YapeSDL.VS10.opensdf
+*.vsp

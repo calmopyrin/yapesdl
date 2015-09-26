@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <memory.h>
 #include "vic2mem.h"
 #include "c64rom.h"
@@ -56,9 +57,10 @@ unsigned int Vic2mem::CIA::refCount = 0;
 Vic2mem::Vic2mem()
 {
     instance_ = this;
-	enableSidCard(true, 0);
-	sidCard->setFrequency(VIC_SOUND_CLOCK);
-	sidCard->setModel(SID6581R1);
+	if (enableSidCard(true, 0)) {
+		sidCard->setFrequency(VIC_SOUND_CLOCK);
+		sidCard->setModel(SID6581R1);
+	}
 	actram = Ram;
 	loadroms();
 	chrbuf = DMAbuf;
@@ -76,7 +78,7 @@ Vic2mem::Vic2mem()
 		collisionLookup[i] = i;
 	}
 	for(i = 0; i < 8; i++) {
-		collisionLookup[1 << i] = 0;
+		collisionLookup[1ULL << i] = 0;
 		mob[i].dataCount = 0;
 	}
 	//
@@ -90,6 +92,8 @@ Vic2mem::Vic2mem()
 	cia[0].setIrqCallback(setCiaIrq, this);
 	//
 	Reset(true);
+	// remove TED sound (inherited) from the list
+	remove(this);
 }
 
 Vic2mem::~Vic2mem()
@@ -141,7 +145,7 @@ void Vic2mem::setCpuPtr(CPU *cpu)
 void Vic2mem::copyToKbBuffer(const char *text, unsigned int length)
 {
 	if (!length)
-		length = strlen(text);
+		length = (unsigned int) strlen(text);
 	Write(0xc6, length);
 	while (length--)
 		Write(0x0277 + length, text[length]);
@@ -161,7 +165,8 @@ Color Vic2mem::getColor(unsigned int ix)
 
 void Vic2mem::soundReset()
 {
-	sidCard->reset();
+	if (sidCard)
+		sidCard->reset();
 }
 
 void Vic2mem::CIA::reset()
@@ -672,7 +677,9 @@ unsigned char Vic2mem::Read(unsigned int addr)
 					case 0xD5:
 					case 0xD6:
 					case 0xD7:
-						return sidCard->read(addr & 0x1F);
+						if (sidCard)
+							return sidCard->read(addr & 0x1F);
+						return 0xD4;
 					case 0xD8: // Color RAM
 					case 0xD9:
 					case 0xDA:
@@ -935,7 +942,8 @@ skip:
 					case 0xD5:
 					case 0xD6:
 					case 0xD7:
-						sidCard->write(addr & 0x1f, value);
+						if (sidCard)
+							sidCard->write(addr & 0x1f, value);
 						return;
 					case 0xD8: // Color RAM
 					case 0xD9:

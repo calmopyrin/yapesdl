@@ -4,9 +4,15 @@
 #include <math.h>
 #include "sound.h"
 
+// Linux needs a buffer with a size of a factor of 2
+// 512 1024 2048 4096
+#define FRAGMENT_SIZE 1024
+
 //#define LOG_AUDIO
 #define SND_BUF_MAX_READ_AHEAD 6
 #define SND_LATENCY_IN_FRAGS 2
+
+static SDL_AudioDeviceID dev;
 
 static int           MixingFreq;
 static unsigned int           BufferLength;
@@ -22,7 +28,29 @@ static short lastSample;
 static ClockCycle		lastUpdateCycle;
 static unsigned int		lastSamplePos;
 
-static SDL_AudioSpec		*audiohwspec;
+template<> unsigned int LinkedList<SoundSource>::count = 0;
+template<> SoundSource* LinkedList<SoundSource>::root = 0;
+template<> SoundSource* LinkedList<SoundSource>::last = 0;
+
+void SoundSource::bufferFill(unsigned int nrsamples, short *buffer)
+{
+	SoundSource *cb = SoundSource::getRoot();
+	if (cb) {
+		cb->calcSamples(buffer, nrsamples);
+		cb = cb->getNext();
+	}
+	// multiple sources
+	while (cb) {
+		short temp[FRAGMENT_SIZE];
+		int i = nrsamples - 1;
+
+		cb->calcSamples(temp, nrsamples);
+		do {
+			buffer[i] += temp[i];
+		} while(i--);
+		cb = cb->getNext();
+	}
+}
 
 static void add_new_frag()
 {
@@ -54,7 +82,7 @@ static void fragmentDone()
 #ifdef LOG_AUDIO
 		fprintf(stderr, "   adding an extra frag.\n");
 #endif
-		render_audio(BufferLength, sndWriteBufferPtr);
+		SoundSource::bufferFill(BufferLength, sndWriteBufferPtr);
 		add_new_frag();
 		lead_in_frags++;
 	}
@@ -93,14 +121,14 @@ void updateAudio(unsigned int nrsamples)
 #endif
 		} else {
 			// Finish pending buffer...
-			render_audio(BufferLength - sndBufferPos, sndWriteBufferPtr + sndBufferPos);
+			SoundSource::bufferFill(BufferLength - sndBufferPos, sndWriteBufferPtr + sndBufferPos);
 			add_new_frag();
 			if ((sndBufferPos = (sndBufferPos + nrsamples) % BufferLength))
-				render_audio(sndBufferPos, sndWriteBufferPtr);
+				SoundSource::bufferFill(sndBufferPos, sndWriteBufferPtr);
 			fragmentDone();
 		}
 	} else if (nrsamples) {
-		render_audio(nrsamples, sndWriteBufferPtr + sndBufferPos);
+		SoundSource::bufferFill(nrsamples, sndWriteBufferPtr + sndBufferPos);
 		sndBufferPos += nrsamples;
 	}
 	//_ASSERT(sndBufferPos <= BufferLength);
@@ -111,7 +139,10 @@ static inline unsigned int getNrOfSamplesToGenerate(ClockCycle clock, unsigned i
 	// OK this should really be INT but I'm tired right now
 	unsigned int samplePos = (unsigned int) ((double) clock * (double) MixingFreq / deviceFrq);
 	unsigned int samplesToDo = samplePos - lastSamplePos;
-	//fprintf( stderr, "Sound: %i cycles/%f samples\n", clock, (double) clock * (double) MixingFreq / (1778400.0/8.0));
+	//fprintf( stderr, "Sound: %i cycles/%f samples\n", clock, (double) clock * (double) MixingFreq / deviceFrq);
+	// 'clock' might have been reset but 'lastSamplePos' not!
+	if (lastSamplePos > samplePos)
+		samplesToDo = 0;
 	lastSamplePos = samplePos;
 	return samplesToDo;
 }
@@ -122,85 +153,70 @@ void flushBuffer(ClockCycle cycle, unsigned int frq)
 	lastUpdateCycle = cycle;
 }
 
-void init_audio(unsigned int soundFreq, unsigned int sampleFrq)
+void init_audio(unsigned int sampleFrq)
 {
-    SDL_AudioSpec *desired, *obtained = NULL;
+    SDL_AudioSpec desired, obtained, *audiohwspec;
 
-	originalFrequency = soundFreq;
-	MixingFreq = sampleFrq;//44100 22050 11025 96000 48000
-	// Linux needs a buffer with a size of a factor of 2
-	BufferLength = 1024; // 512 1024 2048 4096
+	MixingFreq = sampleFrq;
 
-	desired =(SDL_AudioSpec *) malloc(sizeof(SDL_AudioSpec));
-	obtained=(SDL_AudioSpec *) malloc(sizeof(SDL_AudioSpec));
+	BufferLength = FRAGMENT_SIZE;
 
-	desired->freq		= MixingFreq;
-	desired->format		= AUDIO_S16;
-	desired->channels	= 1;
-	desired->samples	= BufferLength;
-	desired->callback	= audioCallback;
-	desired->userdata	= NULL;
-	desired->size		= desired->channels * desired->samples * sizeof(Uint8);
-	desired->silence	= 0x00;
+	desired.freq		= MixingFreq;
+	desired.format		= AUDIO_S16;
+	desired.channels	= 1;
+	desired.samples	= BufferLength;
+	desired.callback	= audioCallback;
+	desired.userdata	= NULL;
+	desired.size		= desired.channels * desired.samples * sizeof(Uint8);
+	desired.silence	= 0x00;
 
-	sndBufferPos = 0;
-	if (SDL_OpenAudio(desired, obtained)) {
-		fprintf(stderr,"SDL_OpenAudio failed!\n");
+	dev = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+	if (!dev) {
+		fprintf(stderr, "SDL_OpenAudioDevice failed!\n");
 		return;
 	} else {
-		fprintf(stderr,"SDL_OpenAudio success!\n");
+		fprintf(stderr, "SDL_OpenAudioDevice success!\n");
     	fprintf(stderr, "Using audio driver : %s\n", SDL_GetCurrentAudioDriver());
-		if ( obtained == NULL ) {
-			fprintf(stderr, "Great! We have our desired audio format!\n");
-			audiohwspec = desired;
-			free(obtained);
-		} else {
-			//fprintf(stderr, "Oops! Failed to get desired audio format!\n");
-			audiohwspec = obtained;
-			free(desired);
-		}
+		audiohwspec = &obtained;
 	}
 	MixingFreq = audiohwspec->freq;
 	BufferLength = audiohwspec->samples;
 
-	fprintf(stderr, "Obtained mixing frequency: %u\n",audiohwspec->freq);
-	fprintf(stderr, "Obtained audio format: %04X\n",audiohwspec->format);
-	fprintf(stderr, "Obtained channel number: %u\n",audiohwspec->channels);
-	fprintf(stderr, "Obtained audio buffer size: %u\n",audiohwspec->size);
-	fprintf(stderr, "Obtained sample buffer size: %u\n",audiohwspec->samples);
-	fprintf(stderr, "Obtained silence value: %u\n",audiohwspec->silence);
+	fprintf(stderr, "Obtained mixing frequency: %u\n", audiohwspec->freq);
+	fprintf(stderr, "Obtained audio format: %04X\n", audiohwspec->format);
+	fprintf(stderr, "Obtained channel number: %u\n", audiohwspec->channels);
+	fprintf(stderr, "Obtained audio buffer size: %u\n", audiohwspec->size);
+	fprintf(stderr, "Obtained sample buffer size: %u\n", audiohwspec->samples);
+	fprintf(stderr, "Obtained silence value: %u\n", audiohwspec->silence);
 
-	SDL_PauseAudio(0);
-
-	sndRingBuffer = new short[SND_BUF_MAX_READ_AHEAD * BufferLength];
-	for(unsigned int i = 0; i < SND_BUF_MAX_READ_AHEAD * BufferLength; i++)
+	// FIXME the '14' padding is somehow required by a heap corruption bug in Win64 builds
+	const unsigned int padding = 14;
+	sndRingBuffer = new short[SND_BUF_MAX_READ_AHEAD * BufferLength * padding];
+	for(unsigned int i = 0; i < SND_BUF_MAX_READ_AHEAD * BufferLength * padding; i++)
 		sndRingBuffer[i] = audiohwspec->silence;
 	sndWriteBufferIndex = sndPlayBufferIndex = 0;
-	sndWriteBufferPtr = sndRingBuffer;
-	sndPlayBufferPtr = sndRingBuffer + BufferLength * SND_LATENCY_IN_FRAGS;
+	sndWriteBufferPtr = sndRingBuffer + BufferLength * SND_LATENCY_IN_FRAGS;
+	sndPlayBufferPtr = sndRingBuffer;
 
+	sndBufferPos = 0;
 	lastSample = 0;
 	lastUpdateCycle = 0;
 	lastSamplePos = 0;
-    //SDL_PauseAudio(1);
+    SDL_PauseAudioDevice(dev, 0);
 }
 
 void sound_pause()
 {
-	SDL_PauseAudio(1);
+	SDL_PauseAudioDevice(dev, 1);
 }
 
 void sound_resume()
 {
-	SDL_PauseAudio(0);
+	SDL_PauseAudioDevice(dev, 0);
 }
 
 void close_audio()
 {
-    SDL_PauseAudio(1);
-    SDL_Delay(15);
-	SDL_CloseAudio();
-	if ( audiohwspec )
-		free( audiohwspec );
+	SDL_CloseAudioDevice(dev);
     delete [] sndRingBuffer;
 }

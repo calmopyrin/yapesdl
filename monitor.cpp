@@ -232,7 +232,7 @@ static void memDump()
 
 static void memChange(vector<string> args)
 {
-	unsigned int argCount = args.size();
+	unsigned int argCount = (unsigned int) args.size();
 	if (argCount--) {
 		memDumpPc = xtoi(args[0].c_str()) & 0xffff;
 	} else {
@@ -297,7 +297,7 @@ static void disAss(int dir)
 void executeCmd(unsigned int cmd, vector<string> &args, char *wholeLine)
 {
 	vector<unsigned int> argval;
-	unsigned int argCount = args.size();
+	unsigned int argCount = (unsigned int) args.size();
 	unsigned int r = 0;
 
 	while (r < argCount) {
