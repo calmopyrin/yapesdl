@@ -32,7 +32,7 @@ bool PrgLoad(char *fname, int loadaddress, TED *mem)
 	int				p00offset = 0;
 
 	if ((prg = fopen(fname, "rb"))== NULL) {
-    	return FALSE;
+    	return false;
 	} else {
 		fext = strrchr( fname, '.');
 		if (!strcmp( fext, ".p00") || !strcmp(fext, ".P00"))
@@ -51,12 +51,12 @@ bool PrgLoad(char *fname, int loadaddress, TED *mem)
 			loadaddr = lpBufPtr[p00offset]|(lpBufPtr[p00offset + 1] << 8);
 
 		if (fsize < 2)
-			return FALSE;
+			return false;
         fsize -= 2;
         prgLoadFromBuffer(loadaddr, fsize, lpBufPtr + 2, mem);
 	}
 	fprintf( stderr, "Loaded: %s at $%04X-$%04X\n", fname, loadaddr, loadaddr + fsize);
-	return TRUE;
+	return true;
 }
 
 bool prgLoadFromT64(char *t64path, unsigned short *loadAddress, TED *mem)
@@ -83,5 +83,20 @@ bool prgLoadFromT64(char *t64path, unsigned short *loadAddress, TED *mem)
         }
 	    fclose(prg);
 	}
+    return false;
+}
+
+bool prgSaveBasicMemory(char *prgname, TED *mem, unsigned short beginAddr, unsigned short endAddr, bool isBasic)
+{
+    if ((prg = fopen(prgname, "wb"))) {
+		if (isBasic || beginAddr > endAddr) {
+			beginAddr = (mem->Read(0x2C) << 8) | mem->Read(0x2B);
+			endAddr = (mem->Read(0x2E) << 8) | mem->Read(0x2F);
+		}
+        for(unsigned int i = beginAddr; i <= endAddr; i++)
+            fputc(mem->Read(beginAddr), prg);
+        fclose(prg);
+        fprintf(stderr, "Memory $%04X-$%04X saved to %s\n", beginAddr, endAddr, prgname);
+    }
     return false;
 }

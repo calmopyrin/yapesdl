@@ -43,7 +43,6 @@ unsigned int KEYS::activejoy = 0;
 
 KEYS::KEYS() 
 {
-	//activejoy=0;
 	empty();
 	block(false);
 }

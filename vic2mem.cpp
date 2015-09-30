@@ -80,6 +80,12 @@ Vic2mem::Vic2mem()
 	for(i = 0; i < 8; i++) {
 		collisionLookup[1ULL << i] = 0;
 		mob[i].dataCount = 0;
+		mob[i].dataCountReload = 0;
+		mob[i].reloadFlipFlop = 0;
+		mob[i].x = 0;
+		mob[i].y = 0;
+		mob[i].dmaState = false;
+		mob[i].enabled = 0;
 	}
 	//
 	irqFlag = 0;
@@ -911,6 +917,7 @@ skip:
 								break;
 							case 0x17:
 								SET_BITS(mob[i].expandY, value);
+								SET_BITS(mob[i].reloadFlipFlop, value);
 								break;
 							case 0x1B:
 								SET_BITS(mob[i].priority, value);
@@ -1208,7 +1215,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case '0': case '1':	case '2': case '3':
 			case '4': case '5': case '6': case '7':
 				// FIXME: not really accurate
-				if (!mob[cycleChr ^ '0'].dataCount)
+				if (!mob[cycleChr ^ '0'].dmaState)
 					cpuptr->process();
 				break;
 			case '*':
@@ -1663,28 +1670,48 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 	}
 }
 
+inline void Vic2mem::checkSpriteDMA(unsigned int i)
+{
+	unsigned int rY = mob[i].y;
+	if (rY == prevY) {
+		mob[i].dmaState = true;
+		mob[i].dataCountReload = 0;
+		mob[i].dataCount = 0;
+		mob[i].reloadFlipFlop = mob[i].expandY;
+		mob[i].dataAddress = (VideoBase[0x03F8 + i] << 6);
+	}
+}
+
 inline void Vic2mem::drawSpritesPerLine()
 {
 	unsigned int i = 7;
 
 	do {
 		if (mob[i].enabled) {
-			unsigned int &dc = mob[i].dataCount;
-            const unsigned int exy = mob[i].expandY;
-			if (!dc) {
-				unsigned int rY = mob[i].y;
-				if (rY == prevY) {
-					unsigned char *spd = VideoBase + 0x03F8;
-                    dc = 21 << exy;
-					mob[i].dataCountReload = (spd[i] << 6);
-				}
+			if (!mob[i].dmaState) {
+				checkSpriteDMA(i);
 			}
-			if (dc) {
+			if (mob[i].dmaState) {
                 unsigned int tvX = RASTERX2TVCOL(mob[i].x);
-                unsigned char *d = vicBase + mob[i].dataCountReload + (21 - ((dc + exy) >> exy)) * 3;
+                unsigned int &dc = mob[i].dataCount;
+				unsigned int &dcReload = mob[i].dataCountReload;
+                unsigned int &flipFlop = mob[i].reloadFlipFlop;
+
+                flipFlop ^= 1;
+                if (flipFlop) {
+                    dcReload = dc;
+                    // set flipflop to Y expension bit
+                    flipFlop = mob[i].expandY;
+                }
+                unsigned char *d = vicBase + mob[i].dataAddress + dcReload;
                 unsigned char *p = screen + TVScanLineCounter * VIC_PIXELS_PER_ROW + tvX;
                 renderSprite(d, p, mob[i], tvX, 1 << i);
-                dc -= 1;
+                dc = dcReload + 3;
+                // check end of sprite DMA
+                if (dc == 0x3F) {
+                    mob[i].dmaState = false;
+					dcReload = dc;
+                }
 			}
 		}
 	} while (i--);

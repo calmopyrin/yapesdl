@@ -157,20 +157,21 @@ bool start_file(char *szFile )
 			*pFileExt = tolower(*pFileExt);
 			pFileExt++;
 		} while (*pFileExt);
-		if (!strcmp(fileext,".d64")) {
+		if (!strcmp(fileext,".d64") || !strcmp(fileext,".D64")) {
 			ted8360->copyToKbBuffer("L\317\042*\042,8,1\rRUN:\r", 15);
 			return true;
 		}
-		if (!strcmp(fileext,".prg") || !strcmp(fileext,".p00") || !strcmp(fileext,".P00")) {
+		if (!strcmp(fileext,".prg") || !strcmp(fileext,".PRG") 
+			|| !strcmp(fileext,".p00") || !strcmp(fileext,".P00")) {
 			PrgLoad(szFile, 0, ted8360 );
 			ted8360->copyToKbBuffer("RUN:\r",5);
 			return true;
 		}
-		if (!strcmp(fileext, ".t64")) {
+		if (!strcmp(fileext, ".t64") || !strcmp(fileext,".T64")) {
             prgLoadFromT64(szFile, 0, ted8360);
             ted8360->copyToKbBuffer("RUN:\r",5);
 		}
-		if (!strcmp(fileext,".tap")) {
+		if (!strcmp(fileext,".tap") || !strcmp(fileext,".TAP")) {
 			ted8360->tap->detach_tap();
 			strcpy(ted8360->tap->tapefilename, szFile);
 			ted8360->tap->attach_tap();
@@ -605,6 +606,9 @@ inline static void poll_events(void)
 									fs = !fs;
 									SDL_SetWindowFullscreen(sdlWindow, fs ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 								}
+								break;
+							case SDLK_F8:
+								prgSaveBasicMemory("noname.prg", ted8360, 0, 0);
 								break;
 						};
 						if (g_50Hz) sound_resume();

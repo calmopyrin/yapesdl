@@ -194,7 +194,8 @@ void init_audio(unsigned int sampleFrq)
 	sndRingBuffer = new short[SND_BUF_MAX_READ_AHEAD * BufferLength * padding];
 	for(unsigned int i = 0; i < SND_BUF_MAX_READ_AHEAD * BufferLength * padding; i++)
 		sndRingBuffer[i] = audiohwspec->silence;
-	sndWriteBufferIndex = sndPlayBufferIndex = 0;
+	sndWriteBufferIndex = SND_LATENCY_IN_FRAGS;
+	sndPlayBufferIndex = 0;
 	sndWriteBufferPtr = sndRingBuffer + BufferLength * SND_LATENCY_IN_FRAGS;
 	sndPlayBufferPtr = sndRingBuffer;
 

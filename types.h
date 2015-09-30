@@ -22,16 +22,59 @@ typedef unsigned __int64 ClockCycle;
 #define TSTATE_T_LEN "lu"
 #endif
 
-#ifndef TRUE
-#define TRUE 1
-#endif
+// Simple linked list class
+template<typename T>
+class LinkedList {
+public:
+	LinkedList() {
+		count++;
+	}
+	~LinkedList() {
+		count--;
+	}
+	static T *getRoot() { return root; }
+	T *getNext() { return next; }
+	void add(T *ss) {
+		if (root) {
+			last = last->next = ss;
+		} else {
+			last = root = ss;
+		}
+		next = 0;
+	}
+	void remove(T *ss) {
+		T *prevNode;
+		T *nextNode;
+		T *node = root;
+		if (!node)
+			return;
 
-#ifndef FALSE
-#define FALSE 0
-#endif
-
-#if ( defined(_MSC_VER) && (_MSC_VER == 1200) && defined(_MSC_EXTENSIONS) )
-#define inline __forceinline  // For MSVC++ 6.0 with Microsoft extensions.
-#endif
+	   prevNode = root;
+		do {
+			nextNode = node->next;
+			if (node == ss) {
+				if (node == root) {
+					root = nextNode;
+					if (!root)
+						last = 0;
+				}
+				if (node == last)
+					last = prevNode;
+				if (prevNode) {
+					prevNode->next = nextNode;
+					if (nextNode == last)
+						last = nextNode;
+				}
+			}
+			node = nextNode;
+		} while (node);
+	}
+   // void cascadeCall()
+private:
+	T *next;
+	static T *root;
+	static T *last;
+	static unsigned int count;
+};
 
 #endif // _TYPES_H

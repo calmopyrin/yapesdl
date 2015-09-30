@@ -59,6 +59,9 @@ class Vic2mem : public TED
 			unsigned char color;
 			unsigned int dataCount;
 			unsigned int dataCountReload;
+			unsigned int dataAddress;
+			unsigned int reloadFlipFlop;
+			bool dmaState;
 		} mob[8];
 		unsigned char spriteCollisionReg;
 		unsigned char spriteBckgCollReg;
@@ -69,6 +72,7 @@ class Vic2mem : public TED
 		void renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsigned int cx, const unsigned int six);
 		void drawSprites();
 		void drawSpritesPerLine();
+		void checkSpriteDMA(unsigned int i);
 		//
 		struct CIA {
 			CIA() { refCount++; irqCallback = 0;}

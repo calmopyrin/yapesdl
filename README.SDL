@@ -82,16 +82,17 @@ USAGE
   LALT + P	: toggle CRT emulation
   LALT + W	: toggle between unlimited speed and 50 Hz frame rate (original speed)
   LALT + ENTER : toggle full screen mode
+  LALT + F8 : save memory pointed by $2B/$2C and $2D/$2E
   
   Internal disk LOAD/SAVE operations are supported to the current
-  file system directory in C+4 modes, which is usually '/home/<username>/yape'.
+  file system directory - which is usually '/home/<username>/yape' - in C+4 modes.
   Any PRG files you may wish to load, should go there, although you can browse the directory tree
   from the user interface, too.
    
   This means that an exact filename match will load
   the requested program, similarly can you save a file.
   
-  Full ROM banking is supported, currently only via the yape.ini configuration
+  Full ROM banking is supported, currently only via the yape configuration
   file. You must fill in the path for the relevant ROM image you intend to use.
   However, Yape supports some internal ROMs already. These are:
   
@@ -106,7 +107,7 @@ KEYBOARD MAPPINGS
   For the keys at different positions, the emulator relies on SDL, so your
   mileage may vary.
   
-  There are several keys that need to be mapped to the emulator keyboard
+  There are a few keys that need to be mapped to the emulator keyboard
   differently. These are:
   
   Commodore       emulator
@@ -119,21 +120,23 @@ FEATURES
 
   Yape features:
   
-  - full, cycle exact MOS 7501 CPU emulation
-  - almost full TED 7360 chip emulation
-  - real 1541 drive emulation
-  - full ROM banking
-  - almost full tape emulation
-  - joystick emulation via cursor keys
-  - color palette based on original Commodore specs
-  - PRG and TAP file format support
-  - SID card emulation
+  - full, cycle exact MOS 6502/6510/7501/8501 CPU emulation
+  - almost full MOS 7360/8360 aka 'TED' chip emulation
+  - almost complete MOS 6569 aka 'VIC-II' chip emulation
+  - reasonable MOS 6581/8580 aka 'SID' chip emulation
+  - somewhat incomplete CIA 6526 aka 'CIA' emulation
+  - real 1541 drive emulation (Read/Write)
+  - full ROM banking on +4
+  - almost full tape emulation (+4 for now)
+  - joystick emulation via cursor keys and gamepads
+  - PRG, P00, T64, D64 and TAP file format support
   - partial CRT emulation
-  - fake disk LOAD/SAVE to the file system
+  - disk LOAD/SAVE to the file system on +4
 
 LINKS
 =====
 
+  http://yapesdl.codeplex.com			: source repository for yape/SDL
   http://yape.plus4.net                 : Yape homepage
   http://plus4world.powweb.com          : Commodore +4 World (games, tape images, scans etc.)
   http://c64.rulez.org	                : Commodore plus/4 mail list and FTP archive
