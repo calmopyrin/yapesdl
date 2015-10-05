@@ -77,4 +77,26 @@ private:
 	static unsigned int count;
 };
 
+class Resettable : public LinkedList<Resettable> {
+public:
+	Resettable() {
+		add(this);
+	}
+	~Resettable() {
+		remove(this);
+	}
+	void resetAll(bool hard = false) {
+		Resettable *rs = getRoot();
+		while (rs) {
+			rs->reset(hard);
+			rs->getNext();
+		}
+	}
+	virtual void reset(bool hard) = 0;
+};
+
+template<> unsigned int LinkedList<Resettable>::count = 0;
+template<> Resettable* LinkedList<Resettable>::root = 0;
+template<> Resettable* LinkedList<Resettable>::last = 0;
+
 #endif // _TYPES_H

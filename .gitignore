@@ -76,3 +76,5 @@ vic2mem.cpp.bak
 Release/YapeSDL.exe.CodeAnalysisLog.xml
 YapeSDL.VS10.opensdf
 *.vsp
+DebugX64/vc.nativecodeanalysis.all.xml
+*.opensdf

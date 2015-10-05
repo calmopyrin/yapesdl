@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-#define SAMPLE_FREQ 48000
+#define SAMPLE_FREQ 48000 //48000 192000
 
 // derive from this class for sound sources
 class SoundSource : public LinkedList<SoundSource> {
@@ -15,7 +15,6 @@ public:
         remove(this);
     }
     static void bufferFill(unsigned int nrsamples, short *buffer);
-    static void resetCallback();
     virtual void calcSamples(short *buffer, unsigned int nrsamples) = 0;
 private:
     char name[16];

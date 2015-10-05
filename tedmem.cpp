@@ -126,8 +126,7 @@ TED::TED() : sidCard(0)
 	
 	ted_sound_init(SAMPLE_FREQ);
 	if (enableSidCard(true, 0)) {
-		sidCard->setFrequency(TED_SOUND_CLOCK);
-		sidCard->setModel(SID8580DB);
+		//sidCard->setModel(SID8580DB);
 	}
 }
 
@@ -472,10 +471,6 @@ void TED::Write(unsigned int addr, unsigned char value)
 			actram[addr&0xFFFF] = value;
 			return;
 		case 0xD000:
-			//if (sidCard) {
-			//	sidCard->write(addr & 0x1f, value);
-			//	sidCard->setFrequency(1);
-			//}
 		case 0x4000:
 		case 0x5000:
 		case 0x6000:
@@ -1518,7 +1513,7 @@ bool TED::enableSidCard(bool enable, unsigned int disableMask)
 			return true;
 			//enableSidCard(false, 0);
         }
-		sidCard = new SIDsound(SID8580, disableMask);
+		sidCard = new SIDsound(SID8580DB, disableMask);
 		sidCard->setSampleRate(SAMPLE_FREQ);
 		sidCard->setFrequency(TED_SOUND_CLOCK / 2);
 	} else {

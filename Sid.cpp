@@ -6,10 +6,7 @@
 //  - probably many more
 
 #include <math.h>
-#include <memory.h>
 #include "Sid.h"
-#include "tedmem.h"
-#include "sound.h"
 
 #define DIGIBLASTER_MULT 14
 
@@ -174,10 +171,12 @@ SIDsound::SIDsound(unsigned int model, unsigned int chnlDisableMask) : enableDig
 		voice[i].modulatesThis = &voice[(i+1)%3]; // next voice
 		voice[i].disabled = !!((chnlDisableMask >> i) & 1);
 	}
-
+	// startup defaults
+	sidBaseFreq = SOUND_FREQ_PAL_C64;
+	sampleRate = SAMPLE_FREQ;
 	filterCutoff = 0;
 	setModel(model);
-	setFrequency(0);
+	calcEnvelopeTable();
 	reset();
 }
 
@@ -234,6 +233,11 @@ inline int SIDsound::getWaveSample(SIDVoice &v)
 			return waveTriSawPulse(v);
 		case WAVE_NOISE:
 			return waveNoise(v);
+		case WAVE_NONE:
+			if (v.accu) {
+				v.accu >>= 1;
+			}
+			//return v.accu;
 		default:
 			return 0x000;
 	}
@@ -249,9 +253,10 @@ unsigned char SIDsound::read(unsigned int adr)
 			return 0xFF;
 
 		// Voice 3 (only) oscillator readout
+		// 8 most significant bits
 		case 0x1B:
 			lastByteWritten = 0;
-			return (unsigned char)(getWaveSample(voice[2])>>4); // 4?
+			return (unsigned char)(getWaveSample(voice[2]) >> 4); // 4?
 
 		// Voice 3 EG readout
 		case 0x1C:
@@ -581,7 +586,7 @@ void SIDsound::calcSamples(short *buf, unsigned int count)
 				// real accu is 24 bit but we use FP integer arithmetic
 				v.accu &= 0xFFFFFFF;
 			}
-			int output = v.disabled ? 0x0000 : getWaveSample(v);
+			int output = getWaveSample(v);
 
 			if (v.filter)
 				sumFilteredOutput += (output - dcWave) * envelope + dcVoice;

@@ -6,6 +6,7 @@
 #include <string>
 #include "cpu.h"
 #include "monitor.h"
+#include "prg.h"
 
 using namespace std;
 
@@ -24,6 +25,7 @@ static struct {
 	{ "f <src_from> <src_to> <value>", MON_CMD_FILLMEM, "Fill memory range with <value>." },
 	{ "g [<address>]", MON_CMD_GO, "Go (to [<address>])." },
 	{ "m [<address>]", MON_CMD_MEM, "Memory dump (from [<address>])." },
+	{ "s <filename> [<address1>] [<address2>]", MON_CMD_SAVEPRG, "Save memory as PRG (from <address1> to <address2>" },
 	{ "t <src_from> <src_to> <target>", MON_CMD_TRANSFER, "Memory copy transfer (from start address)." },
 	{ "x", MON_CMD_EXIT, "Exit monitor." },
 	{ "z", MON_CMD_STEP, "Debug" },
@@ -390,6 +392,16 @@ void executeCmd(unsigned int cmd, vector<string> &args, char *wholeLine)
 		case MON_CMD_SAVEBIN:
 			if (argCount >= 3) {
 				//cpuptr->saveToFile(args[0], argval[1], argval[2]);
+			}
+			break;
+
+		case MON_CMD_SAVEPRG:
+			if (argCount >= 1) {
+				string prgName = args[0] + ".prg";
+				unsigned short adr1 = argCount >= 2 ? argval[1] : 0;
+				unsigned short adr2 = argCount >= 3 ? argval[2] : 0;
+				mainSaveMemoryAsPrg(prgName.c_str(), adr1, adr2);
+				//	fprintf(stderr, "Memory saved to %s from %04X to %04X\n", prgName.c_str(), adr1, adr2);
 			}
 			break;
 

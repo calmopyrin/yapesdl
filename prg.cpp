@@ -86,10 +86,10 @@ bool prgLoadFromT64(char *t64path, unsigned short *loadAddress, TED *mem)
     return false;
 }
 
-bool prgSaveBasicMemory(char *prgname, TED *mem, unsigned short beginAddr, unsigned short endAddr, bool isBasic)
+bool prgSaveBasicMemory(char *prgname, TED *mem, unsigned short &beginAddr, unsigned short &endAddr, bool isBasic)
 {
     if ((prg = fopen(prgname, "wb"))) {
-		if (isBasic || beginAddr > endAddr) {
+		if (isBasic || beginAddr >= endAddr) {
 			beginAddr = (mem->Read(0x2C) << 8) | mem->Read(0x2B);
 			endAddr = (mem->Read(0x2E) << 8) | mem->Read(0x2F);
 		}

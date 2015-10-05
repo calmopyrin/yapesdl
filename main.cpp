@@ -404,32 +404,58 @@ static bool saveScreenshotBMP(char* filepath, SDL_Window* SDLWindow, SDL_Rendere
 	return true;
 }
 
+static bool getSerializedFilename(char *name, char *extension, char *out)
+{
+	char dummy[512];
+	unsigned int i = 0;
+
+	if (!name || !extension || !out)
+		return false;
+
+	bool found = true;
+	do {
+		sprintf(dummy, "%s%06d.%s", name, i++, extension);
+		FILE *fp = fopen(dummy, "rb");
+		if (fp) {
+			fclose(fp);
+		} else {
+			found = false;
+			strcpy(out, dummy);
+		}
+	} while (found && i < 0x1000000);
+	return !found;
+}
+
 //-----------------------------------------------------------------------------
 // Name: SaveBitmap()
 // Desc: Saves the SDL surface to Windows bitmap file named as yapeXXXX.bmp
 //-----------------------------------------------------------------------------
-int SaveBitmap()
+static int SaveBitmap()
 {
-	bool			success = true;
-    char			bmpname[16];
-	FILE			*fp;
-	int				ix = 0;
+    char bmpname[512];
 
     // finding the last yapeXXXX.bmp image
-    while (success) {
-        sprintf( bmpname, "yape%.4d.bmp", ix);
-        fp=fopen( bmpname,"rb");
-        if (fp)
-            fclose(fp);
-		else
-			success=false;
-        ix++;
-    }
-	if (saveScreenshotBMP(bmpname, sdlWindow, sdlRenderer)) {
-		fprintf(stderr, "Screenshot saved: %s\n", bmpname);
-		return true;
+	if (getSerializedFilename("yape", ".bmp", bmpname)) {
+		if (saveScreenshotBMP(bmpname, sdlWindow, sdlRenderer)) {
+			fprintf(stderr, "Screenshot saved: %s\n", bmpname);
+			return true;
+		}
 	}
 	return false;
+}
+
+bool mainSaveMemoryAsPrg(const char *prgname, unsigned short &beginAddr, unsigned short &endAddr)
+{
+	char newPrgname[512];
+	if (!prgname) {
+		if (!getSerializedFilename("noname", "prg", newPrgname))
+			return false;
+	} else {
+		strcpy(newPrgname, prgname);
+	}
+	if (beginAddr >= endAddr)
+		beginAddr = endAddr = 0;
+	return prgSaveBasicMemory(newPrgname, ted8360, beginAddr, endAddr, beginAddr == endAddr);
 }
 
 static void doSwapJoy()
@@ -608,7 +634,10 @@ inline static void poll_events(void)
 								}
 								break;
 							case SDLK_F8:
-								prgSaveBasicMemory("noname.prg", ted8360, 0, 0);
+								{
+									unsigned short d1, d2;
+									mainSaveMemoryAsPrg(0, d1, d2);
+								}
 								break;
 						};
 						if (g_50Hz) sound_resume();

@@ -701,7 +701,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 										& keys64->feedKeyColumn((cia[0].prb | ~cia[0].ddrb) & keys64->getJoyState(0));
 									return retval;
 								case 0x01: // port B usually not driven low by port A.
-#if 0
+#if 1
 									retval = (keys64->feedkey((cia[0].pra | ~cia[0].ddra) & keys64->getJoyState(1))
 											& ~cia[0].ddrb)
 										| (cia[0].prb & cia[0].ddrb);

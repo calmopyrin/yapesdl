@@ -12,12 +12,21 @@
 */
 
 #include "archdep.h"
+#include <stdio.h>
 #ifdef _WIN32
 #include <SDL/SDL.h>
+// fixes a missing export in SDL2 for VS 2015
+#if _MSC_VER >= 1900
+FILE _iob[] = { *stdin, *stdout, *stderr };
+
+extern "C" FILE * __cdecl __iob_func(void)
+{
+	return _iob;
+}
+#endif
 #else
 #include <SDL2/SDL.h>
 #endif
-#include <stdio.h>
 
 unsigned int	tick_50hz, tick_vsync, fps;
 

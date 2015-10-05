@@ -4,9 +4,10 @@
 #include <math.h>
 #include "sound.h"
 
+#define SOUND_BUFSIZE_MSEC 20
 // Linux needs a buffer with a size of a factor of 2
 // 512 1024 2048 4096
-#define FRAGMENT_SIZE 1024
+#define FRAGMENT_SIZE (int(double(SAMPLE_FREQ * SOUND_BUFSIZE_MSEC) / 1000.0 / 1024.0 + 0.5 ) * 1024)
 
 //#define LOG_AUDIO
 #define SND_BUF_MAX_READ_AHEAD 6
