@@ -7,19 +7,21 @@
 #define SOUND_BUFSIZE_MSEC 20
 // Linux needs a buffer with a size of a factor of 2
 // 512 1024 2048 4096
-#define FRAGMENT_SIZE (int(double(SAMPLE_FREQ * SOUND_BUFSIZE_MSEC) / 1000.0 / 1024.0 + 0.5 ) * 1024)
+#define FRAGMENT_SIZE (int(double(sampleFrq * SOUND_BUFSIZE_MSEC) / 1000.0 / 1024.0 + 0.5 ) * 1024)
 
 //#define LOG_AUDIO
 #define SND_BUF_MAX_READ_AHEAD 6
 #define SND_LATENCY_IN_FRAGS 2
 
 static SDL_AudioDeviceID dev;
+static SDL_AudioSpec obtained, *audiohwspec;
 
 static int           MixingFreq;
 static unsigned int           BufferLength;
 static unsigned int			sndBufferPos;
 static unsigned int		originalFrequency;
 
+static short *mixingBuffer;
 static short *sndRingBuffer;
 static unsigned int sndWriteBufferIndex;
 static unsigned int sndPlayBufferIndex;
@@ -32,6 +34,7 @@ static unsigned int		lastSamplePos;
 template<> unsigned int LinkedList<SoundSource>::count = 0;
 template<> SoundSource* LinkedList<SoundSource>::root = 0;
 template<> SoundSource* LinkedList<SoundSource>::last = 0;
+unsigned int SoundSource::sampleRate = SAMPLE_FREQ;
 
 void SoundSource::bufferFill(unsigned int nrsamples, short *buffer)
 {
@@ -42,12 +45,10 @@ void SoundSource::bufferFill(unsigned int nrsamples, short *buffer)
 	}
 	// multiple sources
 	while (cb) {
-		short temp[FRAGMENT_SIZE];
 		int i = nrsamples - 1;
-
-		cb->calcSamples(temp, nrsamples);
+		cb->calcSamples(mixingBuffer, nrsamples);
 		do {
-			buffer[i] += temp[i];
+			buffer[i] += mixingBuffer[i];
 		} while(i--);
 		cb = cb->getNext();
 	}
@@ -156,7 +157,7 @@ void flushBuffer(ClockCycle cycle, unsigned int frq)
 
 void init_audio(unsigned int sampleFrq)
 {
-    SDL_AudioSpec desired, obtained, *audiohwspec;
+    SDL_AudioSpec desired;
 
 	MixingFreq = sampleFrq;
 
@@ -165,12 +166,15 @@ void init_audio(unsigned int sampleFrq)
 	desired.freq		= MixingFreq;
 	desired.format		= AUDIO_S16;
 	desired.channels	= 1;
-	desired.samples	= BufferLength;
+	desired.samples		= BufferLength;
 	desired.callback	= audioCallback;
 	desired.userdata	= NULL;
 	desired.size		= desired.channels * desired.samples * sizeof(Uint8);
-	desired.silence	= 0x00;
+	desired.silence		= 0x00;
 
+	mixingBuffer = new short[FRAGMENT_SIZE];
+	if (!mixingBuffer)
+		return;
 	dev = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 	if (!dev) {
 		fprintf(stderr, "SDL_OpenAudioDevice failed!\n");
@@ -217,8 +221,21 @@ void sound_resume()
 	SDL_PauseAudioDevice(dev, 0);
 }
 
+void sound_change_freq(unsigned int &newFreq)
+{
+	close_audio();
+	SoundSource *cb = SoundSource::getRoot();
+	if (cb) {
+		cb->setSampleRate(newFreq);
+		cb = cb->getNext();
+	}
+	init_audio(newFreq);
+	newFreq = audiohwspec->freq;
+}
+
 void close_audio()
 {
 	SDL_CloseAudioDevice(dev);
-    delete [] sndRingBuffer;
+    delete[] sndRingBuffer;
+	delete[] mixingBuffer;
 }

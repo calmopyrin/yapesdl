@@ -143,6 +143,8 @@ class Vic2mem : public TED
     private:
 		unsigned char portState;
 		unsigned int dmaCount;
+		unsigned int spriteDMAon;
+		unsigned int spriteDMAmask;
 };
 
 #endif // VIC2MEM_H

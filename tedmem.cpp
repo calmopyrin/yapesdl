@@ -124,7 +124,7 @@ TED::TED() : sidCard(0)
 	BadLine = 0;
 	CycleCounter = 0;
 	
-	ted_sound_init(SAMPLE_FREQ);
+	tedSoundInit(sampleRate);
 	if (enableSidCard(true, 0)) {
 		//sidCard->setModel(SID8580DB);
 	}

@@ -563,6 +563,19 @@ inline static void poll_events(void)
 						switch (event.key.keysym.sym) {
 						    default:;
 								break;
+
+							case SDLK_KP_PLUS:
+							{
+								static unsigned int currFrq = 0;
+								unsigned int frq[] = { 48000, 96000, 192000 };
+								currFrq = (currFrq + 1) % 3;
+								unsigned int rate = frq[currFrq];
+								sound_change_freq(rate);
+								sprintf(textout, " AUDIO FREQUENCY: %u ", rate);
+								PopupMsg(textout);
+							}
+							break;
+
 							case SDLK_1:
 							case SDLK_2:
 							case SDLK_3:
@@ -575,19 +588,22 @@ inline static void poll_events(void)
 								}
 								break;
 							case SDLK_e:
-							    g_iEmulationLevel = (g_iEmulationLevel + 1) % 3;
-								setEmulationLevel(g_iEmulationLevel);
-								sprintf(textout, " EMULATION LEVEL: ");
-								switch (g_iEmulationLevel) {
-								    default:
-                                    case 0:
-                                        strcat(textout, "ACCURATE +4 ");
-                                        break;
-                                    case 1:
-                                        strcat(textout, "FAST +4 ");
-                                        break;
-                                    case 2:
-                                        strcat(textout, "COMMODORE 64 ");
+								{
+									int dir = (event.key.keysym.mod & KMOD_SHIFT) ? -1 : 1;
+									g_iEmulationLevel = (g_iEmulationLevel + dir) % 3;
+									setEmulationLevel(g_iEmulationLevel);
+									sprintf(textout, " EMULATION : ");
+									switch (g_iEmulationLevel) {
+									default:
+									case 0:
+										strcat(textout, "ACCURATE +4 ");
+										break;
+									case 1:
+										strcat(textout, "FAST +4 ");
+										break;
+									case 2:
+										strcat(textout, "COMMODORE 64 ");
+									}
 								}
 								PopupMsg(textout);
 								break;

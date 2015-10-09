@@ -604,7 +604,8 @@ void SIDsound::calcSamples(short *buf, unsigned int count)
 #if 1
 		sample = accu >> 12;
 #else
-		unsigned int interPolationFac = (clockDeltaRemainder - sidCyclesPerSampleInt) & 0xFF;
+		static int prevAccu = 0;
+		unsigned int interPolationFac = clockDeltaRemainder;
 		accu >>= 7;
 		sample = (prevAccu * (0xFF ^ interPolationFac) + accu * (interPolationFac)) >> 12;
 		prevAccu = accu;
@@ -612,26 +613,6 @@ void SIDsound::calcSamples(short *buf, unsigned int count)
 
 		*buf++ = (short) sample;
 	} while (--count);
-}
-
-void SIDsound::calcSamplesLQ(short *buf, long count)
-{
- 	do {
-		static int sample_freq_cnt = sampleRate;
-		int last_sample = 0;
-		int i = 0;
-
-        do {
-            short new_sample;
-			sample_freq_cnt -= sampleRate;
-            calcSamples(&new_sample, 1);
-			i++;
-			last_sample += new_sample;
-        } while (sample_freq_cnt > 0);
-		sample_freq_cnt += sampleRate;
-        *buf++ = last_sample / i;
-		i = 0;
- 	} while (--count);
 }
 
 SIDsound::~SIDsound()

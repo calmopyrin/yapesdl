@@ -23,8 +23,8 @@ public:
 		calcEnvelopeTable();
 	};
 	void setModel(unsigned int model);
-	void setFrequency(unsigned int sid_frequency);
-	void setSampleRate(unsigned int sampleRate_);
+	virtual void setFrequency(unsigned int sid_frequency);
+	virtual void setSampleRate(unsigned int sampleRate_);
 	void calcEnvelopeTable();
 	unsigned char read(unsigned int adr);
 	void write(unsigned int adr, unsigned char byte);
@@ -32,7 +32,6 @@ public:
 	void enableDisableChannel(unsigned int ch, bool enabled) {
 		voice[ch].disabled = !enabled;
 	}
-	void calcSamplesLQ(short *buf, long count);
 
 private:
 
@@ -131,7 +130,6 @@ private:
 	unsigned char lastByteWritten;// Last value written to the SID
 	int model_;
 	bool enableDigiBlaster;
-	unsigned int sampleRate;
 };
 
 /*

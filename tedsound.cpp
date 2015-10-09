@@ -1,6 +1,5 @@
 #include "sound.h"
 #include "tedmem.h"
-#include "Sid.h"
 
 #define PRECISION 4
 #define OSCRELOADVAL (0x3FF << PRECISION)
@@ -20,9 +19,11 @@ static int             OscReload[2];
 static int             oscStep;
 static unsigned char    noise[256]; // 0-8
 static unsigned int		MixingFreq;
+static unsigned int		originalFreq;
 
-void ted_sound_init(unsigned int mixingFreq)
+void TED::tedSoundInit(unsigned int mixingFreq)
 {
+	originalFreq = TED_SOUND_CLOCK / 8;
 	oscStep = (int) (( TED_SOUND_CLOCK / 8 * (double) (1 << PRECISION) ) / (double) (mixingFreq) + 0.5);
     FlipFlop[0] = 0;
     FlipFlop[1] = 0;
@@ -39,6 +40,18 @@ void ted_sound_init(unsigned int mixingFreq)
 		noise[i] = im & 1;
 		im = (im<<1)+(1^((im>>7)&1)^((im>>5)&1)^((im>>4)&1)^((im>>1)&1));
     }
+}
+
+void TED::setFrequency(unsigned int frequency)
+{
+	originalFreq = frequency;
+	oscStep = (int)((frequency * (double)(1 << PRECISION)) / (double)(MixingFreq)+0.5);
+}
+
+void TED::setSampleRate(unsigned int sampleRate)
+{
+	MixingFreq = sampleRate;
+	oscStep = (int)((originalFreq * (double)(1 << PRECISION)) / (double)(MixingFreq)+0.5);
 }
 
 void TED::calcSamples(short *buffer, unsigned int nrsamples)
@@ -93,7 +106,7 @@ inline void setFreq(unsigned int channel, int freq)
 	OscReload[channel] = ((freq + 1)&0x3FF) << PRECISION;
 }
 
-void writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value)
+void TED::writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value)
 {
 	flushBuffer(cycle, TED_SOUND_CLOCK);
 

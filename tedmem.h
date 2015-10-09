@@ -110,6 +110,9 @@ class TED : public CSerial , public MemoryHandler, public SoundSource {
 	unsigned char *getScreenData() { return screen; };
 	bool enableSidCard(bool enable, unsigned int disableMask);
 	SIDsound *getSidCard();
+	static void writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value);
+	static void tedSoundInit(unsigned int mixingFreq);
+
 	//
 	void showled(int x, int y, unsigned char onoff);
 	virtual unsigned int getColorCount() { return 128; };
@@ -121,6 +124,8 @@ class TED : public CSerial , public MemoryHandler, public SoundSource {
 	virtual unsigned int getAutostartDelay() { return 70; }
 	virtual unsigned short getEndLoadAddressPtr() { return 0x9D; };
 	virtual void calcSamples(short *buffer, unsigned int nrsamples);
+	virtual void setFrequency(unsigned int sid_frequency);
+	virtual void setSampleRate(unsigned int sampleRate_);
 
 private:
 	  KEYS *keys;

@@ -46,7 +46,7 @@ static unsigned char cycleLookup[][128] = {
 //"3 i 4 i 5 i 6 i 7 i r r r r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 0 i 1 i 2 i "
 { "r r g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g g i i 00i011i122i233i344i455i566i677i7r r r "},
 // bad line
-//{ "33i344i455i566i677i7r r*r*r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 00i011i122i2"}
+//"33i344i455i566i677i7r r*r*r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 00i011i122i2"}
 { "r*rcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg i i 00i011i122i233i344i455i566i677i7r r*r*"}
 };
 
@@ -117,6 +117,8 @@ void Vic2mem::Reset(bool clearmem)
 	memset(spriteCollisions, 0, sizeof(spriteCollisions));
 	memset(spriteBckgColl, 0, sizeof(spriteBckgColl));
 	spriteBckgCollReg = spriteCollisionReg = 0;
+	//
+	spriteDMAon = spriteDMAmask = 0;
 	//
 	soundReset();
 	cia[0].reset();
@@ -1103,6 +1105,8 @@ void Vic2mem::ted_process(const unsigned int continuous)
 						VertSubActive = true;
 				}
 				flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
+				checkSpriteDMA(4);
+                spriteDMAmask &= ~4;
 				break;
 
 			case 102:
@@ -1115,6 +1119,29 @@ void Vic2mem::ted_process(const unsigned int continuous)
 					endOfScreen = false;
 				}
 				break;
+
+            case 104:
+                checkSpriteDMA(5);
+                spriteDMAmask &= ~8;
+                break;
+
+            case 108:
+                checkSpriteDMA(6);
+                spriteDMAmask &= ~0x10;
+                break;
+
+            case 112:
+                checkSpriteDMA(7);
+                spriteDMAmask &= ~0x20;
+                break;
+
+            case 116:
+                spriteDMAmask &= ~0x40;
+                break;
+
+            case 120:
+                spriteDMAmask &= ~0x80;
+                break;
 
 			case 122:
 				HBlanking = false;
@@ -1166,6 +1193,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case 84:
 				if (!nrwscr)
 					SideBorderFlipFlop = CharacterWindow = false;
+                checkSpriteDMA(0);
 				break;
 
 			case 86:
@@ -1186,6 +1214,17 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				}
 				if (VertSubActive)
 					vertSubCount = (vertSubCount + 1) & 7;
+                checkSpriteDMA(1);
+                break;
+
+            case 92:
+                checkSpriteDMA(2);
+                spriteDMAmask &= ~1;
+                break;
+
+            case 96:
+                checkSpriteDMA(3);
+                spriteDMAmask &= ~2;
 				break;
 
 			case 98:
@@ -1215,8 +1254,12 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case '0': case '1':	case '2': case '3':
 			case '4': case '5': case '6': case '7':
 				// FIXME: not really accurate
-				if (!mob[cycleChr ^ '0'].dmaState)
+				//if (!mob[cycleChr ^ '0'].dmaState)
+				//	cpuptr->process();
+                if (!spriteDMAmask)
 					cpuptr->process();
+                else if (spriteDMAon <= 3)
+                    cpuptr->stopcycle();
 				break;
 			case '*':
 				cpuptr->stopcycle();
@@ -1672,13 +1715,18 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 
 inline void Vic2mem::checkSpriteDMA(unsigned int i)
 {
-	unsigned int rY = mob[i].y;
-	if (rY == prevY) {
+	if (mob[i].enabled && mob[i].y == prevY && !mob[i].dmaState) {
 		mob[i].dmaState = true;
 		mob[i].dataCountReload = 0;
 		mob[i].dataCount = 0;
 		mob[i].reloadFlipFlop = mob[i].expandY;
 		mob[i].dataAddress = (VideoBase[0x03F8 + i] << 6);
+	}
+	if (mob[i].dmaState) {
+        spriteDMAmask |= (1 << i);
+        spriteDMAon++;
+	} else {
+	    spriteDMAon = 0;
 	}
 }
 
@@ -1688,9 +1736,6 @@ inline void Vic2mem::drawSpritesPerLine()
 
 	do {
 		if (mob[i].enabled) {
-			if (!mob[i].dmaState) {
-				checkSpriteDMA(i);
-			}
 			if (mob[i].dmaState) {
                 unsigned int tvX = RASTERX2TVCOL(mob[i].x);
                 unsigned int &dc = mob[i].dataCount;

@@ -16,18 +16,21 @@ public:
     }
     static void bufferFill(unsigned int nrsamples, short *buffer);
     virtual void calcSamples(short *buffer, unsigned int nrsamples) = 0;
+	virtual void setFrequency(unsigned int frequency) = 0;
+	virtual void setSampleRate(unsigned int sampleRate) = 0;
 private:
     char name[16];
+protected:
+	static unsigned int sampleRate;
 };
 
 extern void init_audio(unsigned int sampleFrq = SAMPLE_FREQ);
 extern void close_audio();
 extern void sound_pause();
 extern void sound_resume();
+extern void sound_change_freq(unsigned int &newFreq);
 extern void updateAudio(unsigned int nrsamples);
 
 extern void flushBuffer(ClockCycle cycle, unsigned int frq);
-extern void writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value);
-extern void ted_sound_init(unsigned int mixingFreq);
 
 #endif
