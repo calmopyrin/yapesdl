@@ -161,7 +161,7 @@ bool start_file(char *szFile )
 			ted8360->copyToKbBuffer("L\317\042*\042,8,1\rRUN:\r", 15);
 			return true;
 		}
-		if (!strcmp(fileext,".prg") || !strcmp(fileext,".PRG") 
+		if (!strcmp(fileext,".prg") || !strcmp(fileext,".PRG")
 			|| !strcmp(fileext,".p00") || !strcmp(fileext,".P00")) {
 			PrgLoad(szFile, 0, ted8360 );
 			ted8360->copyToKbBuffer("RUN:\r",5);
@@ -386,8 +386,8 @@ static bool saveScreenshotBMP(char* filepath, SDL_Window* SDLWindow, SDL_Rendere
 				pxls = NULL;
 				return false;
 			} else {
-				saveSurface = SDL_CreateRGBSurfaceFrom(pixels, infoSurface->w, infoSurface->h, infoSurface->format->BitsPerPixel, 
-					infoSurface->w * infoSurface->format->BytesPerPixel, infoSurface->format->Rmask, 
+				saveSurface = SDL_CreateRGBSurfaceFrom(pixels, infoSurface->w, infoSurface->h, infoSurface->format->BitsPerPixel,
+					infoSurface->w * infoSurface->format->BytesPerPixel, infoSurface->format->Rmask,
 					infoSurface->format->Gmask, infoSurface->format->Bmask, infoSurface->format->Amask);
 				if (saveSurface == NULL) {
 					return false;

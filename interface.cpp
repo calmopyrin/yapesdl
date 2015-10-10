@@ -246,8 +246,8 @@ void UI::show_file_list(struct menu_t * menu, UI_MenuClass type)
 			case UI_PRG_ITEM:
 			    nrOfExts = 3;
 			    strcpy(ftypes[0].name, "*.prg");
-				strcpy(ftypes[1].name, "*.p00");
-                strcpy(ftypes[2].name, "*.t64");
+				strcpy(ftypes[1].name, "*.P00");
+                strcpy(ftypes[2].name, "*.T64");
                 ftypes[0].menufunction = UI_PRG_ITEM;
                 ftypes[1].menufunction = UI_PRG_ITEM;
                 ftypes[2].menufunction = UI_T64_ITEM;
@@ -257,8 +257,13 @@ void UI::show_file_list(struct menu_t * menu, UI_MenuClass type)
 				ftypes[0].menufunction = UI_TAP_ITEM;
 				break;
 			case UI_D64_ITEM:
-				strcpy(ftypes[0].name, "*.d64");
+                strcpy(ftypes[0].name, "*.d64");
 				ftypes[0].menufunction = UI_D64_ITEM;
+#ifndef WIN32
+                nrOfExts = 2;
+				strcpy(ftypes[1].name, "*.D64");
+                ftypes[1].menufunction = UI_D64_ITEM;
+#endif
 				break;
 			case UI_FRE_ITEM:
 				strcpy(ftypes[0].name, "*.fre");

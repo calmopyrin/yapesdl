@@ -194,10 +194,8 @@ void init_audio(unsigned int sampleFrq)
 	fprintf(stderr, "Obtained sample buffer size: %u\n", audiohwspec->samples);
 	fprintf(stderr, "Obtained silence value: %u\n", audiohwspec->silence);
 
-	// FIXME the '14' padding is somehow required by a heap corruption bug in Win64 builds
-	const unsigned int padding = 14;
-	sndRingBuffer = new short[SND_BUF_MAX_READ_AHEAD * BufferLength * padding];
-	for(unsigned int i = 0; i < SND_BUF_MAX_READ_AHEAD * BufferLength * padding; i++)
+	sndRingBuffer = new short[SND_BUF_MAX_READ_AHEAD * BufferLength];
+	for(unsigned int i = 0; i < SND_BUF_MAX_READ_AHEAD * BufferLength; i++)
 		sndRingBuffer[i] = audiohwspec->silence;
 	sndWriteBufferIndex = SND_LATENCY_IN_FRAGS;
 	sndPlayBufferIndex = 0;

@@ -101,7 +101,10 @@ class UI {
 		unsigned char asc2pet(char c);
 		char *petstr2ascstr(char *string);
 		int enterMenu();
-		void setNewMachine(TED *newTed) { ted8360 = newTed; };
+		void setNewMachine(TED *newTed) {
+            ted8360 = newTed;
+            display = ted8360->screen;
+        };
 };
 
 #endif // _INTERFACE_H

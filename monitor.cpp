@@ -432,11 +432,13 @@ void executeCmd(unsigned int cmd, vector<string> &args, char *wholeLine)
 static void parseLine(char *line, unsigned int &cmdCode)
 {
 	vector<string> args;
-	const char *dl = " ,.-\n\r\t";
+	const char *dl = " ,-\n\r\t";
 
 	parseCommand(line, cmdCode);
+	char lineCopy[512];
+	strcpy(lineCopy, line);
 	// first token is command string
-	char *carg = strtok(line, dl);
+	char *carg = strtok(lineCopy, dl);
 	carg = strtok(NULL, dl);
 	//
 	while (carg) {
