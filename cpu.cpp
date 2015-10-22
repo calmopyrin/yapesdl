@@ -12,7 +12,8 @@ bool CPU::bp_reached = false;
 const unsigned int CPU::nr_of_bps = 11;
 static unsigned int stats[255];
 
-CPU::CPU( MemoryHandler *memhandler, unsigned char *irqreg, unsigned char *cpustack ) : mem(memhandler), irq_register(irqreg), stack(cpustack)
+CPU::CPU( MemoryHandler *memhandler, unsigned char *irqreg, unsigned char *cpustack) 
+	: mem(memhandler), irq_register(irqreg), stack(cpustack)
 {
 	irq_sequence = 0;
 	IRQcount = 0;
@@ -27,6 +28,7 @@ CPU::CPU( MemoryHandler *memhandler, unsigned char *irqreg, unsigned char *cpust
 	memset( stats, 0, sizeof(stats));
 	irqVector = INTERRUPT_IRQ;
 	nmiLevel = 0;
+	setId("CPU0");
 }
 
 unsigned int CPU::getcins()
@@ -36,39 +38,38 @@ unsigned int CPU::getcins()
 	return (currins==0) ?  mem->Read((PC-1)&0xFFFF) : currins&0xFF;
 };
 
-bool CPU::saveshot(void *CPUdump)
+void CPU::dumpState()
 {
-	FILE *img = (FILE *) CPUdump;
-
-	fwrite(&currins,sizeof(currins),1,img);
-	fwrite(&nextins,sizeof(nextins),1,img);
-	fwrite(&ptr,sizeof(ptr),1,img);
-	fwrite(&PC,sizeof(PC),1,img);
-	fwrite(&cycle,sizeof(cycle),1,img);
-	fwrite(&SP,sizeof(SP),1,img);
-  	fwrite(&ST,sizeof(ST),1,img);
-   	fwrite(&AC,sizeof(AC),1,img);
-   	fwrite(&X,sizeof(X),1,img);
-   	fwrite(&Y,sizeof(Y),1,img);
-	return true;
+	saveVar(&currins,sizeof(currins));
+	saveVar(&nextins,sizeof(nextins));
+	saveVar(&ptr,sizeof(ptr));
+	saveVar(&PC,sizeof(PC));
+	saveVar(&cycle,sizeof(cycle));
+	saveVar(&SP,sizeof(SP));
+  	saveVar(&ST,sizeof(ST));
+   	saveVar(&AC,sizeof(AC));
+   	saveVar(&X,sizeof(X));
+   	saveVar(&Y,sizeof(Y));
+	saveVar(&IRQcount, sizeof(IRQcount));
+	saveVar(&irq_sequence, sizeof(irq_sequence));
 }
 
-bool CPU::loadshot(void *CPUdump)
+void CPU::readState()
 {
-	FILE *img = (FILE *) CPUdump;
-
-	fread(&currins,sizeof(currins),1,img);
-	fread(&nextins,sizeof(nextins),1,img);
-	fread(&ptr,sizeof(ptr),1,img);
-   	fread(&PC,sizeof(PC),1,img);
+	readVar(&currins,sizeof(currins));
+	readVar(&nextins,sizeof(nextins));
+	readVar(&ptr,sizeof(ptr));
+   	readVar(&PC,sizeof(PC));
 	PC &= 0xFFFF;
-	fread(&cycle,sizeof(cycle),1,img);
-   	fread(&SP,sizeof(SP),1,img);
-  	fread(&ST,sizeof(ST),1,img);
-   	fread(&AC,sizeof(AC),1,img);
-   	fread(&X,sizeof(X),1,img);
-   	fread(&Y,sizeof(Y),1,img);
-	return true;
+	readVar(&cycle,sizeof(cycle));
+   	readVar(&SP,sizeof(SP));
+  	readVar(&ST,sizeof(ST));
+	ST &= 0xFF;
+   	readVar(&AC,sizeof(AC));
+   	readVar(&X,sizeof(X));
+   	readVar(&Y,sizeof(Y));
+	readVar(&IRQcount, sizeof(IRQcount));
+	readVar(&irq_sequence, sizeof(irq_sequence));
 }
 
 // reset keeps all except for PC
@@ -4545,9 +4546,13 @@ CPU::~CPU()
 // Drive CPU class overrides
 
 DRIVECPU::DRIVECPU(MemoryHandler *memhandler, unsigned char *irqreg, unsigned char *cpustack,
-				   unsigned char *vpin, unsigned char *so_enable)
+				   unsigned char *vpin, unsigned char *so_enable, unsigned int id)
 				   : CPU(memhandler, irqreg, cpustack)
 {
+	char cpuid[8];
+	sprintf(cpuid, "CPU%u", id);
+	setId(cpuid);
+
 	irq_sequence = 0;
 	IRQcount = 0;
 

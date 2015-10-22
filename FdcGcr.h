@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include "types.h"
+#include "SaveState.h"
 
 enum {
 	DISK_D64, DISK_G64, DISK_D81
@@ -13,7 +14,7 @@ static const unsigned int MAX_NUM_TRACKS = 42; // 35 41 42
 static const unsigned int MIN_d64NumOfSectors = 683;
 static const unsigned int MAX_d64NumOfSectors = 768; // This copes with max 40 tracks size d64 images
 
-class FdcGcr {
+class FdcGcr : public SaveState {
 public:
 	FdcGcr();
 	virtual ~FdcGcr();
@@ -46,6 +47,9 @@ public:
 		return false;
 	}
 	unsigned char getMotorState();
+	// this is for the FRE support
+	virtual void dumpState();
+	virtual void readState();
 //	static bool createG64image(char *d64name, char *hdr, char *id1, char *id2);
 //	static bool G64writeHeader(FILE *g64);
 //	static bool gcrToG64(char *filename, unsigned char *buffer);
@@ -64,7 +68,6 @@ private:
 	void disk2gcr();
 	void gcr2disk();
 	void dumpGcr(unsigned char *p);
-	unsigned char *ram;
 	FILE *diskImageHandle;
 	char imageName[266];
 	int imageType;

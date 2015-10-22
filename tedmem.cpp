@@ -26,7 +26,7 @@
 #include "video.h"
 
 unsigned int		TED::vertSubCount;
-int				TED::x, TED::tmp;
+int				TED::x;
 unsigned char	*TED::VideoBase;
 
 ClockCycle TED::CycleCounter;
@@ -65,11 +65,12 @@ enum {
 	TRFSHDELAY = 1 << 11
 };
 
-TED::TED() : sidCard(0)
+TED::TED() : sidCard(0), SaveState()
 {
 	unsigned int i;
 
 	instance_ = this;
+	setId("TED0");
 	// clearing cartdridge ROMs
 	for (i=0;i<4;++i) {
 		memset(&(RomHi[i]),0,ROMSIZE);
@@ -438,6 +439,7 @@ void TED::UpdateSerialState(unsigned char portVal)
 
 void TED::changeCharsetBank()
 {
+	unsigned int tmp;
 	if (rvsmode || ecmode) {
 		tmp = 0xF800 & RAMMask;
 	} else {
@@ -450,6 +452,8 @@ void TED::changeCharsetBank()
 
 void TED::Write(unsigned int addr, unsigned char value)
 {
+	unsigned int tmp;
+
 	switch (addr&0xF000) {
 		case 0x0000:
 			switch ( addr & 0xFFFF ) {
@@ -817,72 +821,70 @@ void TED::Write(unsigned int addr, unsigned char value)
 	return;
 }
 
-void TED::dump(void *img)
+void TED::dumpState()
 {
 	// this is ugly :-P
-   	fwrite(Ram,RAMSIZE,1,(FILE *) img);
-	fwrite(&RAMenable,sizeof(RAMenable),1,(FILE *) img);
-	fwrite(&t1start,sizeof(t1start),1, (FILE *) img);
-	fwrite(&t1on,sizeof(t1on),1, (FILE *) img);
-	fwrite(&t2on,sizeof(t2on),1, (FILE *) img);
-	fwrite(&t3on,sizeof(t3on),1, (FILE *) img);
-	fwrite(&timer1,sizeof(timer1),1, (FILE *) img);
-	fwrite(&timer2,sizeof(timer2),1, (FILE *) img);
-	fwrite(&timer3,sizeof(timer3),1, (FILE *) img);
-	fwrite(&beamx,sizeof(beamx),1, (FILE *) img);
-	fwrite(&beamy,sizeof(beamy),1, (FILE *) img);
-	//fwrite(&x,sizeof(x),1, (FILE *) img);
-	fwrite(&irqline,sizeof(irqline),1, (FILE *) img);
-	fwrite(&crsrpos,sizeof(crsrpos),1, (FILE *) img);
-	fwrite(&scrattr,sizeof(scrattr),1, (FILE *) img);
-	fwrite(&tmp,sizeof(tmp),1, (FILE *) img);
-	fwrite(&nrwscr,sizeof(nrwscr),1, (FILE *) img);
-	fwrite(&hshift,sizeof(hshift),1, (FILE *) img);
-	fwrite(&vshift,sizeof(vshift),1, (FILE *) img);
-	fwrite(&fltscr,sizeof(fltscr),1, (FILE *) img);
-	fwrite(&mcol,sizeof(mcol),1, (FILE *) img);
-	fwrite(chrbuf,40,1, (FILE *) img);
-	fwrite(clrbuf,40,1, (FILE *) img);
-	fwrite(&charrom,sizeof(charrom),1, (FILE *) img);
-	fwrite(&charbank,sizeof(charbank),1, (FILE *) img);
-//	fwrite(&TEDfreq1,sizeof(TEDfreq1),1, (FILE *) img);
-//	fwrite(&TEDfreq2,sizeof(TEDfreq2),1, (FILE *) img);
-//	fwrite(&TEDVolume,sizeof(TEDVolume),1, (FILE *) img);
-//	fwrite(&TEDDA,sizeof(TEDDA),1, (FILE *) img);
-	fwrite(&framecol,sizeof(framecol),1, (FILE *) img);
+	saveVar(Ram,RAMSIZE);
+	saveVar(&prp, sizeof(prp));
+	saveVar(&prddr, sizeof(prddr));
+	saveVar(serialPort, sizeof(serialPort[0]));
+	saveVar(&RAMenable,sizeof(RAMenable));
+	saveVar(&t1start,sizeof(t1start));
+	saveVar(&t1on,sizeof(t1on));
+	saveVar(&t2on,sizeof(t2on));
+	saveVar(&t3on,sizeof(t3on));
+	saveVar(&timer1,sizeof(timer1));
+	saveVar(&timer2,sizeof(timer2));
+	saveVar(&timer3,sizeof(timer3));
+	saveVar(&beamx,sizeof(beamx));
+	saveVar(&beamy,sizeof(beamy));
+	//fwrite(&x,sizeof(x));
+	saveVar(&irqline,sizeof(irqline));
+	saveVar(&crsrpos,sizeof(crsrpos));
+	saveVar(&scrattr,sizeof(scrattr));
+	saveVar(&nrwscr,sizeof(nrwscr));
+	saveVar(&hshift,sizeof(hshift));
+	saveVar(&vshift,sizeof(vshift));
+	saveVar(&fltscr,sizeof(fltscr));
+	saveVar(&mcol,sizeof(mcol));
+	saveVar(chrbuf,40);
+	saveVar(clrbuf,40);
+	saveVar(&charrom,sizeof(charrom));
+	saveVar(&charbank,sizeof(charbank));
+	saveVar(&framecol,sizeof(framecol));
 }
 
-void TED::memin(void *img)
+void TED::readState()
 {
-
 	// this is ugly :-P
-   	fread(Ram,RAMSIZE,1,(FILE *) img);
-
-	fread(&RAMenable,sizeof(RAMenable),1,(FILE *) img);
-	fread(&t1start,sizeof(t1start),1, (FILE *) img);
-	fread(&t1on,sizeof(t1on),1, (FILE *) img);
-	fread(&t2on,sizeof(t2on),1, (FILE *) img);
-	fread(&t3on,sizeof(t3on),1, (FILE *) img);
-	fread(&timer1,sizeof(timer1),1, (FILE *) img);
-	fread(&timer2,sizeof(timer2),1, (FILE *) img);
-	fread(&timer3,sizeof(timer3),1, (FILE *) img);
-	fread(&beamx,sizeof(beamx),1, (FILE *) img);
-	fread(&beamy,sizeof(beamy),1, (FILE *) img);
-	//fread(&x,sizeof(x),1, (FILE *) img);
-	fread(&irqline,sizeof(irqline),1, (FILE *) img);
-	fread(&crsrpos,sizeof(crsrpos),1, (FILE *) img);
-	fread(&scrattr,sizeof(scrattr),1, (FILE *) img);
-	fread(&tmp,sizeof(tmp),1, (FILE *) img);
-	fread(&nrwscr,sizeof(nrwscr),1, (FILE *) img);
-	fread(&hshift,sizeof(hshift),1, (FILE *) img);
-	fread(&vshift,sizeof(vshift),1, (FILE *) img);
-	fread(&fltscr,sizeof(fltscr),1, (FILE *) img);
-	fread(&mcol,sizeof(mcol),1, (FILE *) img);
-	fread(chrbuf,40,1, (FILE *) img);
-	fread(clrbuf,40,1, (FILE *) img);
-	fread(&charrom,sizeof(charrom),1, (FILE *) img);
-	fread(&charbank,sizeof(charbank),1, (FILE *) img);
-	fread(&framecol,sizeof(framecol),1, (FILE *) img);
+   	readVar(Ram,RAMSIZE);
+	readVar(&prp, sizeof(prp));
+	readVar(&prddr, sizeof(prddr));
+	readVar(serialPort, sizeof(serialPort[0]));
+	readVar(&RAMenable,sizeof(RAMenable));
+	readVar(&t1start,sizeof(t1start));
+	readVar(&t1on,sizeof(t1on));
+	readVar(&t2on,sizeof(t2on));
+	readVar(&t3on,sizeof(t3on));
+	readVar(&timer1,sizeof(timer1));
+	readVar(&timer2,sizeof(timer2));
+	readVar(&timer3,sizeof(timer3));
+	readVar(&beamx,sizeof(beamx));
+	readVar(&beamy,sizeof(beamy));
+	//readVar(&x,sizeof(x));
+	readVar(&irqline,sizeof(irqline));
+	readVar(&crsrpos,sizeof(crsrpos));
+	readVar(&scrattr,sizeof(scrattr));
+	readVar(&nrwscr,sizeof(nrwscr));
+	readVar(&hshift,sizeof(hshift));
+	readVar(&vshift,sizeof(vshift));
+	readVar(&fltscr,sizeof(fltscr));
+	readVar(&mcol,sizeof(mcol));
+	readVar(chrbuf,40);
+	readVar(clrbuf,40);
+	readVar(&charrom,sizeof(charrom));
+	readVar(&charbank,sizeof(charbank));
+	readVar(&framecol,sizeof(framecol));
 
 	for (int i=0; i<5; i++)
 		writeSoundReg(0, i, Ram[0xFF0E + i]);
@@ -892,7 +894,6 @@ void TED::memin(void *img)
 	charrambank=Ram+charbank;
 	charrombank=&(RomHi[0][charbank & 0x3C00]);
 	(charrom) ? cset = charrombank : cset = charrambank;
-
 }
 
 // when multi and extended color modes are all on the screen is blank

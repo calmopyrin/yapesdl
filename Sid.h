@@ -2,6 +2,7 @@
 #define _SID_H
 
 #include "sound.h"
+#include "SaveState.h"
 
 #define SOUND_FREQ_PAL_C64 985248
 
@@ -13,22 +14,27 @@ enum {
 };
 
 // SID class
-class SIDsound : public SoundSource
+class SIDsound : public SoundSource, public SaveState
 {
 public:
 	SIDsound(unsigned int model, unsigned int chnlDisableMask);
 	virtual ~SIDsound();
 	virtual void reset();
+	//
 	virtual void setReplayFreq() {
 		calcEnvelopeTable();
 	};
-	void setModel(unsigned int model);
 	virtual void setFrequency(unsigned int sid_frequency);
 	virtual void setSampleRate(unsigned int sampleRate_);
+	virtual void calcSamples(short *buf, unsigned int count);
+	// this is for the FRE support
+	virtual void dumpState();
+	virtual void readState();
+	//
+	void setModel(unsigned int model);
 	void calcEnvelopeTable();
 	unsigned char read(unsigned int adr);
 	void write(unsigned int adr, unsigned char byte);
-	virtual void calcSamples(short *buf, unsigned int count);
 	void enableDisableChannel(unsigned int ch, bool enabled) {
 		voice[ch].disabled = !enabled;
 	}
@@ -58,7 +64,6 @@ private:
 
 		unsigned int accu;		// accumulator of the waveform generator, 8.16 fixed
 		unsigned int accPrev;	// previous accu value (for ring modulation)
-		unsigned int add;		// added to the accumulator for each sample
 		unsigned int shiftReg;	// shift register for noise waveform
 
 		unsigned short freq;	// voice frequency
@@ -83,11 +88,12 @@ private:
 		// This bit is set for the modulating voice,
 		// not for the modulated one (compared to the real one)
 		unsigned int sync; // sync modulation flag
-	};
+	} voice[3];			// array for the 3 channels
 	int volume;			// SID Master volume
 	unsigned int sidBaseFreq;	// SID base frequency
 	unsigned int sidCyclesPerSampleInt;
-	unsigned int clockDeltaRemainder;
+	unsigned int clockDeltaRemainder; // Accumulator for frequency conversion
+	unsigned int clockDeltaFraction; // Fractional component for frequency conversion
 	int dcMixer; // different for 6581 and 8580 (constant level output for digi)
 	int dcVoice;
 	int dcWave;
@@ -111,8 +117,7 @@ private:
 	static const unsigned int RateCountPeriod[16]; // Factors for A/D/S/R Timing
 	static const unsigned char envGenDRdivisors[256]; // For exponential approximation of D/R
 	static unsigned int masterVolume;
-	// voice array for the 3 channels
-	SIDVoice voice[3];
+	unsigned char reg[32];
 	// filter stuff
 	unsigned char	filterType; // filter type
 	unsigned int	filterCutoff;	// SID filter frequency
@@ -138,20 +143,20 @@ private:
 inline int SIDsound::waveTriangle(SIDVoice &v)
 {
 	unsigned int msb = (v.ring ? v.accu ^ v.modulatedBy->accu : v.accu)
-		& 0x8000000;
+		& 0x800000;
 	// triangle wave 15 bit only
- 	return ((msb ? ~v.accu : v.accu) >> 15) & 0xFFF;
+ 	return ((msb ? ~v.accu : v.accu) >> 11) & 0xFFF;
 }
 
 inline int SIDsound::waveSaw(SIDVoice &v)
 {
-	return v.accu >> 16;
+	return v.accu >> 12;
 }
 
 inline int SIDsound::wavePulse(SIDVoice &v)
 {
 	// square wave starts high
-	return (v.test | ((v.accu >> 16) >= v.pw ? 0xFFF : 0x000));
+	return (v.test | ((v.accu >> 12) >= v.pw ? 0xFFF : 0x000));
 }
 
 inline int SIDsound::waveTriSaw(SIDVoice &v)

@@ -16,6 +16,7 @@
 #include "mem.h"
 #include "serial.h"
 #include "sound.h"
+#include "SaveState.h"
 
 #define RAMSIZE 65536
 #define ROMSIZE 16384
@@ -45,7 +46,7 @@ struct Color;
 
 typedef void (TED::*delayedEventCallback)();
 
-class TED : public CSerial , public MemoryHandler, public SoundSource {
+class TED : public CSerial , public MemoryHandler, public SoundSource, public SaveState {
   public:
   	TED();
   	virtual ~TED();
@@ -75,8 +76,8 @@ class TED : public CSerial , public MemoryHandler, public SoundSource {
 	char romlopath[4][256];
 	char romhighpath[4][256];
 	// this is for the FRE support
-  	void dump(void *img);
-	void memin(void *img);
+  	virtual void dumpState();
+	virtual void readState();
 	// screen rendering
 	// raster co-ordinates and boundaries
 	unsigned int beamx, beamy;
@@ -93,7 +94,6 @@ class TED : public CSerial , public MemoryHandler, public SoundSource {
 	CPU	*cpuptr;
 	// TED process (main loop of emulation)
 	virtual void ted_process(const unsigned int continuous);
-	void setDS( void *ds);
 
  	unsigned char Ram[RAMSIZE];
   	unsigned char RomHi[4][ROMSIZE];
@@ -180,7 +180,7 @@ protected:
 	unsigned char hcol[2], mcol[4], ecol[4], bmmcol[4], *cset;
 	//
 	static unsigned int		vertSubCount;
-	static int				x,tmp;
+	static int				x;
 	static unsigned char	*VideoBase;
 
 	static ClockCycle CycleCounter;

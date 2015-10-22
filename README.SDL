@@ -2,7 +2,7 @@ README.SDL
 
 This is the README for the SDL port of Yape/SDL (Yet Another Plus/4 Emulator)
 
-Current version is 0.59.1
+Current version is 0.70.1
 
 LEGAL
 =====
@@ -69,20 +69,20 @@ USAGE
   F6		: press STOP on tape
   F7		: save screenshot to BMP file
   F8		: enter the user interface, press F8 again or ESC to quit.
-		  You can move around in the menus with the arrow keys, press ENTER for selection.
-  
+              You can move around in the menus with the arrow keys, press ENTER for selection.
   F9		: quick debugger
   F10		: save current settings to user's home directory
 
-  LALT + 1-3: set window size
-  LALT + E	: switch among emulators (C+4 cycle based; C+4 line based; C64 cycle based)
-  LALT + I	: switch emulated jostick port
-  LALT + M  : enter console based external monitor and disassembler
-  LALT + S	: display frame rate on/off  
-  LALT + P	: toggle CRT emulation
-  LALT + W	: toggle between unlimited speed and 50 Hz frame rate (original speed)
+  LALT + 1-3   : set window size
+  LALT + E	   : switch among emulators (C+4 cycle based; C+4 line based; C64 cycle based)
+  LALT + I	   : switch emulated jostick port
+  LALT + M     : enter console based external monitor and disassembler
+  LALT + S     : display frame rate on/off  
+  LALT + P	   : toggle CRT emulation
+  LALT + W	   : toggle between unlimited speed and 50 Hz frame rate (original speed)
   LALT + ENTER : toggle full screen mode
-  LALT + F8 : save memory pointed by $2B/$2C and $2D/$2E
+  LALT + F8	   : save memory pointed by $2B/$2C and $2D/$2E
+  LALT + KPLUS : collate replay frequencies
   
   Internal disk LOAD/SAVE operations are supported to the current
   file system directory - which is usually '/home/<username>/yape' - in C+4 modes.

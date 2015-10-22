@@ -11,8 +11,7 @@
 	(c) 2005 VENESZ Roland
 */
 
-#define TITLE   "YAPESDL 0.58"
-#define NAME    "Yape/SDL 0.58.2"
+#define NAME    "Yape/SDL 0.70.1"
 #define WINDOWX SCREENX
 #define WINDOWY SCREENY
 
@@ -57,7 +56,7 @@ static UI				*uinterface = NULL;
 
 ////////////////
 // Supplementary
-static unsigned int			g_TotFrames = 0;
+static unsigned int		g_TotFrames = 0;
 
 static TED				*ted8360 = NULL;
 static CPU				*machine = NULL;
@@ -79,6 +78,7 @@ static bool				g_SoundOn = true;
 static bool             g_bUseOverlay = 0;
 static unsigned int		g_bWindowMultiplier = 2;
 static unsigned int		g_iEmulationLevel = 0;
+static char				lastSnapshotName[512] = "";
 
 //-----------------------------------------------------------------------------
 // Name: ShowFrameRate()
@@ -218,9 +218,13 @@ static void showPopUpMessage()
 		popupMessageTimeOut -= 1;
 }
 
-inline void PopupMsg(const char *msg)
+inline void PopupMsg(const char *msg, ...)
 {
-	strcpy(popUpMessage, msg);
+	va_list args;
+	va_start(args, msg);
+	vsprintf(popUpMessage, msg, args);
+	va_end(args);
+
 	popupMessageTimeOut = 60; // frames
 }
 
@@ -473,6 +477,22 @@ static void enterMenu()
 		sound_resume();
 }
 
+static void toggleFullThrottle()
+{
+	g_50Hz = !g_50Hz;
+	if (g_50Hz) {
+		sound_resume();
+		sprintf(textout, " 50 HZ TIMER IS ON ");
+	}
+	else {
+		sound_pause();
+		sprintf(textout, " 50 HZ TIMER IS OFF ");
+	}
+	PopupMsg(textout);
+	// restart counter
+	g_TotFrames = 0;
+}
+
 static void setEmulationLevel(unsigned int level)
 {
 	unsigned char ram[RAMSIZE];
@@ -571,8 +591,7 @@ inline static void poll_events(void)
 								currFrq = (currFrq + 1) % 3;
 								unsigned int rate = frq[currFrq];
 								sound_change_freq(rate);
-								sprintf(textout, " AUDIO FREQUENCY: %u ", rate);
-								PopupMsg(textout);
+								PopupMsg(" AUDIO FREQUENCY: %u ", rate);
 							}
 							break;
 
@@ -583,8 +602,7 @@ inline static void poll_events(void)
 									int mult = (event.key.keysym.sym - SDLK_0);
 									g_bWindowMultiplier = mult;
 									SDL_SetWindowSize(sdlWindow, SCREENX * mult, SCREENY * mult);
-									sprintf(textout, " WINDOW SIZE: %ux ", mult);
-									PopupMsg(textout);
+									PopupMsg(" WINDOW SIZE: %ux ", mult);
 								}
 								break;
 							case SDLK_e:
@@ -617,30 +635,19 @@ inline static void poll_events(void)
 								break;
                             case SDLK_p:
                                 g_bUseOverlay = !g_bUseOverlay;
-                                sprintf(textout , " CRT emulation %s ", g_bUseOverlay ? "ON" : "OFF");
                                 SDL_DestroyTexture(sdlTexture);
                                 sdlTexture = SDL_CreateTexture(sdlRenderer,
                                         g_bUseOverlay ? SDL_PIXELFORMAT_UYVY : SDL_PIXELFORMAT_ARGB8888,
                                         SDL_TEXTUREACCESS_STREAMING,
 										WINDOWX, WINDOWY * (g_bUseOverlay ? 2 : 1));
-                                PopupMsg(textout);
+                                PopupMsg(" CRT emulation %s ", g_bUseOverlay ? "ON" : "OFF");
                                 break;
 							case SDLK_s:
 								g_TotFrames = 0;
 								g_FrameRate = !g_FrameRate;
 								break;
 							case SDLK_w :
-								g_50Hz = ! g_50Hz ;
-								if (g_50Hz) {
-									sound_resume();
-									sprintf(textout , " 50 HZ TIMER IS ON ");
-								} else {
-									sound_pause();
-									sprintf(textout , " 50 HZ TIMER IS OFF ");
-								}
-								PopupMsg(textout);
-								// restart counter
-								g_TotFrames = 0;
+								toggleFullThrottle();
 								break;
 							case SDLK_RETURN:
 								{
@@ -649,9 +656,20 @@ inline static void poll_events(void)
 									SDL_SetWindowFullscreen(sdlWindow, fs ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 								}
 								break;
+							case SDLK_F5:
+								getSerializedFilename("snapshot", "yss", lastSnapshotName);
+								SaveState::openSnapshot(lastSnapshotName, true);
+								PopupMsg(" Saving snapshot... ");
+								fprintf(stderr, "Saved emulator state to %s.\n", lastSnapshotName);
+								break;
+							case SDLK_F6:
+								if (SaveState::openSnapshot(lastSnapshotName, false))
+									PopupMsg(" Loading %s... ", lastSnapshotName);
+								break;
+
 							case SDLK_F8:
 								{
-									unsigned short d1, d2;
+									unsigned short d1 = 0, d2 = 0;
 									mainSaveMemoryAsPrg(0, d1, d2);
 								}
 								break;
@@ -741,7 +759,7 @@ inline static void poll_events(void)
 				} else if (event.jbutton.button == 11) {
 					doSwapJoy();
 				} else if (event.jbutton.button == 12) {
-					machineReset(true);
+					toggleFullThrottle();
 				}
 				break;
 

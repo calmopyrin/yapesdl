@@ -21,6 +21,9 @@
 DRIVEMEM::DRIVEMEM(FdcGcr *_fdc, unsigned char *Ramptr, unsigned char *Rom, unsigned int dev_num)
  : CTrueSerial(dev_num), Ram(Ramptr), rom(Rom), fdc(_fdc)
 {
+	char id[8];
+	sprintf(id, "M41%u", dev_num);
+	setId(id);
 	via2_t2to_enable = false;
 	devnr = (dev_num & 7) << 5;
 	bus_state_change = false;
@@ -28,6 +31,33 @@ DRIVEMEM::DRIVEMEM(FdcGcr *_fdc, unsigned char *Ramptr, unsigned char *Rom, unsi
 	ppIn = 0xFF;
 	oldAtnIn = 1;
 	Reset();
+}
+
+void DRIVEMEM::dumpState()
+{
+	saveVar(Ram, 0x4000);
+	saveVar(&irqFlag, sizeof(irqFlag));
+	saveVar(&oldAtnIn, sizeof(oldAtnIn));
+	saveVar(&bus_state_change, sizeof(bus_state_change));
+	saveVar(&serialPort[DeviceNr], sizeof(serialPort[DeviceNr]));
+	saveVar(&via[0].reg, sizeof(via[0].reg) / sizeof(via[0].reg[0]));
+	saveVar(&via[1].reg, sizeof(via[1].reg) / sizeof(via[1].reg[1]));
+}
+
+void DRIVEMEM::readState()
+{
+	readVar(Ram, 0x4000);
+	readVar(&irqFlag, sizeof(irqFlag));
+	readVar(&oldAtnIn, sizeof(oldAtnIn));
+	readVar(&bus_state_change, sizeof(bus_state_change));
+	readVar(&serialPort[DeviceNr], sizeof(serialPort[DeviceNr]));
+	readVar(&via[0].reg, sizeof(via[0].reg) / sizeof(via[0].reg[0]));
+	readVar(&via[1].reg, sizeof(via[1].reg) / sizeof(via[1].reg[1]));
+	//
+	for (unsigned int i = 0; i < 16; i++) {
+		Write(0x1800 + i, via[0].reg[i]);
+		Write(0x1C00 + i, via[1].reg[i]);
+	}
 }
 
 /*
@@ -267,11 +297,13 @@ void DRIVEMEM::Write(unsigned int addr, unsigned char value)
 {
 	if (!(addr & 0x1800))
 		Ram[addr & 0x07FF] = value;
-	else if (addr < 0x8000)
+	else if (addr < 0x8000) {
+		unsigned int viaIndex = (addr & 0x0400) ? 1 : 0;
+		via[viaIndex].reg[addr & 0x0F] = value;
 		// VIA 1
 		switch (addr & 0x1C0F) {
 			case 0x1800:
-				if ( via[0].prb != value ) {
+				if (via[0].prb != value) {
 					via[0].prb = value;
 					bus_state_change = true;
 				}
@@ -280,7 +312,7 @@ void DRIVEMEM::Write(unsigned int addr, unsigned char value)
 				// Acknowledge IEC IRQ otherwise unused
 				via[0].ifr &= 0x7D;
 				via[0].pra = value;
-				SetIRQflag( via[0].ier & via[0].ifr );
+				SetIRQflag(via[0].ier & via[0].ifr);
 				break;
 			case 0x1802:
 				if (via[0].ddrb != value) {
@@ -333,43 +365,43 @@ void DRIVEMEM::Write(unsigned int addr, unsigned char value)
 				via[0].pcr = value;
 				break;
 			case 0x180D:
-				via[0].ifr &= ~( value | 0x80 );
-				SetIRQflag( via[0].ier & via[0].ifr );
+				via[0].ifr &= ~(value | 0x80);
+				SetIRQflag(via[0].ier & via[0].ifr);
 				break;
 			case 0x180E:
 				if (value & 0x80)
 					via[0].ier |= value & 0x7F;
 				else
 					via[0].ier &= ~value;
-				SetIRQflag( via[0].ier & via[0].ifr );
+				SetIRQflag(via[0].ier & via[0].ifr);
 				break;
 			case 0x180F:
 				// Unused
 				break;
 
-			// VIA 2
+				// VIA 2
 			case 0x1C00:
 				// bits 0/1: Head stepper motor
 				if ((via[1].prb ^ value) & 3) {
-					if ((via[1].prb & 3) == ((value+1) & 3))
+					if ((via[1].prb & 3) == ((value + 1) & 3))
 						fdc->moveHeadOut();
-					else if ((via[1].prb & 3) == ((value-1) & 3))
+					else if ((via[1].prb & 3) == ((value - 1) & 3))
 						fdc->moveHeadIn();
-                }
+				}
 				// bit #3: Drive LED
-//				if ((via[1].prb ^ value) & 8)
-//					theLed->Update( (value << 2) & 0x20 );
-				// bit #2: Drive motor on/off
+	//				if ((via[1].prb ^ value) & 8)
+	//					theLed->Update( (value << 2) & 0x20 );
+					// bit #2: Drive motor on/off
 				if ((via[1].prb ^ value) & 4)
-					fdc->SetDriveMotor( value & 4);
+					fdc->SetDriveMotor(value & 4);
 				// Bit 5 and 6 density select
-				if (( via[1].prb ^ value ) & 0x60 )
+				if ((via[1].prb ^ value) & 0x60)
 					fdc->SetDensity(value & 0x60);
 				// Bit 7 is synch?
 				via[1].prb = value & 0xEF; // was 0xEF
 				break;
 			case 0x1C01:
-				fdc->WriteGCRByte( value );
+				fdc->WriteGCRByte(value);
 			case 0x1C0F:
 				via[1].pra = value;
 				break;
@@ -413,34 +445,35 @@ void DRIVEMEM::Write(unsigned int addr, unsigned char value)
 			case 0x1C0C:
 				// bit #1 is the 'byte-ready' line, sets V flag to 1 also (SO enable?)
 				// bit #5 controls the head's read/write mode. 1 is read, 0 is write.
-				if ( value != via[1].pcr) {
-					if ((value&0xC0) == 0xC0) {
+				if (value != via[1].pcr) {
+					if ((value & 0xC0) == 0xC0) {
 						unsigned char pinCB2;
 						pinCB2 = value & 0x20;
 						fdc->SetRWMode(pinCB2);
 					}
-//					if ((value&0x0C) == 0x0C) {
-//						unsigned char pinCA2;
-//						pinCA2 = value & 0x02;
-//						/*if ( fdc->is_byteReady() && pinCA2 ) {
-//							unsigned char *bre = fdc->get_byteReady_edge();
-//							*bre = 1;
-//						}*/
-//					}
+					//					if ((value&0x0C) == 0x0C) {
+					//						unsigned char pinCA2;
+					//						pinCA2 = value & 0x02;
+					//						/*if ( fdc->is_byteReady() && pinCA2 ) {
+					//							unsigned char *bre = fdc->get_byteReady_edge();
+					//							*bre = 1;
+					//						}*/
+					//					}
 					via[1].pcr = value;
 				}
 				break;
 			case 0x1C0D:
 				via[1].ifr &= ~(value | 0x80);
 				// FIXME! Is this OK?
-				SetIRQflag( via[1].ier & via[1].ifr );
+				SetIRQflag(via[1].ier & via[1].ifr);
 				break;
 			case 0x1C0E:
 				if (value & 0x80)
 					via[1].ier |= value & 0x7F;
 				else
 					via[1].ier &= ~value;
-				SetIRQflag( via[1].ier & via[1].ifr );
+				SetIRQflag(via[1].ier & via[1].ifr);
 				break;
 		}
+	}
 }

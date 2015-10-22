@@ -10,12 +10,12 @@
 #define SETFLAGS_ZN(VALUE) ST = (ST&0x7D)|(((VALUE)==0)<<1)|((VALUE)&0x80)
 
 #include "mem.h"
+#include "SaveState.h"
 
 class TED;
 
-class CPU {
+class CPU : public SaveState {
 	protected:
-		//unsigned int currins;
 		unsigned char currins;
 		unsigned char nextins;
 		unsigned char farins;
@@ -71,8 +71,8 @@ class CPU {
 		unsigned int getRemainingCycles();
 		void setST(unsigned int v) { ST = v; };
 
-		bool saveshot(void *cpudump);
-		bool loadshot(void *cpudump);
+		virtual void dumpState();
+		virtual void readState();
 		// breakpoint variables
 		static bool bp_active;
 		static bool bp_reached;
@@ -180,7 +180,7 @@ class DRIVECPU : public CPU {
 		virtual void ClearVFlag();
 	public:
 		DRIVECPU(MemoryHandler *memhandler, unsigned char *irqreg, unsigned char *cpustack,
-			unsigned char *vpin, unsigned char *so_enable);
+			unsigned char *vpin, unsigned char *so_enable, unsigned int id);
 		virtual ~DRIVECPU() { };
 };
 

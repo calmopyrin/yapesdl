@@ -39,6 +39,9 @@ class Vic2mem : public TED
 		virtual unsigned int getAutostartDelay() { return 50; }
 #endif
 		virtual unsigned short getEndLoadAddressPtr() { return 0xAE; };
+		// this is for the FRE support
+		virtual void dumpState();
+		virtual void readState();
 
     protected:
 		void doHRetrace();

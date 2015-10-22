@@ -57,6 +57,7 @@ unsigned int Vic2mem::CIA::refCount = 0;
 Vic2mem::Vic2mem()
 {
     instance_ = this;
+	setId("VIC2");
 	if (enableSidCard(true, 0)) {
 		sidCard->setFrequency(VIC_SOUND_CLOCK);
 		sidCard->setModel(SID6581R1);
@@ -99,7 +100,7 @@ Vic2mem::Vic2mem()
 	//
 	Reset(true);
 	// remove TED sound (inherited) from the list
-	remove(this);
+	SoundSource::remove(this);
 }
 
 Vic2mem::~Vic2mem()
@@ -128,6 +129,71 @@ void Vic2mem::Reset(bool clearmem)
 	prddr = 0;
 	mem_8000_bfff = RomLo[0];
 	mem_c000_ffff = RomHi[0];
+}
+
+void Vic2mem::dumpState()
+{
+	// always called during end of screen (X=100; Y=0)
+	saveVar(Ram, RAMSIZE);
+	saveVar(&prp, sizeof(prp));
+	saveVar(&prddr, sizeof(prddr));
+	saveVar(serialPort, sizeof(serialPort[0]));
+	saveVar(colorRAM, 0x0400);
+	saveVar(&beamx, sizeof(beamx));
+	saveVar(&beamy, sizeof(beamy));
+	saveVar(&irqline, sizeof(irqline));
+	saveVar(&crsrpos, sizeof(crsrpos));
+	saveVar(&scrattr, sizeof(scrattr));
+	saveVar(&nrwscr, sizeof(nrwscr));
+	saveVar(&hshift, sizeof(hshift));
+	saveVar(&vshift, sizeof(vshift));
+	saveVar(&fltscr, sizeof(fltscr));
+	saveVar(&mcol, sizeof(mcol));
+	saveVar(chrbuf, 40);
+	saveVar(&charrom, sizeof(charrom));
+	saveVar(&charbank, sizeof(charbank));
+	saveVar(&framecol, sizeof(framecol));
+	//
+	saveVar(&vicReg, sizeof(vicReg) / sizeof(vicReg[0]));
+	saveVar(&cia[0].reg, sizeof(cia[0].reg) / sizeof(cia[0].reg[0]));
+	saveVar(&cia[1].reg, sizeof(cia[1].reg) / sizeof(cia[1].reg[1]));
+}
+
+void Vic2mem::readState()
+{
+	readVar(Ram, RAMSIZE);
+	readVar(&prp, sizeof(prp));
+	readVar(&prddr, sizeof(prddr));
+	readVar(serialPort, sizeof(serialPort[0]));
+	readVar(colorRAM, 0x0400);
+	readVar(&beamx, sizeof(beamx));
+	readVar(&beamy, sizeof(beamy));
+	readVar(&irqline, sizeof(irqline));
+	readVar(&crsrpos, sizeof(crsrpos));
+	readVar(&scrattr, sizeof(scrattr));
+	readVar(&nrwscr, sizeof(nrwscr));
+	readVar(&hshift, sizeof(hshift));
+	readVar(&vshift, sizeof(vshift));
+	readVar(&fltscr, sizeof(fltscr));
+	readVar(&mcol, sizeof(mcol));
+	readVar(chrbuf, 40);
+	readVar(&charrom, sizeof(charrom));
+	readVar(&charbank, sizeof(charbank));
+	readVar(&framecol, sizeof(framecol));
+	//
+	readVar(&vicReg, sizeof(vicReg) / sizeof(vicReg[0]));
+	readVar(&cia[0].reg, sizeof(cia[0].reg) / sizeof(cia[0].reg[0]));
+	readVar(&cia[1].reg, sizeof(cia[1].reg) / sizeof(cia[1].reg[1]));
+	//
+	for (unsigned int i = 0; i < 16; i++) {
+		cia[0].write(i, cia[0].reg[i]);
+		cia[1].write(i, cia[1].reg[i]);
+	}
+	for (unsigned int i = 0; i < 0x30; i++) {
+		Write(0xD000 + i, vicReg[i]);
+	}
+	Write(0, prddr);
+	Write(1, prp);
 }
 
 void Vic2mem::loadroms()
@@ -1768,7 +1834,7 @@ inline void Vic2mem::drawSpritesPerLine()
                 vicReg[0x19] |= (vicReg[0x1A] & 4) ? 0x84 : 0x04;
                 checkIRQflag();
             }
-            spriteCollisionReg = newReg;
+			spriteCollisionReg = newReg;
 			spriteCollisions[i] = 0;
 		}
 	}

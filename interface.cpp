@@ -26,10 +26,12 @@
 #include "tape.h"
 #include "drive.h"
 #include "roms.h"
+#include "SaveState.h"
 
 extern bool autostart_file(char *szFile);
 extern void machineDoSomeFrames(unsigned int frames);
 extern void machineEnable1551(bool enable);
+extern void machineReset(bool hardreset);
 
 #define COLOR(COL, SHADE) ((SHADE<<4)|COL|0x80)
 #define MAX_LINES 25
@@ -43,19 +45,22 @@ static menu_t main_menu = {
 	{
 		{"Load PRG file...", 0, UI_FILE_LOAD_PRG },
 		{"Attach disk image...", 0, UI_DRIVE_ATTACH_IMAGE },
-		//{"Emulator snapshot...", 0, UI_MENUITEM_MENULINK },
 		{"Detach disk image", 0, UI_DRIVE_DETACH_IMAGE },
+		{"Emulator snapshot...", 0, UI_FILE_LOAD_FRE },
+		{ "             ", 0, UI_MENUITEM_SEPARATOR },
 		{"Tape controls...", 0, UI_MENUITEM_MENULINK },
 		{"             ", 0, UI_MENUITEM_SEPARATOR },
 		{"Options..."	, 0, UI_MENUITEM_MENULINK },
 		{"             ", 0, UI_MENUITEM_SEPARATOR },
 		{"Enter monitor"	, 0, UI_EMULATOR_MONITOR },
 		{"Resume emulation"	, 0, UI_EMULATOR_RESUME },
-		//{"             ", 0, UI_MENUITEM_SEPARATOR },
+		{ "             ", 0, UI_MENUITEM_SEPARATOR },
+		{"Reset emulator", 0, UI_EMULATOR_RESET },
+		{ "             ", 0, UI_MENUITEM_SEPARATOR },
 		{"Quit YAPE"	, 0, UI_EMULATOR_EXIT }
 	},
 	0,
-	10,
+	15,
 	0,
 	0,
 	0
@@ -117,6 +122,7 @@ static menu_t options_menu = {
 static menu_t file_menu;
 static menu_t tap_list;
 static menu_t d64_list;
+static menu_t fre_list;
 static unsigned int pixels[512 * 312 * 2];
 extern void frameUpdate(unsigned char *src, unsigned int *target);
 
@@ -126,9 +132,9 @@ UI::UI(class TED *ted) :
 	// Link menu structure
 	main_menu.element[0].child = &file_menu;
 	main_menu.element[1].child = &d64_list;
-	//main_menu.element[2].child = &snapshot_menu;
-	main_menu.element[3].child = &tape_menu;
-	main_menu.element[5].child = &options_menu;
+	main_menu.element[3].child = &fre_list;// snapshot_menu;
+	main_menu.element[5].child = &tape_menu;
+	main_menu.element[7].child = &options_menu;
 	tape_menu.element[0].child = &tap_list;
 
 	curr_menu = &main_menu;
@@ -136,13 +142,14 @@ UI::UI(class TED *ted) :
 	strcpy( tape_menu.title, "Tape controls menu");
 	strcpy( tap_list.title, "TAP image selection menu");
 	strcpy( d64_list.title, "Disk image selection menu");
-	strcpy( snapshot_menu.title, "Snapshot selection menu");
+	strcpy(fre_list.title, "Emulator savestate selection menu");
 	file_menu.parent = curr_menu;
 	options_menu.parent = curr_menu;
 	tape_menu.parent = curr_menu;
 	tap_list.parent = &tape_menu;
 	d64_list.parent = curr_menu;
-	snapshot_menu.parent = curr_menu;
+	//snapshot_menu.parent = curr_menu;
+	fre_list.parent = curr_menu;
 }
 
 void UI::screen_update()
@@ -266,7 +273,7 @@ void UI::show_file_list(struct menu_t * menu, UI_MenuClass type)
 #endif
 				break;
 			case UI_FRE_ITEM:
-				strcpy(ftypes[0].name, "*.fre");
+				strcpy(ftypes[0].name, "*.yss");
 				ftypes[0].menufunction = UI_FRE_ITEM;
 				break;
 			case UI_DRIVE_SET_DIR:
@@ -318,6 +325,8 @@ bool UI::handle_menu_command( struct element_t *element)
 					show_file_list( &tap_list, UI_TAP_ITEM );
 				else if ( ptype == UI_DRIVE_ATTACH_IMAGE )
 					show_file_list( &d64_list, UI_D64_ITEM );
+				else if (ptype == UI_FILE_LOAD_FRE)
+					show_file_list(&fre_list, UI_FRE_ITEM);
 				curr_menu->curr_sel = 0;
 				curr_menu->curr_line = 0;
 				curr_menu->uppermost = 0;
@@ -362,6 +371,8 @@ bool UI::handle_menu_command( struct element_t *element)
 			}
 			break;
 		case UI_FRE_ITEM:
+			SaveState::openSnapshot(element->name, false);
+			//clear(0, 0);
 			break;
 
 		case UI_TAPE_DETACH_TAP:
@@ -375,6 +386,9 @@ bool UI::handle_menu_command( struct element_t *element)
 			return false;
 		case UI_TAPE_ATTACH_TAP:
 			show_file_list( &tap_list, UI_TAP_ITEM );
+			return false;
+		case UI_FILE_LOAD_FRE:
+			show_file_list(&fre_list, UI_FRE_ITEM);
 			return false;
 		case UI_DRIVE_ATTACH_IMAGE:
 			show_file_list( &d64_list, UI_D64_ITEM );
@@ -397,6 +411,9 @@ bool UI::handle_menu_command( struct element_t *element)
 			return true;
 		case UI_EMULATOR_RESUME:
 			void ();
+			return true;
+		case UI_EMULATOR_RESET:
+			machineReset(true);
 			return true;
 		case UI_EMULATOR_EXIT:
 			exit(1);
@@ -462,6 +479,7 @@ int UI::enterMenu()
 	ad_get_curr_dir(tap_list.subtitle);
 	ad_get_curr_dir(file_menu.subtitle);
 	ad_get_curr_dir(d64_list.subtitle);
+	ad_get_curr_dir(fre_list.subtitle);
 
 	clear (1, 5);
 	show_menu( curr_menu);
@@ -565,6 +583,7 @@ int UI::wait_events()
 							return 1;
 						break;
 					case 14:
+					case 12:
 					case 5:
 						return 0;
 					case 0:

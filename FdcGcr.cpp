@@ -84,6 +84,7 @@ unsigned int FdcGcr::sectorSize[MAX_NUM_TRACKS+1];
 
 FdcGcr::FdcGcr()
 {
+	setId("FDC8");
 	diskImageHandle = NULL;
 
 	gcrData = gcrPtr = gcrTrackBegin = new unsigned char[GCR_DISK_SIZE];
@@ -110,6 +111,70 @@ FdcGcr::~FdcGcr()
 	isDiskInserted = false;
 	if (gcrData)
 		delete[] gcrData;
+}
+
+void FdcGcr::dumpState()
+{
+	unsigned int tmp;
+
+	saveVar(imageName, sizeof(imageName));
+	saveVar(&imageType, sizeof(imageType));
+	saveVar(&NrOfTracks, sizeof(NrOfTracks));
+	saveVar(&NrOfSectors, sizeof(NrOfSectors));
+	saveVar(&gcrCurrentBitcount, sizeof(gcrCurrentBitcount));
+	saveVar(&gcrCurrentBitRate, sizeof(gcrCurrentBitRate));
+	saveVar(&currentHalfTrack, sizeof(currentHalfTrack));
+	saveVar(gcrData, GCR_DISK_SIZE);
+	tmp = (unsigned int) (gcrPtr - gcrData);
+	saveVar(&tmp, sizeof(tmp));
+	tmp = (unsigned int)(gcrTrackBegin - gcrData);
+	saveVar(&tmp, sizeof(tmp));
+	tmp = (unsigned int)(gcrTrackEnd - gcrData);
+	saveVar(&tmp, sizeof(tmp));
+	saveVar(&byteLatched, sizeof(byteLatched));
+	saveVar(&byteWritten, sizeof(byteWritten));
+	saveVar(&byteReady, sizeof(byteReady));
+	saveVar(&byteReadyEdge, sizeof(byteReadyEdge));
+	saveVar(&motorSpinning, sizeof(motorSpinning));
+	saveVar(&isDiskInserted, sizeof(isDiskInserted));
+	saveVar(&isImageWriteProtected, sizeof(isImageWriteProtected));
+	saveVar(&isDiskSwapped, sizeof(isDiskSwapped));
+	saveVar(&isDiskCorrupted, sizeof(isDiskCorrupted));
+	saveVar(&isImageChanged, sizeof(isImageChanged));
+	saveVar(&writeMode, sizeof(writeMode));
+	saveVar(&spinFactor, sizeof(spinFactor));
+}
+
+void FdcGcr::readState()
+{
+	unsigned int tmp;
+
+	readVar(imageName, sizeof(imageName));
+	readVar(&imageType, sizeof(imageType));
+	readVar(&NrOfTracks, sizeof(NrOfTracks));
+	readVar(&NrOfSectors, sizeof(NrOfSectors));
+	readVar(&gcrCurrentBitcount, sizeof(gcrCurrentBitcount));
+	readVar(&gcrCurrentBitRate, sizeof(gcrCurrentBitRate));
+	readVar(&currentHalfTrack, sizeof(currentHalfTrack));
+	readVar(gcrData, GCR_DISK_SIZE);
+	readVar(&tmp, sizeof(tmp));
+	gcrPtr = tmp + gcrData;
+	readVar(&tmp, sizeof(tmp));
+	gcrTrackBegin = tmp + gcrData;
+	readVar(&tmp, sizeof(tmp));
+	gcrTrackEnd = tmp + gcrData;
+	readVar(&byteLatched, sizeof(byteLatched));
+	readVar(&byteWritten, sizeof(byteWritten));
+	readVar(&byteReady, sizeof(byteReady));
+	readVar(&byteReadyEdge, sizeof(byteReadyEdge));
+	readVar(&motorSpinning, sizeof(motorSpinning));
+	readVar(&isDiskInserted, sizeof(isDiskInserted));
+	readVar(&isImageWriteProtected, sizeof(isImageWriteProtected));
+	readVar(&isDiskSwapped, sizeof(isDiskSwapped));
+	readVar(&isDiskCorrupted, sizeof(isDiskCorrupted));
+	readVar(&isImageChanged, sizeof(isImageChanged));
+	readVar(&writeMode, sizeof(writeMode));
+	readVar(&spinFactor, sizeof(spinFactor));
 }
 
 void FdcGcr::openDiskImage(char *filepath)

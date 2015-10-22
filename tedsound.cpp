@@ -60,7 +60,7 @@ void TED::calcSamples(short *buffer, unsigned int nrsamples)
 	// Calculate the buffer...
 	if (DAStatus) {// digi?
 		short sample = 0;
-		if (Snd1Status) sample += Volume;
+		if (Snd1Status) sample = Volume;
 		if (Snd2Status) sample += Volume;
 		for (;nrsamples--;) {
 			*buffer++ = sample;

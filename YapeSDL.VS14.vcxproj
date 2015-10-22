@@ -268,6 +268,7 @@
     <ClInclude Include="monitor.h" />
     <ClInclude Include="prg.h" />
     <ClInclude Include="roms.h" />
+    <ClInclude Include="SaveState.h" />
     <ClInclude Include="serial.h" />
     <ClInclude Include="Sid.h" />
     <ClInclude Include="sound.h" />
@@ -294,6 +295,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="monitor.cpp" />
     <ClCompile Include="prg.cpp" />
+    <ClCompile Include="SaveState.cpp" />
     <ClCompile Include="serial.cpp" />
     <ClCompile Include="Sid.cpp" />
     <ClCompile Include="sound.cpp" />
