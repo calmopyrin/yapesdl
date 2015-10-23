@@ -670,7 +670,10 @@ void Vic2mem::doDelayedDMA()
 				//fprintf(stderr, "Delayed DMA:%02i count:%i @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", delay,
 				//        dmaCount, hshift, beamx, beamy,  beamy, cpuptr->getPC());
 			} else {
+				//fprintf(stderr, "Bad line (DMAdelay:%i) @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", delayedDMA,
+				//	hshift, beamx, beamy, beamy, cpuptr->getPC());
 				BadLine = 1;
+				VertSubActive = true;
 			}
 		} else {
 			BadLine = 0;
@@ -1171,8 +1174,8 @@ void Vic2mem::ted_process(const unsigned int continuous)
 						VertSubActive = true;
 				}
 				flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
-				checkSpriteDMA(4);
-                spriteDMAmask &= ~4;
+				checkSpriteDMA(3);
+				spriteDMAmask &= ~4;
 				break;
 
 			case 102:
@@ -1187,22 +1190,23 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
             case 104:
-                checkSpriteDMA(5);
-                spriteDMAmask &= ~8;
+				checkSpriteDMA(4);
+				spriteDMAmask &= ~8;
                 break;
 
             case 108:
-                checkSpriteDMA(6);
-                spriteDMAmask &= ~0x10;
+				checkSpriteDMA(5);
+				spriteDMAmask &= ~0x10;
                 break;
 
             case 112:
-                checkSpriteDMA(7);
-                spriteDMAmask &= ~0x20;
+				checkSpriteDMA(6);
+				spriteDMAmask &= ~0x20;
                 break;
 
             case 116:
-                spriteDMAmask &= ~0x40;
+				checkSpriteDMA(7);
+				spriteDMAmask &= ~0x40;
                 break;
 
             case 120:
@@ -1259,8 +1263,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case 84:
 				if (!nrwscr)
 					SideBorderFlipFlop = CharacterWindow = false;
-                checkSpriteDMA(0);
-				break;
+                break;
 
 			case 86:
 				if (nrwscr)
@@ -1280,17 +1283,17 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				}
 				if (VertSubActive)
 					vertSubCount = (vertSubCount + 1) & 7;
-                checkSpriteDMA(1);
-                break;
+				checkSpriteDMA(0);
+				break;
 
             case 92:
-                checkSpriteDMA(2);
-                spriteDMAmask &= ~1;
+				checkSpriteDMA(1);
+				spriteDMAmask &= ~1;
                 break;
 
             case 96:
-                checkSpriteDMA(3);
-                spriteDMAmask &= ~2;
+				checkSpriteDMA(2);
+				spriteDMAmask &= ~2;
 				break;
 
 			case 98:
@@ -1319,9 +1322,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 			case '0': case '1':	case '2': case '3':
 			case '4': case '5': case '6': case '7':
-				// FIXME: not really accurate
-				//if (!mob[cycleChr ^ '0'].dmaState)
-				//	cpuptr->process();
                 if (!spriteDMAmask)
 					cpuptr->process();
                 else if (spriteDMAon <= 3)
@@ -1347,8 +1347,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			i++;
 		}
 	} while (loop_continuous);
-
-	loop_continuous = false;
 }
 
 // renders hires text

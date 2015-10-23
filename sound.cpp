@@ -17,9 +17,8 @@ static SDL_AudioDeviceID dev;
 static SDL_AudioSpec obtained, *audiohwspec;
 
 static int           MixingFreq;
-static unsigned int           BufferLength;
-static unsigned int			sndBufferPos;
-static unsigned int		originalFrequency;
+static unsigned int  BufferLength;
+static unsigned int	 sndBufferPos;
 
 static short *mixingBuffer;
 static short *sndRingBuffer;

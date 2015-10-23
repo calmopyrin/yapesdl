@@ -42,6 +42,7 @@
 #include "FdcGcr.h"
 #include "icon.h"
 #include "vic2mem.h"
+#include "SaveState.h"
 
 // function prototypes
 static void frameUpdate();
@@ -176,6 +177,9 @@ bool start_file(char *szFile )
 			strcpy(ted8360->tap->tapefilename, szFile);
 			ted8360->tap->attach_tap();
 			return true;
+		}
+		if (!strcmp(fileext, ".yss")) {
+			return SaveState::openSnapshot(szFile, false);
 		}
 		return false;
     }
@@ -785,6 +789,11 @@ void machineEnable1551(bool enable)
 			drive1541->Reset();
 		}
 	}
+}
+
+bool machineIsTrueDriveEnabled(unsigned int dn = 8)
+{
+	return drive1541 != NULL;
 }
 
 static void machineInit()

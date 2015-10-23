@@ -31,6 +31,7 @@
 extern bool autostart_file(char *szFile);
 extern void machineDoSomeFrames(unsigned int frames);
 extern void machineEnable1551(bool enable);
+extern bool machineIsTrueDriveEnabled(unsigned int dn);
 extern void machineReset(bool hardreset);
 
 #define COLOR(COL, SHADE) ((SHADE<<4)|COL|0x80)

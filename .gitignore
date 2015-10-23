@@ -78,3 +78,5 @@ YapeSDL.VS10.opensdf
 *.vsp
 DebugX64/vc.nativecodeanalysis.all.xml
 *.opensdf
+YapeSDL.depend
+*.layout

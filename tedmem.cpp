@@ -1502,10 +1502,7 @@ void TED::ted_process(const unsigned int continuous)
 #endif
 
 	} while (loop_continuous);
-
-	loop_continuous = false;
-
-};
+}
 
 bool TED::enableSidCard(bool enable, unsigned int disableMask)
 {
