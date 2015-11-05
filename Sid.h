@@ -57,6 +57,7 @@ private:
 	// Class for SID voices
 	class SIDVoice {
 	public:
+		unsigned int index;		// index of voice
 		int wave;				// the selected waveform
 		int egState;			// state of the EG
 		SIDVoice *modulatedBy;	// the voice that modulates this one
@@ -65,9 +66,10 @@ private:
 		unsigned int accu;		// accumulator of the waveform generator, 8.16 fixed
 		unsigned int accPrev;	// previous accu value (for ring modulation)
 		unsigned int shiftReg;	// shift register for noise waveform
+		unsigned int waveNoiseOut; // stored value of noise output
 
-		unsigned short freq;	// voice frequency
-		unsigned short pw;		// pulse-width value
+		unsigned int freq;	// voice frequency
+		unsigned int pw;		// pulse-width value
 
 		unsigned int envAttackAdd;
 		unsigned int envDecaySub;
@@ -134,6 +136,7 @@ private:
 	//
 	unsigned char lastByteWritten;// Last value written to the SID
 	int model_;
+	unsigned int combinedWaveFormMask;
 	bool enableDigiBlaster;
 };
 
@@ -156,7 +159,7 @@ inline int SIDsound::waveSaw(SIDVoice &v)
 inline int SIDsound::wavePulse(SIDVoice &v)
 {
 	// square wave starts high
-	return (v.test | ((v.accu >> 12) >= v.pw ? 0xFFF : 0x000));
+	return (v.test | (v.accu >= v.pw ? 0xFFF : 0x000));
 }
 
 inline int SIDsound::waveTriSaw(SIDVoice &v)
@@ -173,7 +176,8 @@ inline int SIDsound::waveTriPulse(SIDVoice &v)
 
 inline int SIDsound::waveSawPulse(SIDVoice &v)
 {
-	return (waveSaw(v)) & (wavePulse(v));
+	unsigned int sm = (waveSaw(v)) & (wavePulse(v));
+	return (sm >> 1) & (sm << 1);
 }
 
 inline int SIDsound::waveTriSawPulse(SIDVoice &v)

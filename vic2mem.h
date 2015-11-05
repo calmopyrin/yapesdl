@@ -75,7 +75,7 @@ class Vic2mem : public TED
 		void renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsigned int cx, const unsigned int six);
 		void drawSprites();
 		void drawSpritesPerLine();
-		void checkSpriteDMA(unsigned int i);
+		bool checkSpriteDMA(unsigned int i);
 		//
 		struct CIA {
 			CIA() { refCount++; irqCallback = 0;}
@@ -146,8 +146,9 @@ class Vic2mem : public TED
     private:
 		unsigned char portState;
 		unsigned int dmaCount;
-		unsigned int spriteDMAon;
+		ClockCycle vicBusAccessCycleStart;
 		unsigned int spriteDMAmask;
+		void doXscrollChange(unsigned int oldXscr, unsigned int newXscr);
 };
 
 #endif // VIC2MEM_H

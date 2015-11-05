@@ -149,6 +149,9 @@ void FdcGcr::readState()
 {
 	unsigned int tmp;
 
+	// close old image
+	closeDiskImage();
+
 	readVar(imageName, sizeof(imageName));
 	readVar(&imageType, sizeof(imageType));
 	readVar(&NrOfTracks, sizeof(NrOfTracks));
@@ -197,6 +200,7 @@ void FdcGcr::closeDiskImage()
 		fflush(diskImageHandle);
 		fclose(diskImageHandle);
 		diskImageHandle = NULL;
+		strcpy(imageName, "");
 	}
 	// check if images has changed and save
 	if (isDiskInserted && !isDiskCorrupted && isImageChanged) {

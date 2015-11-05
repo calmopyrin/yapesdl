@@ -222,7 +222,7 @@ void sound_change_freq(unsigned int &newFreq)
 {
 	close_audio();
 	SoundSource *cb = SoundSource::getRoot();
-	if (cb) {
+	while (cb) {
 		cb->setSampleRate(newFreq);
 		cb = cb->getNext();
 	}

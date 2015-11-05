@@ -9,6 +9,7 @@
 #include "Sid.h"
 
 #define DIGIBLASTER_MULT 14
+#define EXACT_SYNC 1
 
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795
@@ -29,7 +30,7 @@ inline static long bit(long val, unsigned int bitnr)
 
 inline void SIDsound::updateShiftReg(SIDVoice &v)
 {
-	unsigned int shiftReg = v.shiftReg;
+	unsigned int &shiftReg = v.shiftReg;
 	unsigned int bit22 = bit(shiftReg,22);
 	unsigned int bit17 = bit(shiftReg,17);
 
@@ -37,7 +38,9 @@ inline void SIDsound::updateShiftReg(SIDVoice &v)
 	shiftReg = ((shiftReg) << 1);// & 0x7fffff;
 
 	// Feed bit 0
-	v.shiftReg = shiftReg | (bit22 ^ bit17);
+	shiftReg = shiftReg | (bit22 ^ bit17);
+	// Store output
+	v.waveNoiseOut = waveNoise(v);
 }
 
 inline int SIDsound::waveNoise(SIDVoice &v)
@@ -75,6 +78,7 @@ void SIDsound::setModel(unsigned int model)
 			dcWave = 0x000;
 			dcMixer = 0;
 			dcVoice = 0;
+			combinedWaveFormMask = 0xFF;
 			break;
 
 		case SID6581: // R4 actually
@@ -95,6 +99,7 @@ void SIDsound::setModel(unsigned int model)
 			dcWave = 0x380;
 			dcMixer = -0xFFF*0xFF/18 >> 7;
 			dcVoice = 0x800*0xFF;
+			combinedWaveFormMask = 0x3F;
 			break;
 
 		case SID6581R1: // 6581 R1
@@ -109,6 +114,7 @@ void SIDsound::setModel(unsigned int model)
 			dcWave = 0x380;
 			dcMixer = -0xFFF*0xFF/18 >> 7;
 			dcVoice = 0x800*0xFF;
+			combinedWaveFormMask = 0x3F;
 			break;
 	}
 	setFilterCutoff();
@@ -169,6 +175,7 @@ SIDsound::SIDsound(unsigned int model, unsigned int chnlDisableMask) : enableDig
 	setId("SID0");
 	// Link voices together
 	for (i=0; i<3; i++) {
+		voice[i].index = i;
 		voice[i].modulatedBy = &voice[(i+2)%3]; // previous voice
 		voice[i].modulatesThis = &voice[(i+1)%3]; // next voice
 		voice[i].disabled = !!((chnlDisableMask >> i) & 1);
@@ -271,12 +278,13 @@ inline int SIDsound::getWaveSample(SIDVoice &v)
 		case WAVE_TRISAWPULSE:
 			return waveTriSawPulse(v);
 		case WAVE_NOISE:
-			return waveNoise(v);
+			return v.waveNoiseOut;
 		case WAVE_NONE:
 			if (v.accu) {
+				int rv = (v.accu >> 12);
 				v.accu >>= 1;
+				//return rv;
 			}
-			//return v.accu;
 		default:
 			return 0x000;
 	}
@@ -295,7 +303,7 @@ unsigned char SIDsound::read(unsigned int adr)
 		// 8 most significant bits
 		case 0x1B:
 			lastByteWritten = 0;
-			return (unsigned char)(getWaveSample(voice[2]) >> 4); // 4?
+			return (unsigned char)(getWaveSample(voice[2]) >> 4) & (combinedWaveFormMask | -(voice[2].wave <= 8)); // 4?
 
 		// Voice 3 EG readout
 		case 0x1C:
@@ -335,13 +343,15 @@ void SIDsound::write(unsigned int adr, unsigned char value)
 		case 2:
 		case 9:
 		case 16:
-			v.pw = (unsigned short)((v.pw & 0x0f00) | value);
+			v.pw >>= 12;
+			v.pw = ((v.pw & 0x0f00) | value) << 12;
 			break;
 
 		case 3:
 		case 10:
 		case 17:
-			v.pw = (unsigned short)((v.pw & 0xff) | ((value & 0xf) << 8));
+			v.pw >>= 12;
+			v.pw = ((v.pw & 0xff) | ((value & 0xf) << 8)) << 12;
 			break;
 
 		case 4:
@@ -376,6 +386,7 @@ void SIDsound::write(unsigned int adr, unsigned char value)
 			v.wave = (value >> 4) & 0x0F;
 			if (v.wave > 8) {
 				v.shiftReg &= 0x7fffff^(1<<22)^(1<<20)^(1<<16)^(1<<13)^(1<<11)^(1<<7)^(1<<4)^(1<<2);
+				v.waveNoiseOut = 0;
 			}
 			break;
 
@@ -400,14 +411,14 @@ void SIDsound::write(unsigned int adr, unsigned char value)
 			break;
 
 		case 21:
-			if ((unsigned int)(value&7) != (filterCutoff&7)) {
-				filterCutoff = (value&7)|(filterCutoff&0x7F8);
+			if ((value ^ filterCutoff) & 7) {
+				filterCutoff = (value & 7) | (filterCutoff & 0x7F8);
 				setFilterCutoff();
 			}
 			break;
 
 		case 22:
-			filterCutoff = (value<<3)|(filterCutoff&7);
+			filterCutoff = (value << 3) | (filterCutoff & 7);
 			setFilterCutoff();
 			break;
 
@@ -578,44 +589,57 @@ void SIDsound::calcSamples(short *buf, unsigned int count)
 
 		const unsigned int cyclesToDo = clock();
 		// Loop for the three voices
-		int j = 2;
+		unsigned int j = 2;
 		do {
 			SIDVoice &v = voice[j];
-			int envelope = doEnvelopeGenerator(cyclesToDo, v);
+			const unsigned int freq = v.freq;
 			// Waveform generator
-			if (!v.test && v.freq) {
-#if 1
+			if (!v.test && freq) {
 				unsigned int accPrev = v.accu;
+				v.accPrev = accPrev;
 				// Update accumulator
-				v.accu += (v.freq * cyclesToDo) << 0; // v.add;
-				// FIXME Apply ring modulation.
+				const unsigned int add = freq * cyclesToDo;
+				v.accu += add;
+				// FIXME Apply syncing
+#if !EXACT_SYNC
 				if (v.sync && !(accPrev & 0x800000) && (v.accu & 0x800000)
-           			)
-#else
-				v.accPrev = v.accu;
-				// Update accumulator if test bit not set
-				v.accu += v.add;
-				unsigned int accPrev = v.accPrev;
-				if (v.sync && !(v.accPrev & 0x800000) && (v.accu & 0x800000)
-    				&& !( v.modulatedBy->sync && !(v.modulatedBy->accPrev & 0x80000) &&
-        			(v.modulatedBy->accu & 0x80000))
-           			)
-#endif
+					)
 					v.modulatesThis->accu = 0;
-				// Update noise shift register
+#else
+				if (v.sync && !(accPrev & 0x800000) && (v.accu & 0x800000)
+					/*&& !(v.modulatedBy->sync && !(v.modulatedBy->accPrev & 0x80000) &&
+						((v.modulatedBy->accu + add) & 0x80000))*/
+					)
+				{
+					if (j > v.modulatesThis->index) {
+						v.modulatesThis->accu = (accPrev - 0x8000000) & 0xFFFFFFF;
+					} else {
+						unsigned int addModulating = v.modulatesThis->accu > v.modulatesThis->accPrev ? 0 : 0x8000000;
+						addModulating += v.modulatesThis->accu - v.modulatesThis->accPrev;
+						v.modulatesThis->accu = (accPrev + addModulating - 0x8000000) & 0xFFFFFFF;
+					}
+				}
+#endif
+				// noise shift register is updating even when waveform is not selected
 				unsigned int accNext = accPrev;
-				unsigned int freq = v.freq;
 				do {
 					accNext += freq;
-					// noise shift register is updating even when waveform is not selected
+					// Update noise shift register
 					if (!(accPrev & 0x080000) && (accNext & 0x080000))
 						updateShiftReg(v);
 					accPrev = accNext;
-				} while ( accNext < v.accu );
+				} while (accNext < v.accu);
 				// accu is 24 bit
 				v.accu &= 0xFFFFFF;
 			}
+#if EXACT_SYNC
+		} while (j--);
+		j = 2;
+		do {
+			SIDVoice &v = voice[j];
+#endif
 			int output = getWaveSample(v);
+			int envelope = doEnvelopeGenerator(cyclesToDo, v);
 
 			if (v.filter)
 				sumFilteredOutput += (output - dcWave) * envelope + dcVoice;
