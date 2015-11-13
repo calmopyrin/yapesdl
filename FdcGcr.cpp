@@ -200,13 +200,13 @@ void FdcGcr::closeDiskImage()
 		fflush(diskImageHandle);
 		fclose(diskImageHandle);
 		diskImageHandle = NULL;
-		strcpy(imageName, "");
 	}
 	// check if images has changed and save
 	if (isDiskInserted && !isDiskCorrupted && isImageChanged) {
 		if(DISK_D64 == imageType)
 			gcr2disk();
 	}
+	strcpy(imageName, "");
 	// Clear GCR buffer with gaps to avoid read errors later
 	memset(gcrData, 0x55, GCR_DISK_SIZE);
 
@@ -577,6 +577,8 @@ void FdcGcr::gcr2disk(void)
 	strcpy( new_d64_file, imageName);
 
 	d64dump = fopen( const_cast<char*> (new_d64_file), "wb");
+	if (!d64dump)
+		return;
 
 	// Convert all tracks and sectors
 	for ( unsigned int track = 1; track<=NrOfTracks; track ++) { // NUM_TRACKS

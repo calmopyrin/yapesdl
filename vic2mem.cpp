@@ -10,6 +10,8 @@
 #include "sound.h"
 #include "tape.h"
 
+#define NEWSDMA 1
+
 #define RASTERX2TVCOL(X) (X < 400 ? X + 104 : X - 400)
 #define SET_BITS(REG, VAL) { \
 		unsigned int i = 7; \
@@ -39,6 +41,26 @@
         if (!spriteDMAmask) \
             vicBusAccessCycleStart = 0; \
     } while(0);
+
+#if NEWSDMA
+#define DO_SPRITE_DMA(X) \
+	do { \
+		if (mob[X].dmaState) { \
+			unsigned int &dc = mob[X].dataCount; \
+			unsigned int &dcReload = mob[X].dataCountReload; \
+			unsigned char *sData = vicBase + mob[X].dataAddress + dcReload; \
+			unsigned char *sBuf = mob[X].sdb[0].shiftRegBuf; \
+			sBuf[0] = sData[0]; \
+			sBuf[1] = sData[1]; \
+			sBuf[2] = sData[2]; \
+			dc = dcReload + 3; \
+		} \
+	} while (0);
+#else
+#define DO_SPRITE_DMA(X) ;
+#endif
+
+#define MOB_READ_ADDRESS(X) mob[X].dataAddress = (VideoBase[0x03F8 + X] << 6); // if (mob[X].dmaState) 
 
 static unsigned char cycleLookup[][128] = {
 // SCREEN:             |===========0102030405060708091011121314151617181920212223242526272829303132333435363738391111=========
@@ -72,6 +94,8 @@ Vic2mem::Vic2mem()
 	actram = Ram;
 	loadroms();
 	chrbuf = DMAbuf;
+	// for sideborder effects prefill excess area with space (workaround)
+	memset(chrbuf + 40, 32, 24);
 	// setting screen memory pointer
 	scrptr = screen;
 	// important for sprite-bg collisions: fill blank area with border black
@@ -87,6 +111,7 @@ Vic2mem::Vic2mem()
 	}
 	for(i = 0; i < 8; i++) {
 		collisionLookup[1ULL << i] = 0;
+		mob[i].sdb[0].dwSrDmaBuf = mob[i].sdb[1].dwSrDmaBuf = 0;
 	}
 	//
 	irqFlag = 0;
@@ -279,9 +304,7 @@ void Vic2mem::CIA::setIRQflag(unsigned int mask)
 			irqCallback(callBackParam);
 			icr |= 0x80;
 		}
-	}/* else {
-		icr &= 0x7F;
-	}*/
+	}
 }
 
 unsigned int Vic2mem::CIA::bcd2hex(unsigned int bcd)
@@ -1100,13 +1123,15 @@ skip:
 
 void Vic2mem::doHRetrace()
 {
-	if (vicReg[0x15]) drawSpritesPerLine();
+	static unsigned char *sPtr = scrptr;
+	//if (vicReg[0x15]) 
+		drawSpritesPerLine(sPtr);
 	// the beam reached a new line
 	TVScanLineCounter += 1;
 	if ( TVScanLineCounter >= 340 ) {
 		doVRetrace();
 	}
-	scrptr = screen + TVScanLineCounter * VIC_PIXELS_PER_ROW;
+	sPtr = scrptr = screen + TVScanLineCounter * VIC_PIXELS_PER_ROW;
 }
 
 inline void Vic2mem::newLine()
@@ -1183,13 +1208,15 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				// the beam reached a new line
 				doHRetrace();
 				newLine();
+				flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
 				if (attribFetch) {
 					BadLine = (vshift == (beamy & 7));
 					if (BadLine) {
 						VertSubActive = true;
 					}
 				}
-				flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
+				MOB_READ_ADDRESS(3);
+				DO_SPRITE_DMA(3);
 				STOP_SPRITE_DMA(2);
 				break;
 
@@ -1207,6 +1234,8 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
             case 104:
+				MOB_READ_ADDRESS(4);
+				DO_SPRITE_DMA(4);
 				STOP_SPRITE_DMA(3);
 				break;
 
@@ -1215,6 +1244,8 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
             case 108:
+				MOB_READ_ADDRESS(5);
+				DO_SPRITE_DMA(5);
 				STOP_SPRITE_DMA(4);
 				break;
 
@@ -1223,10 +1254,14 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
             case 112:
+				MOB_READ_ADDRESS(6);
+				DO_SPRITE_DMA(6);
 				STOP_SPRITE_DMA(5);
 				break;
 
             case 116:
+				MOB_READ_ADDRESS(7);
+				DO_SPRITE_DMA(7);
 				STOP_SPRITE_DMA(6);
 				break;
 
@@ -1234,6 +1269,9 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				// Stop sprite DMA
 				vicBusAccessCycleStart = 0;
                 spriteDMAmask = 0;
+				for (unsigned int i = 0; i < 8; i++) {
+					mob[i].sdb[1].dwSrDmaBuf = mob[i].sdb[0].dwSrDmaBuf;
+				}
 				break;
 
 			case 122:
@@ -1268,6 +1306,10 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				}
 				break;
 
+			case 4:
+				stopSpriteDMA();
+				break;
+
 			case 6:
 				if (ScreenOn) {
 					SideBorderFlipFlop = true;
@@ -1287,6 +1329,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
 			case 82:
+				checkSpriteEnable();
 				// On bad line with sprite 0 on, all CPU cycles are stolen
 				if (!checkSpriteDMA(0))
 					vicBusAccessCycleStart = 0;
@@ -1318,6 +1361,10 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				}
 				if (VertSubActive)
 					vertSubCount = (vertSubCount + 1) & 7;
+				//
+				spriteReloadCounters();
+				MOB_READ_ADDRESS(0);
+				DO_SPRITE_DMA(0);
 				break;
 
 			case 90:
@@ -1325,6 +1372,8 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
             case 92:
+				MOB_READ_ADDRESS(1);
+				DO_SPRITE_DMA(1);
 				STOP_SPRITE_DMA(0);
 				break;
 
@@ -1333,6 +1382,8 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
             case 96:
+				MOB_READ_ADDRESS(2);
+				DO_SPRITE_DMA(2);
 				STOP_SPRITE_DMA(1);
 				break;
 
@@ -1341,28 +1392,12 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				HBlanking = true;
 				break;
 		}
-#if 0
-		unsigned char cycleChr = cycleLookup[BadLine][beamx | 1];
-		switch (cycleChr) {
-		case ' ':
-			cpuptr->process();
-			break;
-		case 's':
-			if (!vicBusAccessCycleStart)
-				cpuptr->process();
-			else if (CycleCounter - vicBusAccessCycleStart < 3)
-				cpuptr->stopcycle();
-			break;
-		case '*':
-			cpuptr->stopcycle();
-		default:;
-		}
-#else
+		// CPU clocking
 		if (!vicBusAccessCycleStart)
 			cpuptr->process();
 		else if (CycleCounter - vicBusAccessCycleStart < 3)
 			cpuptr->stopcycle();
-#endif
+
 		// drawing the visible part of the screen
 		if (!(HBlanking |VBlanking)) {
 			if (SideBorderFlipFlop) {
@@ -1840,15 +1875,31 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 	}
 }
 
+inline void Vic2mem::checkSpriteEnable()
+{
+#if NEWSDMA
+	unsigned int i = 7;
+	do {
+		if (mob[i].enabled && mob[i].y == beamy && !mob[i].dmaState) {
+			mob[i].dmaState = true;
+			mob[i].dataCountReload = 0;
+			mob[i].dataCount = 0;
+			mob[i].reloadFlipFlop = mob[i].expandY;
+		}
+	} while (i--);
+#endif
+}
+
 inline bool Vic2mem::checkSpriteDMA(unsigned int i)
 {
+#if !NEWSDMA
 	if (mob[i].enabled && mob[i].y == prevY && !mob[i].dmaState) {
 		mob[i].dmaState = true;
 		mob[i].dataCountReload = 0;
 		mob[i].dataCount = 0;
 		mob[i].reloadFlipFlop = mob[i].expandY;
-		mob[i].dataAddress = (VideoBase[0x03F8 + i] << 6);
 	}
+#endif
 	if (mob[i].dmaState) {
 		spriteDMAmask |= (1 << i);
 		if (!vicBusAccessCycleStart)
@@ -1858,32 +1909,83 @@ inline bool Vic2mem::checkSpriteDMA(unsigned int i)
 	return false;
 }
 
-inline void Vic2mem::drawSpritesPerLine()
+inline void Vic2mem::stopSpriteDMA()
 {
+#if NEWSDMA
+	unsigned int i = 7;
+
+	do {
+		unsigned int &dc = mob[i].dataCount;
+		unsigned int &dcReload = mob[i].dataCountReload;
+		// check end of sprite DMA
+		if (dc == 0x3F) {
+			mob[i].dmaState = false;
+			dcReload = dc;
+		}
+	} while (i--);
+#endif
+}
+
+inline void Vic2mem::spriteReloadCounters()
+{
+#if NEWSDMA
 	unsigned int i = 7;
 
 	do {
 		if (mob[i].dmaState) {
-            unsigned int tvX = RASTERX2TVCOL(mob[i].x);
-            unsigned int &dc = mob[i].dataCount;
+			unsigned int &dc = mob[i].dataCount;
 			unsigned int &dcReload = mob[i].dataCountReload;
-            unsigned int &flipFlop = mob[i].reloadFlipFlop;
+			unsigned int &flipFlop = mob[i].reloadFlipFlop;
 
-            flipFlop ^= 1;
-            if (flipFlop) {
-                dcReload = dc;
-                // set flipflop to Y expension bit
-                flipFlop = mob[i].expandY;
-            }
-            unsigned char *d = vicBase + mob[i].dataAddress + dcReload;
-            unsigned char *p = screen + TVScanLineCounter * VIC_PIXELS_PER_ROW + tvX;
-            renderSprite(d, p, mob[i], tvX, 1 << i);
-            dc = dcReload + 3;
-            // check end of sprite DMA
-            if (dc == 0x3F) {
-                mob[i].dmaState = false;
+			flipFlop ^= 1;
+			if (flipFlop) {
 				dcReload = dc;
-            }
+				// set flipflop to Y expension bit
+				flipFlop = mob[i].expandY;
+			}
+		}
+	} while (i--);
+#endif
+}
+
+inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
+{
+	unsigned int i = 7;
+
+	do {
+#if !NEWSDMA
+		if (mob[i].dmaState) {
+			unsigned int &dc = mob[i].dataCount;
+			unsigned int &dcReload = mob[i].dataCountReload;
+			unsigned int &flipFlop = mob[i].reloadFlipFlop;
+
+			flipFlop ^= 1;
+			if (flipFlop) {
+				dcReload = dc;
+				// set flipflop to Y expension bit
+				flipFlop = mob[i].expandY;
+			}
+			dc = dcReload + 3;
+			const unsigned int tvX = RASTERX2TVCOL(mob[i].x);
+			unsigned char *d = vicBase + mob[i].dataAddress + dcReload;
+			unsigned char *p = lineBuf + tvX;
+			renderSprite(d, p, mob[i], tvX, 1 << i);
+			// check end of sprite DMA
+			if (dc == 0x3F) {
+				mob[i].dmaState = false;
+				dcReload = dc;
+			}
+#else
+		if (mob[i].rendering) {
+			const unsigned int tvX = RASTERX2TVCOL(mob[i].x);
+			unsigned char *d = mob[i].sdb[1].shiftRegBuf;
+			unsigned char *p = lineBuf + tvX;
+			renderSprite(d, p, mob[i], tvX, 1 << i);
+			if (!mob[i].dmaState)
+				mob[i].rendering = false;
+		} else if (mob[i].dmaState) {
+			mob[i].rendering = true;
+#endif
 		}
 	} while (i--);
 	// check collisions
@@ -1898,35 +2000,4 @@ inline void Vic2mem::drawSpritesPerLine()
 			spriteCollisions[i] = 0;
 		}
 	}
-}
-
-void Vic2mem::drawSprites()
-{
-	unsigned char *spd = VideoBase + 0x03F8;
-	// start with with lowest priority so it simply gets overwritten
-	unsigned int i = 7;
-	do {
-		if (mob[i].enabled) {
-			unsigned int tvX = RASTERX2TVCOL(mob[i].x);
-			unsigned int tvY = (mob[i].y + 1);
-			unsigned char *d = vicBase + (spd[i] << 6);
-			unsigned int j = 21;
-			unsigned char *p = screen + tvY * VIC_PIXELS_PER_ROW + tvX;
-			// sprite Y expansion?
-			if (mob[i].expandY) {
-				do {
-					renderSprite(d, p, mob[i], tvX, 1 << i);
-					memcpy(p + VIC_PIXELS_PER_ROW, p, 24 << mob[i].expandX);
-					p += VIC_PIXELS_PER_ROW << 1;
-					d += 3;
-				} while(--j);
-			} else {
-				do {
-					renderSprite(d , p, mob[i], tvX, 1 << i);
-					p += VIC_PIXELS_PER_ROW;
-					d += 3;
-				} while(--j);
-			}
-		}
-	} while (i--);
 }

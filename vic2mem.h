@@ -65,6 +65,11 @@ class Vic2mem : public TED
 			unsigned int dataAddress;
 			unsigned int reloadFlipFlop;
 			bool dmaState;
+			bool rendering;
+			union SpriteDma {
+				unsigned char shiftRegBuf[4];
+				unsigned int dwSrDmaBuf;
+			} sdb[2];
 		} mob[8];
 		unsigned char spriteCollisionReg;
 		unsigned char spriteBckgCollReg;
@@ -73,8 +78,7 @@ class Vic2mem : public TED
 		unsigned char collisionLookup[256];
 		unsigned char mobExtCol[4];
 		void renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsigned int cx, const unsigned int six);
-		void drawSprites();
-		void drawSpritesPerLine();
+		void drawSpritesPerLine(unsigned char *lineBuf);
 		bool checkSpriteDMA(unsigned int i);
 		//
 		struct CIA {
@@ -149,6 +153,9 @@ class Vic2mem : public TED
 		ClockCycle vicBusAccessCycleStart;
 		unsigned int spriteDMAmask;
 		void doXscrollChange(unsigned int oldXscr, unsigned int newXscr);
+		void checkSpriteEnable();
+		void stopSpriteDMA();
+		void spriteReloadCounters();
 };
 
 #endif // VIC2MEM_H
