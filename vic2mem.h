@@ -132,6 +132,7 @@ class Vic2mem : public TED
 				irqCallback = irqCallback_;
 				callBackParam = param;
 			}
+			bool pendingIrq;
 		} cia[2];
 		static void setCiaIrq(void *param);
 		static void setCiaNmi(void *param);

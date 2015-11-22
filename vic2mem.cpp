@@ -87,10 +87,10 @@ Vic2mem::Vic2mem()
 {
     instance_ = this;
 	setId("VIC2");
-	if (enableSidCard(true, 0)) {
-		sidCard->setFrequency(VIC_SOUND_CLOCK);
-		sidCard->setModel(SID6581R1);
-	}
+	if (!sidCard)
+		enableSidCard(true, 0);
+	sidCard->setFrequency(VIC_SOUND_CLOCK);
+	sidCard->setModel(SID6581R1);
 	actram = Ram;
 	loadroms();
 	chrbuf = DMAbuf;
@@ -152,6 +152,7 @@ void Vic2mem::Reset(bool clearmem)
 		mob[i].x = 0;
 		mob[i].y = 0;
 		mob[i].dmaState = false;
+		mob[i].rendering = false;
 		mob[i].enabled = 0;
 	}
 	//
@@ -237,7 +238,7 @@ void Vic2mem::loadroms()
 	mem_8000_bfff = RomLo[0];
 	mem_c000_ffff = RomHi[0];
 #if FAST_BOOT
-	//if (memcmp()) // TODO
+	// TODO: check ROM pattern
 	unsigned char patch[] = { 0xA0, 0xA0, 0xA2, 0x00, 0x84, 0xC1, 0x86, 0xC2 };
 	memset(mem_c000_ffff + 0x1D68, 0xEA, 0x24);
 	memcpy(mem_c000_ffff + 0x1D68, patch, sizeof(patch));
@@ -295,13 +296,14 @@ void Vic2mem::CIA::reset()
 	tod.halt = 1;
 	todIn = 60;
 	tod.ampm = 0;
+	pendingIrq = false;
 }
 
 void Vic2mem::CIA::setIRQflag(unsigned int mask)
 {
 	if (mask & 0x1F) {
 		if (!(icr & 0x80)) {
-			irqCallback(callBackParam);
+			pendingIrq = true;
 			icr |= 0x80;
 		}
 	}
@@ -594,6 +596,10 @@ void Vic2mem::CIA::countTimerB(bool cascaded)
 
 void Vic2mem::CIA::countTimers()
 {
+	if (pendingIrq) {
+		irqCallback(callBackParam);
+		pendingIrq = false;
+	}
 	if ((cra & 0x40) && sdrShiftCnt) {
 		sdrShiftCnt -= 1;
 		if (!sdrShiftCnt) {
@@ -680,6 +686,8 @@ void Vic2mem::doDelayedDMA()
 		if (nowBadLine) {
 			if (!BadLine && (beamx <= 86 || beamx >= 124)) {
 				int delay;
+				int illegalRead;
+
 				vicBusAccessCycleStart = CycleCounter;
 				BadLine = 1;
 				if (!VertSubActive) {
@@ -1124,7 +1132,7 @@ skip:
 void Vic2mem::doHRetrace()
 {
 	static unsigned char *sPtr = scrptr;
-	//if (vicReg[0x15]) 
+	if (vicReg[0x15]) 
 		drawSpritesPerLine(sPtr);
 	// the beam reached a new line
 	TVScanLineCounter += 1;
@@ -1392,6 +1400,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				HBlanking = true;
 				break;
 		}
+
 		// CPU clocking
 		if (!vicBusAccessCycleStart)
 			cpuptr->process();
@@ -1976,7 +1985,7 @@ inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
 				dcReload = dc;
 			}
 #else
-		if (mob[i].rendering) {
+		if (mob[i].rendering && mob[i].x < 504) {
 			const unsigned int tvX = RASTERX2TVCOL(mob[i].x);
 			unsigned char *d = mob[i].sdb[1].shiftRegBuf;
 			unsigned char *p = lineBuf + tvX;

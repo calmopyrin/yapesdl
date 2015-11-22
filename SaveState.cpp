@@ -63,6 +63,7 @@ bool SaveState::openSnapshot(char *fname, bool isWrite)
 			fread(id, 4, 1, ssfp);
 			SaveState *ss = findId(id);
 			if (ss) {
+				fprintf(stderr, "Snapshot chunk %.*s found.\n", 4, id);
 				ss->readState();
 			}
 		} while (!feof(ssfp));
