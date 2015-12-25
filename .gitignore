@@ -80,3 +80,4 @@ DebugX64/vc.nativecodeanalysis.all.xml
 *.opensdf
 YapeSDL.depend
 *.layout
+*.filters

@@ -7,6 +7,8 @@
 #include "1541rom.h"
 #include "1541mem.h"
 
+extern void machineDoSomeFrames(unsigned int frames);
+
 FakeDrive::FakeDrive() : Drive(8)
 {
 	CFakeTCBM *tcbm_l = new CFakeTCBM();
@@ -78,6 +80,17 @@ void CTrueDrive::AttachDisk(char *fname)
 {
 	if (FdcGCR) {
 		FdcGCR->openDiskImage(fname);
+	}
+}
+
+void CTrueDrive::SwapDisk(char *fname)
+{
+	CTrueDrive *d = CTrueDrive::GetRoot();
+	if (d) {
+		d->DetachDisk();
+		// important to note disk change
+		machineDoSomeFrames(2);
+		d->AttachDisk(fname);
 	}
 }
 

@@ -359,12 +359,7 @@ bool UI::handle_menu_command( struct element_t *element)
 		case UI_D64_ITEM:
 			machineEnable1551(false);
 			if (CTrueDrive::GetRoot()) {
-				CTrueDrive *d = CTrueDrive::GetRoot();
-				d->DetachDisk();
-				// important to note disk change
-				machineDoSomeFrames(2);
-				d->AttachDisk(element->name);
-				// autostart?
+				CTrueDrive::SwapDisk(element->name);
 				const Uint8 *state = SDL_GetKeyboardState(NULL);
 				if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT]) {
 					autostart_file(element->name);

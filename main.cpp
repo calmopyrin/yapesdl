@@ -148,6 +148,30 @@ void machineDoSomeFrames(unsigned int frames)
 	ted8360->getKeys()->block(false);
 }
 
+void machineEnable1551(bool enable)
+{
+	if (enable) {
+		ted8360->HookTCBM(tcbm);
+		if (drive1541) {
+			delete drive1541;
+			drive1541 = NULL;
+		}
+	}
+	else {
+		ted8360->HookTCBM(NULL);
+		if (!drive1541) {
+			CSerial::InitPorts();
+			drive1541 = new CTrueDrive(1, 8);
+			drive1541->Reset();
+		}
+	}
+}
+
+bool machineIsTrueDriveEnabled(unsigned int dn = 8)
+{
+	return drive1541 != NULL;
+}
+
 bool start_file(char *szFile )
 {
 	char *pFileExt = strrchr(szFile, '.');
@@ -159,6 +183,11 @@ bool start_file(char *szFile )
 			pFileExt++;
 		} while (*pFileExt);
 		if (!strcmp(fileext,".d64") || !strcmp(fileext,".D64")) {
+			if (!machineIsTrueDriveEnabled()) {
+				machineEnable1551(false);
+				machineDoSomeFrames(70);
+				CTrueDrive::SwapDisk(szFile);
+			}
 			ted8360->copyToKbBuffer("L\317\042*\042,8,1\rRUN:\r", 15);
 			return true;
 		}
@@ -771,29 +800,6 @@ inline static void poll_events(void)
                 exit(0);
         }
     }
-}
-
-void machineEnable1551(bool enable)
-{
-	if (enable) {
-		ted8360->HookTCBM(tcbm);
-		if (drive1541) {
-			delete drive1541;
-			drive1541 = NULL;
-		}
-	} else {
-		ted8360->HookTCBM(NULL);
-		if (!drive1541) {
-			CSerial::InitPorts();
-			drive1541 = new CTrueDrive(1, 8);
-			drive1541->Reset();
-		}
-	}
-}
-
-bool machineIsTrueDriveEnabled(unsigned int dn = 8)
-{
-	return drive1541 != NULL;
 }
 
 static void machineInit()

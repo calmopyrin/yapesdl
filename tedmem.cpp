@@ -1162,6 +1162,7 @@ void TED::doVRetrace()
 	loop_continuous = 0;
 	// reset screen pointer ("TV" electron beam)
 	TVScanLineCounter = 0;
+	scrptr = screen;
 }
 
 void TED::doHRetrace()

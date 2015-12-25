@@ -63,6 +63,7 @@ public:
 	};
 	virtual void AttachDisk(char *fname);
 	virtual void DetachDisk();
+	static void SwapDisk(char *fname);
 	static CTrueDrive *GetRoot() { return RootDevice; };
 	CTrueDrive *GetNext() { return NextDevice; };
 	unsigned int GetDevNr() { return devNr; };

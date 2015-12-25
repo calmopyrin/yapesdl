@@ -1135,11 +1135,7 @@ void Vic2mem::doHRetrace()
 	if (vicReg[0x15]) 
 		drawSpritesPerLine(sPtr);
 	// the beam reached a new line
-	TVScanLineCounter += 1;
-	if ( TVScanLineCounter >= 340 ) {
-		doVRetrace();
-	}
-	sPtr = scrptr = screen + TVScanLineCounter * VIC_PIXELS_PER_ROW;
+	sPtr = scrptr;
 }
 
 inline void Vic2mem::newLine()
