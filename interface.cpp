@@ -13,11 +13,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#ifdef _WIN32
-#include <SDL/SDL.h>
-#else
-#include <SDL2/SDL.h>
-#endif
+#include "types.h"
 #include "monitor.h"
 #include "tedmem.h"
 #include "interface.h"
@@ -27,6 +23,10 @@
 #include "drive.h"
 #include "roms.h"
 #include "SaveState.h"
+
+#ifndef SDL_CONTROLLERBUTTONDOWN // Emscripten
+#define SDL_CONTROLLERBUTTONDOWN -1
+#endif
 
 extern bool autostart_file(char *szFile);
 extern void machineDoSomeFrames(unsigned int frames);
@@ -694,7 +694,7 @@ int UI::wait_events()
 
 char UI::pet2asc(char c)
 {
-	if ((c == '\\'))
+	if (c == '\\')
 		return char(0x4D|0x80);
 	if (c == 0x5F)
 		return char(0x6F|0x80);

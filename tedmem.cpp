@@ -31,6 +31,7 @@ unsigned char	*TED::VideoBase;
 
 ClockCycle TED::CycleCounter;
 bool TED::ScreenOn, TED::attribFetch;
+bool TED::displayEnable;
 bool TED::SideBorderFlipFlop, TED::CharacterWindow;
 unsigned int TED::BadLine;
 unsigned int	TED::clockingState;
@@ -50,6 +51,7 @@ bool TED::charPosLatchFlag;
 bool TED::endOfScreen;
 bool TED::delayedDMA;
 TED *TED::instance_;
+unsigned int TED::retraceScanLine;
 
 enum {
 	TSS = 1 << 1,
@@ -120,10 +122,12 @@ TED::TED() : sidCard(0), SaveState()
 	CharacterPositionReload = CharacterPosition = 0;
 	SideBorderFlipFlop = false;
 	render_ok = false;
+	displayEnable = false;
 
 	irqFlag = 0;
 	BadLine = 0;
 	CycleCounter = 0;
+	retraceScanLine = 340;
 	
 	tedSoundInit(sampleRate);
 	if (enableSidCard(true, 0)) {
@@ -390,6 +394,7 @@ unsigned char TED::Read(unsigned int addr)
 						case 0xFE8: // FIXME never taken
 						case 0xFE9:
 							if (sidCard) {
+								flushBuffer(CycleCounter, TED_SOUND_CLOCK);
 								return sidCard->read(addr & 0x1f);
 							}
 							return 0xFD;
@@ -531,12 +536,13 @@ void TED::Write(unsigned int addr, unsigned char value)
 							scrattr = (scrattr & ~(GRAPHMODE|EXTCOLOR))|(value & (GRAPHMODE|EXTCOLOR));
 							changeCharsetBank();
 							// Check if screen is turned on
-							if (value&0x10 && beamy == 0 && !attribFetch) {
-								attribFetch = ScreenOn = true;
+							displayEnable = !!(value & 0x10);
+							if (!attribFetch && displayEnable && beamy == 0) {
+								attribFetch = true;
 								vertSubCount = 7;
-								if (vshift != (ff1d_latch&7))
+								if (vshift != (ff1d_latch & 7))
 								{
-									if (beamx>4 && beamx<84)
+									if (beamx > 4 && beamx < 84)
 										clockingState = TSSDELAY;
 								}
 							} else if (attribFetch && ((fltscr && ff1d_latch == 8) || (!fltscr && ff1d_latch == 4))) {
@@ -617,8 +623,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 								unsigned int newirqline = (irqline&0xFF)|((value&0x01)<<8);
 								if (newirqline != irqline) {
 									if (beamy == newirqline) {
-										Ram[0xFF0A]&0x02 ? Ram[0xFF09]|=0x82 : Ram[0xFF09]|=0x02;
-										irqFlag |= Ram[0xFF09] & 0x80;
+										Ram[0xFF09]|=0x02;
 									}
 									irqline = newirqline;
 								}
@@ -738,6 +743,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 							beamy=((value&0x01)<<8)|(beamy&0xFF);
 							return;
 						case 0xFF1D :
+							//fprintf(stderr, "%04X write %02X in cycle %llu in line: %d\n", addr, value, CycleCounter, beamy);
 							beamy=(beamy&0x0100)|value;
 							return;
 						case 0xFF1E :
@@ -797,6 +803,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 						case 0xFE8:
 						case 0xFE9:
 							if (sidCard) {
+								flushBuffer(CycleCounter, TED_SOUND_CLOCK);
 								sidCard->write(addr & 0x1f, value);
 							}
 							return;
@@ -1163,13 +1170,15 @@ void TED::doVRetrace()
 	// reset screen pointer ("TV" electron beam)
 	TVScanLineCounter = 0;
 	scrptr = screen;
+	retraceScanLine = 340;
+	VBlanking = false;
 }
 
 void TED::doHRetrace()
 {
 	// the beam reached a new line
 	TVScanLineCounter += 1;
-	if ( TVScanLineCounter >= 340 ) {
+	if ( TVScanLineCounter >= 340 || TVScanLineCounter >= retraceScanLine) {
 		doVRetrace();
 	}
 	scrptr = screen + TVScanLineCounter * SCR_HSIZE;
@@ -1226,11 +1235,11 @@ inline void TED::newLine()
 	switch (beamy) {
 
 		case 4:
-			if (!fltscr && attribFetch) ScreenOn = true;
+			if (!fltscr && displayEnable) ScreenOn = true;
 			break;
 
 		case 8:
-			if (fltscr && attribFetch) ScreenOn = true;
+			if (fltscr && displayEnable) ScreenOn = true;
 			break;
 
 		case 200:
@@ -1253,22 +1262,29 @@ inline void TED::newLine()
 			VBlanking = true;
 			break;
 
-		case 261: // Vertical retrace
-			doVRetrace();
+		case 254:
+			// Schedule vertical retrace @ 274
+			retraceScanLine = TVScanLineCounter + 20;
 			break;
 
-		case 271:
+		case 261:
+			//doVRetrace();
+			break;
+
+		case 274:
 			VBlanking = false;
 			break;
 
 		case 512:
 		case 312:
-			beamy = 0;
+			beamy = ff1d_latch = 0;
 			CharacterPositionReload = 0;
-			if (!attribFetch) {
-				endOfScreen = true;
+			if (displayEnable) {
+				if (!attribFetch) {
+					attribFetch = true;
+					endOfScreen = true;
+				}
 			}
-			attribFetch = (Ram[0xFF06]&0x10) != 0;
 	}
 	// is there raster interrupt?
 	if (beamy == irqline) {

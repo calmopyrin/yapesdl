@@ -25,9 +25,13 @@ enum {
   	P4K_1, P4K_HOME, P4K_CTRL, P4K_2,  P4K_SPACE, P4K_COMMIE, P4K_Q, P4K_STOP
 };
 
-static const unsigned int joystick[5]={
-	SDL_SCANCODE_KP_8, SDL_SCANCODE_KP_6, SDL_SCANCODE_KP_2, 
-	SDL_SCANCODE_KP_4, SDL_SCANCODE_KP_0 }; // PC keycodes up, right, down, left and fire
+unsigned int KEYS::joystickScanCodes[5] = {
+#ifdef __EMSCRIPTEN__
+	SDL_SCANCODE_UP, SDL_SCANCODE_RIGHT, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_SPACE
+#else
+	SDL_SCANCODE_KP_8, SDL_SCANCODE_KP_6, SDL_SCANCODE_KP_2, SDL_SCANCODE_KP_4, SDL_SCANCODE_KP_0 
+#endif
+}; // PC keycodes up, right, down, left and fire
 
 static const unsigned int joykeys[2][5]=
 	{ {P4K_5, P4K_6, P4K_R, P4K_D, P4K_T }, // keys for joystick 1 and 2 up, right, down, left and fire
@@ -83,7 +87,7 @@ unsigned char KEYS::keyReadMatrixRow(unsigned int r)
 	unsigned char tmp;
 
 	//for(int i = 0; i < 256; i++)
-	//	if (kbstate[i]) fprintf(stderr, "Key pressed (%02X)\n", i);
+	//	if (kbstate[i]) fprintf(stdout, "Key pressed (%02X)\n", i);
 	if (kbstate[SDL_SCANCODE_LALT])
 		return 0xFF;
 
@@ -226,11 +230,15 @@ unsigned char KEYS::joy_trans(unsigned char r)
 	unsigned char tmp;
 
 	tmp = ~
-		((kbstate[joystick[0]]<<0)
-		|(kbstate[joystick[2]]<<1)
-		|(kbstate[joystick[3]]<<2)
-		|(kbstate[joystick[1]]<<3)
-		|(kbstate[joystick[4]]<<(6 + activejoy)));
+		((kbstate[joystickScanCodes[0]]<<0)
+		|(kbstate[joystickScanCodes[2]]<<1)
+		|(kbstate[joystickScanCodes[3]]<<2)
+		|(kbstate[joystickScanCodes[1]]<<3));
+
+	if (activejoy & 1)
+		tmp &= ~(kbstate[joystickScanCodes[4]] << 6);
+	if (activejoy & 2)
+		tmp &= ~(kbstate[joystickScanCodes[4]] << 7);
 
 	return tmp;
 }
@@ -265,29 +273,28 @@ unsigned char KEYS::feedjoy(unsigned char latch)
 {
 	unsigned char tmp = 0xFF;
 
-	if ((latch&0x02)==0) {
-		if (activejoy)
+	if ((latch & 0x04) == 0) {
+		const unsigned int joy1ix = activejoy & 1;
+		const unsigned int activePcJoy1ix = (joy1ix || sdlJoys[1]) ? 1 : 0;
+		if (joy1ix)
 			tmp &= joy_trans(1);
-		if (sdlJoys[1^activejoy])
-			tmp&=getPcJoyState(1^activejoy, activejoy);
+		if (sdlJoys[activePcJoy1ix])
+			tmp &= getPcJoyState(activePcJoy1ix, 0);
 	}
-	if ((latch&0x04)==0) {
-		if (!activejoy)
-			tmp &= joy_trans(2); // Joy2 is wired two times...
-		if (sdlJoys[0^activejoy])
-			tmp&=getPcJoyState(0^activejoy, activejoy);
+	if ((latch & 0x02) == 0) {
+		const unsigned int joy2ix = activejoy & 2;
+		const unsigned int activePcJoy2ix = joy2ix ? 1 : 0;
+		if (joy2ix)
+			tmp &= joy_trans(2);
+		if (sdlJoys[activePcJoy2ix])
+			tmp &= getPcJoyState(activePcJoy2ix, 1);
 	}
 	return tmp;
 }
 
-void KEYS::swapjoy()
+unsigned int KEYS::swapjoy()
 {
-	activejoy=1-activejoy;
-}
-
-KEYS::~KEYS() 
-{
-
+	return (activejoy = (activejoy + 1) & 3);
 }
 
 void KEYS::closePcJoys()
@@ -297,4 +304,9 @@ void KEYS::closePcJoys()
 		i -= 1;
 		SDL_JoystickClose(sdlJoys[i]);
 	}
+}
+
+KEYS::~KEYS() 
+{
+
 }

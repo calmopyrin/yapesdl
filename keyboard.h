@@ -12,11 +12,7 @@
 #ifndef _KEYBOARD_H
 #define _KEYBOARD_H
 
-#ifdef _WIN32
-#include <SDL/SDL.h>
-#else
-#include <SDL2/SDL.h>
-#endif
+#include "types.h"
 
 class KEYS {
 	protected:
@@ -25,6 +21,7 @@ class KEYS {
 		//
 		static unsigned int nrOfJoys;
 		static SDL_Joystick *sdlJoys[2];
+		static unsigned int joystickScanCodes[5];
 		unsigned char getPcJoyState(unsigned int joyNr, unsigned int activeJoy);
 		unsigned char latched;
 		unsigned char keyReadMatrixRow(unsigned int r);
@@ -39,7 +36,7 @@ class KEYS {
 		void latch(unsigned int keyrow, unsigned int joyrow);
 		unsigned char feedkey(unsigned char latch);
 		unsigned char feedjoy(unsigned char latch);
-		void swapjoy(void);
+		unsigned int swapjoy();
 		void empty(void);
 		static unsigned int activejoy;
 		unsigned char readLatch() { return latched | blockMask; };

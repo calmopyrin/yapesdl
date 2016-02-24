@@ -7,7 +7,7 @@
 	and/or modify it under certain conditions. For more information,
 	read 'Copying'.
 
-	(c) 2000, 2001, 2005 Attila Gr�z
+	(c) 2000, 2001, 2005, 2016 Attila Gr�z
 	(c) 2005 VENESZ Roland
 */
 
@@ -24,18 +24,15 @@ enum UI_FileTypes {
 	FT_VOLUME
 };
 
-#ifdef _WIN32
-#include <SDL/SDL.h>
-#define _WIN32_WINNT 0x400
-#include <windows.h>
-#ifdef _MSC_VER
-#pragma comment(lib,"winmm.lib")
-#endif
-#else
-#include <SDL2/SDL.h>
+#include "types.h"
+
+#if !defined(_WIN32) || defined(__EMSCRIPTEN__)
+#define UNIX
 #include <unistd.h>
 #define MAX_PATH 256
 #define VSYNC_LATENCY 200
+#else
+#include <windows.h>
 #endif
 
 int		ad_set_curr_dir(char *path);
@@ -52,5 +49,25 @@ void	ad_exit_drive_selector();
 extern void				ad_vsync_init(void);
 extern bool				ad_vsync(bool sync);
 extern unsigned int		ad_get_fps();
+
+class Sync {
+public:
+	Sync();
+	virtual ~Sync();
+	virtual bool sync(bool sync) = 0;
+	virtual unsigned int getFps() = 0;
+};
+
+class FileIO {
+public:
+	FileIO();
+	virtual ~FileIO();
+	virtual int	setCurrDir(char *path) = 0;
+	virtual int	findFirstFile(const char *filefilter) = 0;
+	virtual int findNextFile() = 0;
+	virtual char *getCurrentFilename() = 0;
+	virtual UI_FileTypes getCurrentFiletype() = 0;
+	virtual unsigned int getCurrentFilesize() = 0;
+};
 
 #endif

@@ -44,6 +44,11 @@
 #include "vic2mem.h"
 #include "SaveState.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <emscripten/html5.h>
+#endif
+
 // function prototypes
 static void frameUpdate();
 
@@ -100,7 +105,7 @@ inline static unsigned int ShowFrameRate(bool show)
 //-----------------------------------------------------------------------------
 inline static void DebugInfo()
 {
-	const unsigned int hpos = (ted8360->getCyclesPerRow() == 456 ? 48 : 112), vpos = 12;
+	const unsigned int hpos = (ted8360->getCyclesPerRow() == 456 ? 48 : 112), vpos = 10;
 
 	sprintf(textout, "OPCODE: %02x ", machine->getcins());
 	ted8360->texttoscreen(hpos, vpos, textout);
@@ -243,9 +248,10 @@ static void showPopUpMessage()
 	dummy[len] = '\0';
 
 	int tab = offset / 2 - (int(len) << 2);
-	ted8360->texttoscreen(tab, 144, dummy);
-	ted8360->texttoscreen(tab, 152, popUpMessage);
-	ted8360->texttoscreen(tab, 160, dummy);
+	int line = 130;
+	ted8360->texttoscreen(tab, line, dummy);
+	ted8360->texttoscreen(tab, line + 8, popUpMessage);
+	ted8360->texttoscreen(tab, line + 16, dummy);
 
 	if(popupMessageTimeOut)
 		popupMessageTimeOut -= 1;
@@ -291,11 +297,12 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 static void frameUpdate()
 {
 	const unsigned int cyclesPerRow = ted8360->getCyclesPerRow();
-	const int offset = cyclesPerRow == 504 ? -72 : 8;
+	const int offsetX = cyclesPerRow == 504 ? -72 : 8;
+	const int offsetY = cyclesPerRow == 504 ? 10 : 0;
 
 	if (popupMessageTimeOut)
 		showPopUpMessage();
-    frameUpdate(ted8360->getScreenData() + (cyclesPerRow - 384 - offset) / 2 + 10 * cyclesPerRow, pixels);
+    frameUpdate(ted8360->getScreenData() + (cyclesPerRow - 384 - offsetX) / 2 + offsetY * cyclesPerRow, pixels);
 }
 
 /* ---------- Management of settings ---------- */
@@ -416,32 +423,28 @@ static bool saveScreenshotBMP(char* filepath, SDL_Window* SDLWindow, SDL_Rendere
 		return false;
 	} else {
 		unsigned char *pxls = new unsigned char[infoSurface->w * infoSurface->h * infoSurface->format->BytesPerPixel];
-		if (pixels == 0) {
+		if (SDL_RenderReadPixels(SDLRenderer, &infoSurface->clip_rect, infoSurface->format->format, pxls, infoSurface->w * infoSurface->format->BytesPerPixel) != 0) {
+			pxls = NULL;
 			return false;
 		} else {
-			if (SDL_RenderReadPixels(SDLRenderer, &infoSurface->clip_rect, infoSurface->format->format, pxls, infoSurface->w * infoSurface->format->BytesPerPixel) != 0) {
-				pxls = NULL;
+			saveSurface = SDL_CreateRGBSurfaceFrom(pixels, infoSurface->w, infoSurface->h, infoSurface->format->BitsPerPixel,
+				infoSurface->w * infoSurface->format->BytesPerPixel, infoSurface->format->Rmask,
+				infoSurface->format->Gmask, infoSurface->format->Bmask, infoSurface->format->Amask);
+			if (saveSurface == NULL) {
 				return false;
-			} else {
-				saveSurface = SDL_CreateRGBSurfaceFrom(pixels, infoSurface->w, infoSurface->h, infoSurface->format->BitsPerPixel,
-					infoSurface->w * infoSurface->format->BytesPerPixel, infoSurface->format->Rmask,
-					infoSurface->format->Gmask, infoSurface->format->Bmask, infoSurface->format->Amask);
-				if (saveSurface == NULL) {
-					return false;
-				}
-				SDL_SaveBMP(saveSurface, filepath);
-				SDL_FreeSurface(saveSurface);
-				saveSurface = NULL;
 			}
-			delete[] pxls;
+			SDL_SaveBMP(saveSurface, filepath);
+			SDL_FreeSurface(saveSurface);
+			saveSurface = NULL;
 		}
+		delete[] pxls;
 		SDL_FreeSurface(infoSurface);
 		infoSurface = NULL;
 	}
 	return true;
 }
 
-static bool getSerializedFilename(char *name, char *extension, char *out)
+static bool getSerializedFilename(const char *name, const char *extension, char *out)
 {
 	char dummy[512];
 	unsigned int i = 0;
@@ -497,8 +500,10 @@ bool mainSaveMemoryAsPrg(const char *prgname, unsigned short &beginAddr, unsigne
 
 static void doSwapJoy()
 {
-	ted8360->getKeys()->swapjoy();
-	sprintf(textout, " ACTIVE JOY IS : %d ", ted8360->getKeys()->activejoy);
+	const char *txt[] = { "NONE", "1", "2", "BOTH" };
+	unsigned int active = ted8360->getKeys()->swapjoy();
+	sprintf(textout, " ACTIVE JOY IS : %s ", txt[active]);
+	printf("%s\n", textout);
 	PopupMsg(textout);
 }
 
@@ -513,13 +518,21 @@ static void enterMenu()
 static void toggleFullThrottle()
 {
 	g_50Hz = !g_50Hz;
+
+	sprintf(textout, " 50 HZ TIMER IS ");
 	if (g_50Hz) {
 		sound_resume();
-		sprintf(textout, " 50 HZ TIMER IS ON ");
+		strcat(textout,"ON ");
+#ifdef __EMSCRIPTEN__
+		emscripten_set_main_loop_timing(EM_TIMING_RAF, 0);
+#endif
 	}
 	else {
 		sound_pause();
-		sprintf(textout, " 50 HZ TIMER IS OFF ");
+		strcat(textout, "OFF ");
+#ifdef __EMSCRIPTEN__
+		emscripten_set_main_loop_timing(EM_TIMING_SETTIMEOUT, 1);
+#endif
 	}
 	PopupMsg(textout);
 	// restart counter
@@ -598,7 +611,7 @@ inline static void poll_events(void)
 {
 	SDL_Event event;
 
-    if ( SDL_PollEvent(&event) ) {
+    while ( SDL_PollEvent(&event) ) {
         switch (event.type) {
 
 			case SDL_WINDOWEVENT:
@@ -639,6 +652,7 @@ inline static void poll_events(void)
 								}
 								break;
 							case SDLK_e:
+							case SDLK_l:
 								{
 									int dir = (event.key.keysym.mod & KMOD_SHIFT) ? -1 : 1;
 									g_iEmulationLevel = (g_iEmulationLevel + dir) % 3;
@@ -655,6 +669,7 @@ inline static void poll_events(void)
 									case 2:
 										strcat(textout, "COMMODORE 64 ");
 									}
+									printf("%s.\n", textout);
 								}
 								PopupMsg(textout);
 								break;
@@ -675,6 +690,12 @@ inline static void poll_events(void)
 										WINDOWX, WINDOWY * (g_bUseOverlay ? 2 : 1));
                                 PopupMsg(" CRT emulation %s ", g_bUseOverlay ? "ON" : "OFF");
                                 break;
+							case SDLK_r:
+								ted8360->Reset(false);
+								machineReset(false);
+								printf("Resetting...\n");
+								PopupMsg(" RESET ");
+								break;
 							case SDLK_s:
 								g_TotFrames = 0;
 								g_FrameRate = !g_FrameRate;
@@ -918,6 +939,23 @@ static void app_initialise()
 	init_audio();
 }
 
+static void mainLoop()
+{
+	// hook into the emulation loop if active
+	if (g_bActive) {
+		ted8360->ted_process(1);
+		poll_events();
+		if (g_inDebug)
+			DebugInfo();
+		ShowFrameRate(g_FrameRate);
+		if (ad_vsync(g_50Hz))
+			frameUpdate();
+	} else {
+		if (SDL_WaitEvent(NULL))
+			poll_events();
+	}
+}
+
 /* ---------- MAIN ---------- */
 
 int main(int argc, char *argv[])
@@ -939,6 +977,7 @@ int main(int argc, char *argv[])
 	strcat(inifile, "yape.conf");
 	fprintf(stderr, "Config file: %s\n", inifile);
 
+#ifndef __EMSCRIPTEN__
 	if (LoadSettings(inifile)) {
 		char tmpStr[512];
 		fprintf(stderr, "Settings loaded successfully.\n");
@@ -947,6 +986,8 @@ int main(int argc, char *argv[])
 		setEmulationLevel(g_iEmulationLevel);
 	} else
 		fprintf(stderr,"Error loading settings or no .ini file present...\n");
+#endif
+
 	app_initialise();
 	if (!g_SoundOn || !g_50Hz) sound_pause();
 	KEYS::initPcJoys();
@@ -957,23 +998,27 @@ int main(int argc, char *argv[])
 		// and then try to load the parameter as file
 		autostart_file(argv[1]);
 	}
-	ad_vsync_init();
 	/* ---------- MAIN LOOP ---------- */
+#ifdef __EMSCRIPTEN__
+	printf("Type DIRECTORY and press ENTER to see disk contents. Type DLOAD\"filename* to load a specific file!\n");
+	printf("Usage:\n");
+	printf("LALT + 1-3   : set window size\n");
+	printf("LALT + I     : switch emulated joystick port\n");
+	printf("LALT + L     : switch among emulators (C+4 cycle based; C+4 line based; C64 cycle based)\n");
+	printf("LALT + M     : enter console based external monitor and disassembler (currently deadlocks!)\n");
+	printf("LALT + P     : toggle CRT emulation\n");
+	printf("LALT + R     : machine reset\n");
+	printf("LALT + S     : display frame rate on/off\n");
+	printf("LALT + W     : toggle between unlimited speed and original speed\n");
+	printf("LALT + ENTER : toggle full screen mode\n");
+	printf("Joystick buttons are the arrow keys and SPACE\n");
+	printf("Entering main loop...\n");
+	emscripten_set_main_loop((em_callback_func) mainLoop, 0, 1);
+#else
+	ad_vsync_init();
 	for (;;) {
-		// hook into the emulation loop if active
-		if (g_bActive) {
-			ted8360->ted_process(1);
-			poll_events();
-			if (g_inDebug)
-				DebugInfo();
-			ShowFrameRate(g_FrameRate);
-			if (ad_vsync(g_50Hz)) // && !isSoundOn()
-				frameUpdate();
-		} else {
-		    if (SDL_WaitEvent(NULL))
-				poll_events();
-		}
+		mainLoop();
 	}
+#endif
 	return 0;
 }
-

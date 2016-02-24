@@ -490,5 +490,3 @@ void CIECFSDrive::ChangeDirCmd(char *dirpath)
 			SetError(ERR_NOTREADY, 0, 0);
 	}
 }
-
-

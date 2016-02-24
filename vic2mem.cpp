@@ -764,7 +764,9 @@ unsigned char Vic2mem::Read(unsigned int addr)
 							case 0x11:
 								return (vicReg[0x11] & 0x7f) | ((beamy & 0x100) >> 1);
 							case 0x13: // LPX
-								return beamx << 1;
+								return lpLatchX;
+							case 0x14: // LPY
+								return lpLatchY;
 							case 0x16:
 								return vicReg[0x16] | 0xC0;
 							case 0x18:
@@ -798,8 +800,10 @@ unsigned char Vic2mem::Read(unsigned int addr)
 					case 0xD5:
 					case 0xD6:
 					case 0xD7:
-						if (sidCard)
+						if (sidCard) {
+							flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
 							return sidCard->read(addr & 0x1F);
+						}
 						return 0xD4;
 					case 0xD8: // Color RAM
 					case 0xD9:
@@ -817,9 +821,15 @@ unsigned char Vic2mem::Read(unsigned int addr)
 									return retval;
 								case 0x01: // port B usually not driven low by port A.
 #if 1
-									retval = (keys64->feedkey((cia[0].pra | ~cia[0].ddra) & keys64->getJoyState(1))
+									{
+										static unsigned char oldRetval = 0xFF;
+										retval = (keys64->feedkey((cia[0].pra | ~cia[0].ddra) & keys64->getJoyState(1))
 											& ~cia[0].ddrb)
-										| (cia[0].prb & cia[0].ddrb);
+											| (cia[0].prb & cia[0].ddrb);
+										if ((oldRetval & 0x10) && !(retval & 0x10))
+											latchCounters();
+										oldRetval = retval;
+									}
 #else
 									retval = cia[0].read(1)
 										& (keys64->feedkey(cia[0].read(0)) & keys64->getJoyState(1) | cia[0].ddrb);
@@ -1065,8 +1075,10 @@ skip:
 					case 0xD5:
 					case 0xD6:
 					case 0xD7:
-						if (sidCard)
+						if (sidCard) {
+							flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
 							sidCard->write(addr & 0x1f, value);
+						}
 						return;
 					case 0xD8: // Color RAM
 					case 0xD9:
@@ -1076,9 +1088,19 @@ skip:
 						return;
 					case 0xDC: // CIA1
 						switch (addr & 0x0F) {
-							// key matrix row select
-							case 0:
+							// key matrix row select & LP irq
 							case 1:
+							case 3:
+								{
+									unsigned char oldPortOut = cia[0].prb | ~cia[0].ddrb;
+									cia[0].write(addr, value);
+									unsigned char newPortOut = cia[0].prb | ~cia[0].ddrb;
+									if ((oldPortOut & 0x10) && !(newPortOut & 0x10)) {
+										latchCounters();
+									}
+								}
+								return;
+							case 0:
 								cia[0].write(addr, value);
 								return;
 							default:;
@@ -1126,6 +1148,18 @@ skip:
 				actram[addr & 0xFFFF] = value;
 			}
 			return;
+	}
+}
+
+void Vic2mem::latchCounters()
+{
+	// once per frame only
+	if (!lpLatched) {
+		lpLatched = true;
+		lpLatchX = beamx << 1;
+		lpLatchY = beamy;
+		vicReg[0x19] |= (vicReg[0x1A] & 8) ? 0x88 : 0x08;
+		checkIRQflag();
 	}
 }
 
@@ -1231,6 +1265,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 						vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
 						checkIRQflag();
 					}
+					lpLatched = false;
 					endOfScreen = false;
 					dmaCount = 0;
 				}

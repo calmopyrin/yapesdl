@@ -1,15 +1,11 @@
 #include <stdio.h>
 #include "keys64.h"
 
-const unsigned int joystick[5]={
-	SDL_SCANCODE_KP_8, SDL_SCANCODE_KP_6, SDL_SCANCODE_KP_2, 
-	SDL_SCANCODE_KP_4, SDL_SCANCODE_KP_0 }; // PC keycodes up, right, down, left and fire
-
-KEYS64::KEYS64(void)
+KEYS64::KEYS64()
 {
 }
 
-KEYS64::~KEYS64(void)
+KEYS64::~KEYS64()
 {
 }
 
@@ -176,29 +172,30 @@ unsigned char KEYS64::feedjoy()
 {
 	const Uint8 *kbstate = SDL_GetKeyboardState(NULL);
 	unsigned char tmp = ~
-		((kbstate[joystick[0]]<<0)
+		((kbstate[joystickScanCodes[0]]<<0)
 		|(kbstate[SDL_SCANCODE_KP_7]<<0)
 		|(kbstate[SDL_SCANCODE_KP_9]<<0)
-		|(kbstate[joystick[2]]<<1)
+		|(kbstate[joystickScanCodes[2]]<<1)
 		|(kbstate[SDL_SCANCODE_KP_1]<<1)
 		|(kbstate[SDL_SCANCODE_KP_3]<<1)
-		|(kbstate[joystick[3]]<<2)
+		|(kbstate[joystickScanCodes[3]]<<2)
 		|(kbstate[SDL_SCANCODE_KP_7]<<2)
 		|(kbstate[SDL_SCANCODE_KP_1]<<2)
-		|(kbstate[joystick[1]]<<3)
+		|(kbstate[joystickScanCodes[1]]<<3)
 		|(kbstate[SDL_SCANCODE_KP_3]<<3)
 		|(kbstate[SDL_SCANCODE_KP_9]<<3)
-		|(kbstate[joystick[4]]<<4));
+		|(kbstate[joystickScanCodes[4]]<<4));
 	return tmp;
 }
 
 unsigned char KEYS64::getJoyState(unsigned int j)
 {
 	unsigned char tmp = 0xFF;
-	if (activejoy == j) {
+	if (activejoy & (j + 1)) {
 		tmp &= feedjoy();
 	}
-	if (sdlJoys[1 ^ activejoy ^ j])
-		tmp &= getPcJoyState(1 ^ activejoy ^ j, 0);
+	const unsigned int pcJoyIx = activejoy >> 1;
+	if (sdlJoys[1 ^ pcJoyIx ^ j]) // FIXME
+		tmp &= getPcJoyState(1 ^ pcJoyIx ^ j, 0);
 	return tmp;
 }

@@ -25,6 +25,7 @@
     <ClCompile Include="tedsound.cpp" />
     <ClCompile Include="vic2mem.cpp" />
     <ClCompile Include="video.cpp" />
+    <ClCompile Include="SaveState.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="1541mem.h">
@@ -97,6 +98,24 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="video.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Clockable.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="keys64.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="c64rom.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="icon.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="SaveState.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="vic2mem.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

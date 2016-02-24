@@ -1,11 +1,7 @@
 #ifndef _IEC_H
 #define _IEC_H
 
-#ifdef _WIN32
-#include <SDL/SDL.h>
-#else
-#include <SDL2/SDL.h>
-#endif
+#include "types.h"
 
 class CIECInterface {
   public:

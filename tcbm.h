@@ -1,11 +1,7 @@
 #ifndef _TCBM_H
 #define _TCBM_H
 
-#ifdef _WIN32
-#include <SDL/SDL.h>
-#else
-#include <SDL2/SDL.h>
-#endif
+#include "types.h"
 #include "mem.h"
 
 class CTCBM : public MemoryHandler {

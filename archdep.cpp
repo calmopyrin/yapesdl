@@ -1,20 +1,20 @@
 /*
-	YAPE - Yet Another Plus/4 Emulator
+YAPE - Yet Another Plus/4 Emulator
 
-	The program emulates the Commodore 264 family of 8 bit microcomputers
+The program emulates the Commodore 264 family of 8 bit microcomputers
 
-	This program is free software, you are welcome to distribute it,
-	and/or modify it under certain conditions. For more information,
-	read 'Copying'.
+This program is free software, you are welcome to distribute it,
+and/or modify it under certain conditions. For more information,
+read 'Copying'.
 
-	(c) 2000, 2001, 2005, 2007 Attila Gr�z
-	(c) 2005 VENESZ Roland
+(c) 2000, 2001, 2005, 2007 Attila Gr�z
+(c) 2005 VENESZ Roland
 */
 
 #include "archdep.h"
 #include <stdio.h>
+
 #ifdef _WIN32
-#include <SDL/SDL.h>
 // fixes a missing export in SDL2 for VS 2015
 #if _MSC_VER >= 1900
 FILE _iob[] = { *stdin, *stdout, *stderr };
@@ -24,21 +24,16 @@ extern "C" FILE * __cdecl __iob_func(void)
 	return _iob;
 }
 #endif
-#else
-#include <SDL2/SDL.h>
 #endif
 
 unsigned int	tick_50hz, tick_vsync, fps;
 
 /* functions for Windows */
-#ifdef WIN32
+#if defined(_WIN32)
 
 static HANDLE				handle;
 static WIN32_FIND_DATA			rec;
 static char temp[512];
-//static HANDLE hTimer = NULL;
-//static HANDLE hTimerFps = NULL;
-//static LARGE_INTEGER liDueTime, liDueTime2;
 static BOOL showDriveLetters = FALSE;
 static DWORD driveBitFields;
 static UINT currentDriveIndex;
@@ -155,76 +150,15 @@ int	ad_find_file_close(void)
 
 int ad_makedirs(char *path)
 {
-  strcpy(temp,path);
-  strcat(temp, "/yape");
-  CreateDirectory(temp, NULL);
+	strcpy(temp,path);
+	strcat(temp, "/yape");
+	CreateDirectory(temp, NULL);
 
-  return 1;
+	return 1;
 }
+#endif /* end of Windows functions */
 
-/*DWORD CALLBACK MyWorkProc(LPVOID lpArg)
-{
-	while(NULL!=hTimerFps)
- 	{
-		WaitForSingleObject(hTimerFps,INFINITE);
-		SetWaitableTimer( hTimerFps, &liDueTime2, 0, NULL, NULL, 0);
-		if (++tick_50hz >= 5*20) {
-			fps = (int) (50 * ((double) tick_vsync / (double) tick_50hz));
-			tick_vsync = 0;
-			tick_50hz = 0;
-		}
-		fprintf( stderr, "Timeout\n");
-		//fps = (int) ((double) tick_vsync / 2.0);
-		//tick_vsync = 0;
-	}
-	ExitThread(0);
-}
-
-void ad_vsync_init(void)
-{
-	// performance measurement
-	TIMECAPS		tc;
-	UINT			wTimerRes;
-	HANDLE			thread;
-	DWORD			threadID = 0;
-
-	// set timer resolution to 1 msec (NT)
-	const int TARGET_RESOLUTION = 1;         // 1-millisecond target resolution
-
-	if (timeGetDevCaps(&tc, sizeof(TIMECAPS)) != TIMERR_NOERROR) {
-		fprintf( stderr, "Oops... couldn't get timer resolution.\n");
-	}
-
-	wTimerRes = TARGET_RESOLUTION;
-	fprintf( stderr, "Setting timer resolution to : %i ms.\n", wTimerRes);
-	timeBeginPeriod(wTimerRes);
-
-	tick_vsync = 0;
-	tick_50hz = 0;
-	fps = 50;
-	liDueTime.QuadPart=-200000;
-	hTimer = CreateWaitableTimer(NULL, FALSE, "WaitableTimer");
-	SetWaitableTimer( hTimer, &liDueTime, 0, NULL, NULL, 0);
-	liDueTime2.QuadPart=-200000;
-	thread = CreateThread( NULL, 0, MyWorkProc, NULL, 0, &threadID);
-	hTimerFps = CreateWaitableTimer(NULL, FALSE, "WaitableTimerFps");
-	SetWaitableTimer( hTimerFps, &liDueTime2, 0, NULL, NULL, 0);
-}
-
-void ad_vsync(bool sync)
-{
-	if (sync) {
-		WaitForSingleObject(hTimer, INFINITE) != WAIT_OBJECT_0;
-		SetWaitableTimer( hTimer, &liDueTime, 0, NULL, NULL, 0);
-	}
-	tick_vsync++;
-}
-
-unsigned int ad_get_fps()
-{
-	return fps;
-}*/
-
+#if defined(_WIN32) || defined(__EMSCRIPTEN__)
 static unsigned int timeelapsed;
 
 void ad_vsync_init(void)
@@ -238,12 +172,12 @@ bool ad_vsync(bool sync)
 	timeelapsed = SDL_GetTicks();
 	if (sync) {
 		if (time_limit > timeelapsed) {
-		   	int nr10ms = ((time_limit-timeelapsed)/10) * 10;
-		   	SDL_Delay(nr10ms);
-		   	timeelapsed = SDL_GetTicks();
-		    while (time_limit>timeelapsed) {
-		    	SDL_Delay(0);
-		    	timeelapsed = SDL_GetTicks();
+			int nr10ms = ((time_limit-timeelapsed)/10) * 10;
+			SDL_Delay(nr10ms);
+			timeelapsed = SDL_GetTicks();
+			while (time_limit>timeelapsed) {
+				SDL_Delay(0);
+				timeelapsed = SDL_GetTicks();
 			}
 		}
 		return true;
@@ -260,21 +194,21 @@ bool ad_vsync(bool sync)
 
 unsigned int ad_get_fps()
 {
-    static unsigned int fps = 50;
+	static unsigned int fps = 50;
 	static unsigned int g_TotElapsed = SDL_GetTicks();
 	static unsigned int g_TotFrames = 0;
 
-    g_TotFrames++;
+	g_TotFrames++;
 	if (g_TotElapsed + 2000 < timeelapsed) {
-     	g_TotElapsed = SDL_GetTicks();
-     	fps = g_TotFrames / 2;
-     	g_TotFrames = 0;
-  	}
+		g_TotElapsed = SDL_GetTicks();
+		fps = g_TotFrames / 2;
+		g_TotFrames = 0;
+	}
 	return fps;
 }
+#endif
 
-/* end of Windows functions */
-#else
+#if !defined(_WIN32)
 
 /* ---------- UNIX ---------- */
 
@@ -304,8 +238,8 @@ void ad_exit_drive_selector()
 
 int ad_get_curr_dir(char *pathstring, size_t size)
 {
-        char *p = getcwd(pathstring, size);
-        return 1;
+	char *p = getcwd(pathstring, size);
+	return 1;
 }
 
 int ad_get_curr_dir(char *pathstring)
@@ -317,65 +251,65 @@ int ad_get_curr_dir(char *pathstring)
 
 int ad_set_curr_dir(char *path)
 {
-        if (chdir(path) == 0) return 1;
-        return 0;
+	if (chdir(path) == 0) return 1;
+	return 0;
 }
 
 int ad_find_first_file(const char *filefilter)
 {
-        // We will search in the current working directory.
-        if (glob(filefilter, 0, NULL, &gl) != 0) return 0;
+	// We will search in the current working directory.
+	if (glob(filefilter, 0, NULL, &gl) != 0) return 0;
 	gl_curr = 0; gl_currsize = 0;
-        return 1;
+	return 1;
 }
 
 char *ad_return_current_filename(void)
 {
-  //	fprintf(stderr, "File: %s parsed\n", gl.gl_pathv[gl_curr]);
-  if (!gl.gl_pathc)
-    return 0;
-  return (char *) gl.gl_pathv[gl_curr];
+	//	fprintf(stderr, "File: %s parsed\n", gl.gl_pathv[gl_curr]);
+	if (!gl.gl_pathc)
+		return 0;
+	return (char *) gl.gl_pathv[gl_curr];
 }
 
 UI_FileTypes ad_return_current_filetype(void)
 {
-  // Probably too kludgy but I dunno Unix so who cares...
-  DIR *dirp;
-  if (gl.gl_pathv && (dirp = opendir(gl.gl_pathv[gl_curr])) != NULL) {
-    closedir(dirp);
-    return FT_DIR;
-  } else
-    return FT_FILE;
+	// Probably too kludgy but I dunno Unix so who cares...
+	DIR *dirp;
+	if (gl.gl_pathv && (dirp = opendir(gl.gl_pathv[gl_curr])) != NULL) {
+		closedir(dirp);
+		return FT_DIR;
+	} else
+		return FT_FILE;
 }
 
 unsigned int ad_get_current_filesize(void)
 {
-        struct stat buf;
+	struct stat buf;
 
-        // Size cache!
-        if (gl_currsize != 0) return gl_currsize;
+	// Size cache!
+	if (gl_currsize != 0) return gl_currsize;
 
-        // If the file size actually is 0, subsequent calls to this
-        // function will stat the file over and over again. I don't care.
-        if (stat(gl.gl_pathv[gl_curr], &buf) == 0) {
-                return (gl_currsize = (unsigned int) buf.st_size);
-        } else return 0;
+	// If the file size actually is 0, subsequent calls to this
+	// function will stat the file over and over again. I don't care.
+	if (stat(gl.gl_pathv[gl_curr], &buf) == 0) {
+		return (gl_currsize = (unsigned int) buf.st_size);
+	} else return 0;
 }
 
 int ad_find_next_file(void)
 {
-        if (++gl_curr >= gl.gl_pathc) {
-                // No more matches: we don't need the glob any more.
-                //globfree(&gl);
-                return 0;
-        }
-        gl_currsize = 0;
-        return 1;
+	if (++gl_curr >= gl.gl_pathc) {
+		// No more matches: we don't need the glob any more.
+		//globfree(&gl);
+		return 0;
+	}
+	gl_currsize = 0;
+	return 1;
 }
 
 int	ad_find_file_close(void)
 {
-    return 1;
+	return 1;
 }
 
 int ad_makedirs(char *path)
@@ -388,8 +322,11 @@ int ad_makedirs(char *path)
 
 	return 1;
 }
+#endif
 
-void _ad_vsync_sigalrm_handler(int signal) {
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+void _ad_vsync_sigalrm_handler(int signal)
+{
 	sem_vsync = 0x01;
 
 	// Refresh FPS every 3 seconds. To avoid race condition, do
@@ -401,7 +338,8 @@ void _ad_vsync_sigalrm_handler(int signal) {
 	}
 }
 
-void ad_vsync_init(void) {
+void ad_vsync_init(void)
+{
 	struct sigaction ac;
 
 	// Initialization
@@ -418,7 +356,8 @@ void ad_vsync_init(void) {
 	if (sigaction(SIGALRM, &ac, NULL) == 0) ualarm(100, 20000);
 }
 
-bool ad_vsync(bool sync) {
+bool ad_vsync(bool sync)
+{
 	if (sync) {
 		while (sem_vsync == 0x00) usleep(VSYNC_LATENCY);
 		sem_vsync = 0x00;
@@ -429,7 +368,8 @@ bool ad_vsync(bool sync) {
 	return true;
 }
 
-unsigned int ad_get_fps() {
+unsigned int ad_get_fps()
+{
 	return fps;
 }
 

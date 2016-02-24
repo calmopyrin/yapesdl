@@ -203,6 +203,8 @@ protected:
 	static bool charPosLatchFlag;
 	static bool endOfScreen;
 	static bool delayedDMA;
+	static bool displayEnable;
+	static unsigned int retraceScanLine;
 	//
 	void doDMA( unsigned char *Buf, unsigned int Offset  );
 	SIDsound *sidCard;

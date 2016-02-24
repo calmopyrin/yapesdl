@@ -29,8 +29,6 @@ extern void close_audio();
 extern void sound_pause();
 extern void sound_resume();
 extern void sound_change_freq(unsigned int &newFreq);
-extern void updateAudio(unsigned int nrsamples);
-
 extern void flushBuffer(ClockCycle cycle, unsigned int frq);
 
 #endif

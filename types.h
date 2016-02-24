@@ -1,7 +1,9 @@
 #ifndef _TYPES_H
 #define _TYPES_H
 
-#ifdef _WIN32
+#if defined(__EMSCRIPTEN__)
+#include <SDL2/SDL.h>
+#elif defined(_MSC_VER)
 #include <SDL/SDL.h>
 #else
 #include <SDL2/SDL.h>
@@ -66,6 +68,7 @@ public:
 						last = nextNode;
 				}
 			}
+			prevNode = node;
 			node = nextNode;
 		} while (node);
 	}
