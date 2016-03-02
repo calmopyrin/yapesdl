@@ -29,6 +29,7 @@ unsigned int		TED::vertSubCount;
 int				TED::x;
 unsigned char	*TED::VideoBase;
 
+unsigned int TED::masterClock;
 ClockCycle TED::CycleCounter;
 bool TED::ScreenOn, TED::attribFetch;
 bool TED::displayEnable;
@@ -72,6 +73,7 @@ TED::TED() : sidCard(0), SaveState()
 	unsigned int i;
 
 	instance_ = this;
+	masterClock = TED_REAL_CLOCK_M10;
 	setId("TED0");
 	// clearing cartdridge ROMs
 	for (i=0;i<4;++i) {
@@ -1660,7 +1662,7 @@ inline void TEDFAST::dmaLineBased()
 	if (beamy == 204) {
 		clockingState = CLK_BORDER;
 		externalFetchWindow = false; // -?
-	} else if (beamy == 311 /*Clock::RasterLinesPerFrame*/) {
+	} else if (beamy == 311 /*TED::RasterLinesPerFrame*/) {
 		CharacterPositionReload = CharacterPosition = 0;
 		charPosLatchFlag = false;
 		if (endOfScreen) {

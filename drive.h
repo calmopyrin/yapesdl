@@ -4,7 +4,6 @@
 #include <cstddef>
 #include "Clockable.h"
 
-class CIECDrive;
 class CTCBM;
 class CIECDrive;
 class CIECInterface;
@@ -116,5 +115,28 @@ private:
 	unsigned int driveType;
 };
 //-------------
+
+class IecFakeSerial;
+
+class FakeSerialDrive : public Drive
+{
+public:
+	FakeSerialDrive(unsigned int dn);
+	virtual ~FakeSerialDrive();
+	virtual void Reset() {};
+	virtual void AttachDisk(char *fname) {
+		//iecDrive->
+	}
+	virtual void DetachDisk() {
+	}
+	CIECDrive *getIecDrive() {
+		return iecDrive;
+	}
+	//virtual bool changeROM(_TCHAR *fname);
+	//virtual bool changeOutputPath(_TCHAR *path);
+protected:
+	IecFakeSerial *iecInterFace;
+	CIECDrive *iecDrive;
+};
 
 #endif // _DRIVE_H

@@ -24,20 +24,22 @@ const char *DriveErrors[] = {
 		"74,DRIVE NOT READY"
 };
 
-CIECDrive::CIECDrive()
+CIECDrive::CIECDrive() : ram(NULL)
 {
 	for (int i=0; i<15; i++) {
 		ch[i].mode = CHMOD_FREE;
 		ch[i].data = NULL;
 	}
 	ch[15].mode = CHMOD_COMMAND;
-
 	ram = new unsigned char[DRIVE_RAM_SIZE];
 }
 
 CIECDrive::~CIECDrive()
 {
-	delete [] ram;
+	if (ram) {
+		delete [] ram;
+		ram = NULL;
+	}
 }
 
 /*

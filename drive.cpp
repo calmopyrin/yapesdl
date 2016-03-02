@@ -45,7 +45,7 @@ unsigned int CTrueDrive::NrOfDrivesAttached;
 CTrueDrive *CTrueDrive::RootDevice = 0;
 CTrueDrive *CTrueDrive::LastDevice = 0;
 
-CTrueDrive::CTrueDrive( unsigned int type, unsigned int dn)
+CTrueDrive::CTrueDrive(unsigned int type, unsigned int dn)
 			: Drive(dn) , Clockable(dn)
 {
 	Fdc = NULL;
@@ -230,4 +230,19 @@ void CTrueDrive::ResetAllDrives()
 		if ( CTrueDrive::Drives[i] )
 			CTrueDrive::Drives[i]->Reset();
 	}
+}
+
+//---------------------------------------
+
+FakeSerialDrive::~FakeSerialDrive() 
+{
+	delete iecDrive;
+	delete iecInterFace;
+}
+
+FakeSerialDrive::FakeSerialDrive(unsigned int dn) : Drive(dn) 
+{
+	//devNr = dn;
+	iecDrive = new CIECFSDrive(".");
+	iecInterFace = new IecFakeSerial(dn, iecDrive);
 }

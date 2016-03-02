@@ -91,6 +91,7 @@ Vic2mem::Vic2mem()
 		enableSidCard(true, 0);
 	sidCard->setFrequency(VIC_SOUND_CLOCK);
 	sidCard->setModel(SID6581R1);
+	masterClock = VIC_REAL_CLOCK_M10;
 	actram = Ram;
 	loadroms();
 	chrbuf = DMAbuf;

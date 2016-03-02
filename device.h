@@ -7,6 +7,7 @@
 class CIECDevice {
 public:
 	virtual unsigned char Open(int channel) = 0;
+	virtual unsigned char Open(int channel, char *nameBuf) = 0;
 	virtual unsigned char Close(int channel) = 0;
 	virtual unsigned char Read(int channel, unsigned char *data) = 0;
 	virtual unsigned char Write(int channel, unsigned char data, unsigned int cmd, bool eoi) = 0;

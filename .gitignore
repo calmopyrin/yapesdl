@@ -81,3 +81,5 @@ DebugX64/vc.nativecodeanalysis.all.xml
 YapeSDL.depend
 *.layout
 *.filters
+*.js
+*.depend

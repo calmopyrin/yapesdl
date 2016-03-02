@@ -4,14 +4,22 @@
 #include <math.h>
 #include "sound.h"
 
-#define SOUND_BUFSIZE_MSEC 20
-// Linux needs a buffer with a size of a factor of 2
-// 512 1024 2048 4096
-#define FRAGMENT_SIZE (int(double(sampleFrq * SOUND_BUFSIZE_MSEC) / 1000.0 / 1024.0 + 0.5 ) * 1024)
-
 //#define LOG_AUDIO
+
+#ifdef __EMSCRIPTEN__
+#define SOUND_BUFSIZE_MSEC 60
+// Emscripten needs a buffer with a size of a power of 2
+#define FRAGMENT_SIZE int(pow(2, ceil(log(double(sampleFrq * SOUND_BUFSIZE_MSEC) / 1000.0)/log(2))))
+#define SND_BUF_MAX_READ_AHEAD 4
+#define SND_LATENCY_IN_FRAGS 1
+#else
+// Linux needs a buffer with a size of a factor of 512?
+// 512 1024 2048 4096
+#define SOUND_BUFSIZE_MSEC 20
+#define FRAGMENT_SIZE (int(double(sampleFrq * SOUND_BUFSIZE_MSEC) / 1000.0 / 1024.0 + 0.5 ) * 1024)
 #define SND_BUF_MAX_READ_AHEAD 6
 #define SND_LATENCY_IN_FRAGS 2
+#endif
 
 static SDL_AudioDeviceID dev;
 static SDL_AudioSpec obtained, *audiohwspec;
@@ -76,7 +84,7 @@ static void fragmentDone()
 {
 	int lead_in_frags = getLeadInFrags();
 #ifdef LOG_AUDIO
-	fprintf(stderr, "Lead in frags: %i\n", lead_in_frags);
+	printf("Lead in frags: %i\n", lead_in_frags);
 #endif
 
 	while (lead_in_frags < SND_LATENCY_IN_FRAGS) {

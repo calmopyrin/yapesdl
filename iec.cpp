@@ -17,10 +17,10 @@ unsigned int CFakeIEC::Unlisten()
     if (state & STATE_LISTENING) {
         state = STATE_IDLE;
         if (prev_cmd == CMD_OPEN) {
-			status = Device->Write(sec_addr, 0, CMD_OPEN, true);
-            status = Device->Open(sec_addr);
+			status = Device->Write(secondaryAddress, 0, CMD_OPEN, true);
+            status = Device->Open(secondaryAddress);
         } else if (prev_cmd == CMD_DATA) {
-            status = Device->Write(sec_addr, 0, CMD_DATA, true);
+            status = Device->Write(secondaryAddress, 0, CMD_DATA, true);
         }    
     } else
     	status = ST_OK;
@@ -40,7 +40,7 @@ void CFakeIEC::Untalk()
 unsigned int CFakeIEC::In(unsigned char *data)
 {
 	if ((state&STATE_TALKING) && (received_cmd == CMD_DATA))
-		return Device->Read(sec_addr, data);
+		return Device->Read(secondaryAddress, data);
 
 	return ST_ERROR;   
 }
@@ -73,17 +73,16 @@ unsigned int CFakeIEC::OutCmd(unsigned char data)
 unsigned int CFakeIEC::Out(unsigned char data)
 {
 	if ((state&STATE_LISTENING) /*&& (received_cmd == CMD_DATA)*/) {
-		status = Device->Write( sec_addr, data, received_cmd, false);
+		status = Device->Write( secondaryAddress, data, received_cmd, false);
 		return status;
 	}
-
 	return ST_ERROR;  
 }
 
 unsigned int CFakeIEC::OutSec(unsigned char data)
 {
-	prev_addr = sec_addr;
-    sec_addr = data&0x0F;
+	prev_addr = secondaryAddress;
+    secondaryAddress = data&0x0F;
 
 	prev_cmd = received_cmd;
 	received_cmd = data&0xF0;
@@ -99,7 +98,7 @@ unsigned int CFakeIEC::OutSec(unsigned char data)
 					break;
 
 				case CMD_CLOSE: // Close channel
-					status = Device->Close( sec_addr);
+					status = Device->Close( secondaryAddress);
 					break;
 				
 				case CMD_DATA: // Data comes

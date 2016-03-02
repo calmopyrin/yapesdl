@@ -3,7 +3,11 @@
 
 #include "types.h"
 
+#ifdef __EMSCRIPTEN__
+#define SAMPLE_FREQ 48000 // 44100
+#else
 #define SAMPLE_FREQ 48000 //48000 192000
+#endif
 
 // derive from this class for sound sources
 class SoundSource : public LinkedList<SoundSource> {

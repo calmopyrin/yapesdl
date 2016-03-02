@@ -112,7 +112,9 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	SIDsound *getSidCard();
 	static void writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value);
 	static void tedSoundInit(unsigned int mixingFreq);
-
+	static size_t usec2cycles(unsigned long usecs) {
+		return (unsigned long) (((double) masterClock) / 10000000.0f * (double) usecs);
+	}
 	//
 	void showled(int x, int y, unsigned char onoff);
 	virtual unsigned int getColorCount() { return 128; };
@@ -183,6 +185,7 @@ protected:
 	static int				x;
 	static unsigned char	*VideoBase;
 
+	static unsigned int masterClock;
 	static ClockCycle CycleCounter;
 	static bool ScreenOn, attribFetch;
 	static bool SideBorderFlipFlop, CharacterWindow;

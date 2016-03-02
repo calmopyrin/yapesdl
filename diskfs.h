@@ -12,6 +12,7 @@ public:
 	CIECFSDrive(const char *path);
 	virtual ~CIECFSDrive();
 	virtual unsigned char Open(int channel);
+	virtual unsigned char Open(int channel, char *nameBuf);
 	virtual unsigned char Close(int channel);
 	virtual unsigned char Read(int channel, unsigned char *data);
 	virtual unsigned char Write(int channel, unsigned char data, unsigned int cmd, bool eoi);

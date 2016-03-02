@@ -3,6 +3,18 @@
 
 #include "types.h"
 
+enum {
+	// IEC command codes normally sent under ATN low
+	IEC_CMD_LISTEN = 0x20,
+	IEC_CMD_UNLISTEN = 0x30,
+	IEC_CMD_TALK = 0x40,
+	IEC_CMD_UNTALK = 0x50,
+	// IEC command codes
+	IEC_CMD_DATA = 0x60,	// Data transfer
+	IEC_CMD_CLOSE = 0xE0,	// Close channel
+	IEC_CMD_OPEN = 0xF0		// Open channel
+};
+
 class CIECInterface {
   public:
     virtual ~CIECInterface() {};
@@ -26,6 +38,10 @@ class CIECInterface {
     virtual unsigned int OutCmd(unsigned char data) = 0;
 	virtual unsigned int OutSec(unsigned char data) = 0;
     virtual unsigned char Status() = 0;
+protected:
+	unsigned char nameBuffer[512];	// Buffer for file names and command strings
+	unsigned char *namePtr;
+	unsigned int nameLength;
 };
 
 #include "device.h"
@@ -38,10 +54,10 @@ class CFakeIEC : public CIECInterface {
 	unsigned char	status;
 	unsigned int received_cmd;
 	unsigned int	prev_cmd;
-	unsigned int	sec_addr;
+	unsigned int	secondaryAddress;
 	unsigned int	prev_addr;
 	unsigned int dev_nr;
-	class CIECDevice *Device;
+	CIECDevice *Device;
 	unsigned int DispatchIECCmd(unsigned char cmd);
   public:
 //	CFakeIEC() {}
@@ -59,13 +75,14 @@ class CFakeIEC : public CIECInterface {
     void AddIECDevice(CIECDevice *dev) { Device = dev; };
 };
 
+// opencbm
 class CRealIEC : public CFakeIEC {
   public:
 	CRealIEC();
 	CRealIEC(unsigned int dn) : CFakeIEC(dn) { dev_nr = dn; };
 	unsigned int Init();
-	unsigned int RawRead(unsigned int sec_addr, unsigned char *data);
-	unsigned int RawWrite(unsigned int sec_addr, unsigned char data);
+	unsigned int RawRead(unsigned int secondaryAddress, unsigned char *data);
+	unsigned int RawWrite(unsigned int secondaryAddress, unsigned char data);
     virtual void Reset();
     virtual unsigned int Listen();
     virtual unsigned int Unlisten();

@@ -12,17 +12,13 @@ CIECFSDrive::CIECFSDrive(const char *path)
 	if (ChangeDir(orig_dir_path)) {
 		for (int i=0; i<16; i++)
 			file[i] = NULL;
-
 		Reset();
-
 	}
-	ram = new unsigned char[0x800];
 }
 
 CIECFSDrive::~CIECFSDrive()
 {
 	CloseAllChannels();
-	delete[] ram;
 }
 
 void CIECFSDrive::Reset(void)
@@ -43,7 +39,7 @@ bool CIECFSDrive::ChangeDir(char *dirpath)
 		return false;
 }
 
-Uint8 CIECFSDrive::Open(int channel)
+unsigned char CIECFSDrive::Open(int channel)
 {
 	SetError(ERR_OK, 0, 0);
 
@@ -66,6 +62,13 @@ Uint8 CIECFSDrive::Open(int channel)
 		default:
 			return OpenFile(channel, name_buf);
 	}
+}
+
+unsigned char CIECFSDrive::Open(int channel, char *nameBuf)
+{
+	if (nameBuf)
+		strcpy(name_buf, nameBuf);
+	return Open(channel);
 }
 
 unsigned char CIECFSDrive::OpenFile(int channel, char *filename)
@@ -340,7 +343,7 @@ unsigned char CIECFSDrive::Read(int channel, unsigned char *byte)
 			return ST_OK;
 		else {	// End of message
 			SetError(ERR_OK, 0, 0);
-			return ST_ERROR;
+			return ST_EOF;
 		}
 	}
 
@@ -350,7 +353,7 @@ unsigned char CIECFSDrive::Read(int channel, unsigned char *byte)
 	*byte = read_char[channel];
 	c = fgetc(file[channel]);
 	if (c == EOF)
-		return ST_ERROR;
+		return ST_EOF;
 	else {
 		read_char[channel] = c;
 		return ST_OK;
@@ -376,14 +379,14 @@ Uint8 CIECFSDrive::Write(int channel, Uint8 data, unsigned int cmd, bool eoi)
 
 	switch (cmd) {
 		case CIECInterface::CMD_OPEN:
+			name_buf[name_length++] = data;
+			if (name_length>=16)
+	    		return ST_ERROR;
 			if (eoi) {
 				name_buf[name_length] = 0;
 				name_length = 0;
 				return ST_OK;
 			}
-			if (name_length>=16)
-	    		return ST_ERROR;
-			name_buf[name_length++] = data;
 			return ST_OK;
 		case CIECInterface::CMD_DATA:
 			if (!file[channel]) {

@@ -214,6 +214,7 @@
       <JsLibrary>
       </JsLibrary>
       <PreloadFile>.\Debug\p4games@\;%(PreloadFile)</PreloadFile>
+      <AdditionalOptions>-s TOTAL_MEMORY=67108864 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

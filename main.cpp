@@ -70,6 +70,8 @@ static CTCBM			*tcbm = NULL;
 static CIECInterface	*iec = NULL;
 static CIECDrive		*fsdrive = NULL;
 static CTrueDrive		*drive1541 = NULL;
+static FakeSerialDrive	*fsd1541 = NULL;
+
 //
 static char				textout[64];
 static char				*inipath;
@@ -95,7 +97,7 @@ inline static unsigned int ShowFrameRate(bool show)
 	unsigned int fps = ad_get_fps();
 	if (show) {
 		sprintf(fpstxt, " %i FPS ", fps);
-		ted8360->texttoscreen(ted8360->getCyclesPerRow() - 128, 36, fpstxt);
+		ted8360->texttoscreen(ted8360->getCyclesPerRow() - 128, 34, fpstxt);
 	}
 	return fps;
 }
@@ -156,14 +158,22 @@ void machineDoSomeFrames(unsigned int frames)
 void machineEnable1551(bool enable)
 {
 	if (enable) {
-		ted8360->HookTCBM(tcbm);
-		if (drive1541) {
-			delete drive1541;
-			drive1541 = NULL;
+		if (ted8360->getEmulationLevel() != 2) {
+			ted8360->HookTCBM(tcbm);
+			if (drive1541) {
+				delete drive1541;
+				drive1541 = NULL;
+			}
+		} else {
+			fsd1541 = new FakeSerialDrive(8);
 		}
 	}
 	else {
 		ted8360->HookTCBM(NULL);
+		if (fsd1541) {
+			delete fsd1541;
+			fsd1541 = NULL;
+		}
 		if (!drive1541) {
 			CSerial::InitPorts();
 			drive1541 = new CTrueDrive(1, 8);
@@ -298,7 +308,7 @@ static void frameUpdate()
 {
 	const unsigned int cyclesPerRow = ted8360->getCyclesPerRow();
 	const int offsetX = cyclesPerRow == 504 ? -72 : 8;
-	const int offsetY = cyclesPerRow == 504 ? 10 : 0;
+	const int offsetY = cyclesPerRow == 504 ? 9 : 0;
 
 	if (popupMessageTimeOut)
 		showPopUpMessage();
@@ -560,6 +570,10 @@ static void setEmulationLevel(unsigned int level)
 		// destroy old TED object
 		if (ted8360)
 			delete ted8360;
+		if (fsd1541) {
+			delete fsd1541;
+			fsd1541 = NULL;
+		}
         switch (level) {
             case 0:
                 ted8360 = new TED;
@@ -569,6 +583,7 @@ static void setEmulationLevel(unsigned int level)
                 break;
             case 2:
                 ted8360 = new Vic2mem;
+				fsd1541 = new FakeSerialDrive(8);
                 break;
 		}
 		uinterface->setNewMachine(ted8360);
@@ -611,7 +626,7 @@ inline static void poll_events(void)
 {
 	SDL_Event event;
 
-    while ( SDL_PollEvent(&event) ) {
+    if ( SDL_PollEvent(&event) ) {
         switch (event.type) {
 
 			case SDL_WINDOWEVENT:
@@ -963,6 +978,7 @@ int main(int argc, char *argv[])
 	machineInit();
 	uinterface = new UI(ted8360);
 
+#ifndef __EMSCRIPTEN__
 	inipath = SDL_GetPrefPath("Gaia", "yapeSDL");
 	if (inipath) {
 		fprintf(stderr, "Home directory is %s\n", inipath);
@@ -977,7 +993,6 @@ int main(int argc, char *argv[])
 	strcat(inifile, "yape.conf");
 	fprintf(stderr, "Config file: %s\n", inifile);
 
-#ifndef __EMSCRIPTEN__
 	if (LoadSettings(inifile)) {
 		char tmpStr[512];
 		fprintf(stderr, "Settings loaded successfully.\n");
@@ -1011,6 +1026,8 @@ int main(int argc, char *argv[])
 	printf("LALT + S     : display frame rate on/off\n");
 	printf("LALT + W     : toggle between unlimited speed and original speed\n");
 	printf("LALT + ENTER : toggle full screen mode\n");
+	printf("LALT + F5    : save emulator snapshot\n");
+	printf("LALT + F6    : load emulator snapshot\n");
 	printf("Joystick buttons are the arrow keys and SPACE\n");
 	printf("Entering main loop...\n");
 	emscripten_set_main_loop((em_callback_func) mainLoop, 0, 1);
