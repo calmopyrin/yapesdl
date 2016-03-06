@@ -14,6 +14,7 @@ keys64.o \
 main.o \
 monitor.o 	\
 prg.o \
+SaveState.o	\
 serial.o	\
 Sid.o \
 sound.o	\
@@ -93,6 +94,9 @@ monitor.o : monitor.cpp
 	$(CC) $(cflags) -c $<
 
 prg.o : prg.cpp prg.h
+	$(CC) $(cflags) -c $<
+
+SaveState.o : SaveState.cpp SaveState.h
 	$(CC) $(cflags) -c $<
 
 serial.o : serial.cpp
