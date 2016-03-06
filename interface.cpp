@@ -33,6 +33,7 @@ extern void machineDoSomeFrames(unsigned int frames);
 extern void machineEnable1551(bool enable);
 extern bool machineIsTrueDriveEnabled(unsigned int dn);
 extern void machineReset(bool hardreset);
+extern void setMainLoop(int looptype);
 
 #define COLOR(COL, SHADE) ((SHADE<<4)|COL|0x80)
 #define MAX_LINES 25
@@ -469,9 +470,8 @@ void UI::show_menu(struct menu_t * menu)
 	screen_update();
 }
 
-int UI::enterMenu()
+void UI::drawMenu()
 {
-	int retval;
 	ad_get_curr_dir(tap_list.subtitle);
 	ad_get_curr_dir(file_menu.subtitle);
 	ad_get_curr_dir(d64_list.subtitle);
@@ -480,6 +480,13 @@ int UI::enterMenu()
 	clear (1, 5);
 	show_menu( curr_menu);
 	show_sel_bar( curr_menu );
+}
+
+int UI::enterMenu()
+{
+	int retval;
+
+	drawMenu();
 	retval = wait_events();
 
 	clear (0, 0);
@@ -538,6 +545,7 @@ int UI::menuEnter(bool forceAutoRun = false)
 	} else {
 		elem = &(curr_menu->element[ curr_menu->curr_sel ]);
 	}
+	// returns zero if we have to get back to the main loop, 1 otherwise
 	if ( handle_menu_command( elem ) ) {
 		clear (0, 0);
 		return 0;
@@ -553,7 +561,12 @@ int UI::wait_events()
 {
 	SDL_Event event;
 
+#ifdef __EMSCRIPTEN__
+	while (SDL_PollEvent(&event)) {
+#else
 	while (SDL_WaitEvent(&event)) {
+#endif
+
 		switch (event.type) {
 
 			case SDL_WINDOWEVENT:
@@ -598,16 +611,9 @@ int UI::wait_events()
 				//printf("key: %u, button was pressed!\n", event.key.keysym.scancode);
 				switch (event.key.keysym.sym) {
 					case SDLK_ESCAPE :
-						/*if ( curr_menu->parent ) {
-							clear (1, 5);
-							curr_menu = curr_menu->parent;
-							show_menu( curr_menu );
-							show_sel_bar( curr_menu );
-							break;
-						}*/
 					case SDLK_F8:
 						clear (0, 0);
-						return 0;
+						return 1;
 
 					case SDLK_HOME:
 						hide_sel_bar( curr_menu);
@@ -619,15 +625,6 @@ int UI::wait_events()
 						show_sel_bar( curr_menu);
 						break;
 					case SDLK_END:
-						/*hide_sel_bar( curr_menu);
-						clear (1, 5);
-						curr_menu->curr_sel =
-						curr_menu->uppermost = curr_menu->nr_of_elements - 1;
-						curr_menu->curr_line =
-							curr_menu->nr_of_elements >= MAX_LINES ?
-								MAX_LINES - 1 : curr_menu->nr_of_elements;
-						show_menu( curr_menu );
-						show_sel_bar( curr_menu);*/
 						break;
 					case SDLK_UP:
 						menuMoveUp();
@@ -677,6 +674,7 @@ int UI::wait_events()
 						break;
 					case SDLK_RIGHT:
 					case SDLK_RETURN:
+						// return 1 if we get back to the main loop
 						if (!menuEnter())
 							return 1;
 						break;
@@ -689,7 +687,7 @@ int UI::wait_events()
 				exit(0);
 		}
 	}
-	return 1;
+	return 0;
 }
 
 char UI::pet2asc(char c)
@@ -732,4 +730,12 @@ unsigned char UI::asc2pet(char c)
 
 UI::~UI()
 {
+}
+
+void interfaceLoop(void *arg)
+{
+	UI *ui = (UI*) arg;
+
+	if (ui->wait_events())
+		setMainLoop(1);
 }

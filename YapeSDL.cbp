@@ -25,6 +25,8 @@
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
+					<Add library="libSDL2" />
+					<Add library="libSDL2main" />
 				</Linker>
 			</Target>
 			<Target title="ReleaseX64">

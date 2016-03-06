@@ -49,7 +49,7 @@ protected:
 class CFakeIEC : public CIECInterface {
   protected:
   	enum { STATE_IDLE = 0, STATE_TALKING, STATE_LISTENING };
-  	enum { ST_OK = 0, ST_EOF = 0x40, ST_ERROR = 0x80 };
+  	enum { IEC_OK = 0, IEC_EOF = 0x40, IEC_ERROR = 0x80 };
 	unsigned int	state;
 	unsigned char	status;
 	unsigned int received_cmd;

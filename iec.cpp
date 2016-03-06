@@ -3,13 +3,13 @@
 void CFakeIEC::Reset()
 {
     state = STATE_IDLE;
-	status = ST_OK;
+	status = IEC_OK;
 }
 
 unsigned int CFakeIEC::Listen()
 { 
 	state = STATE_LISTENING;
-	return ST_OK;
+	return IEC_OK;
 };
 
 unsigned int CFakeIEC::Unlisten()
@@ -23,7 +23,7 @@ unsigned int CFakeIEC::Unlisten()
             status = Device->Write(secondaryAddress, 0, CMD_DATA, true);
         }    
     } else
-    	status = ST_OK;
+    	status = IEC_OK;
 	return status;
 }
 
@@ -42,7 +42,7 @@ unsigned int CFakeIEC::In(unsigned char *data)
 	if ((state&STATE_TALKING) && (received_cmd == CMD_DATA))
 		return Device->Read(secondaryAddress, data);
 
-	return ST_ERROR;   
+	return IEC_ERROR;
 }
 
 unsigned int CFakeIEC::DispatchIECCmd(unsigned char cmd)
@@ -54,12 +54,12 @@ unsigned int CFakeIEC::DispatchIECCmd(unsigned char cmd)
 			return Unlisten();
 		case CMD_TALK:
 			Talk();
-			return ST_OK;
+			return IEC_OK;
 		case CMD_UNTALK:
 			Untalk();
-			return ST_OK;
+			return IEC_OK;
 		default: // illegal command
-		    return ST_ERROR;
+		    return IEC_ERROR;
 	}
 }
     
@@ -76,7 +76,7 @@ unsigned int CFakeIEC::Out(unsigned char data)
 		status = Device->Write( secondaryAddress, data, received_cmd, false);
 		return status;
 	}
-	return ST_ERROR;  
+	return IEC_ERROR;  
 }
 
 unsigned int CFakeIEC::OutSec(unsigned char data)
@@ -89,12 +89,12 @@ unsigned int CFakeIEC::OutSec(unsigned char data)
 
     switch (state) {
         case STATE_IDLE:
-			status = ST_ERROR;
+			status = IEC_ERROR;
             break;        
         case STATE_LISTENING:
 			switch (received_cmd) {
 				case CMD_OPEN:	// Prepare for receiving the file name
-					status = ST_OK;
+					status = IEC_OK;
 					break;
 
 				case CMD_CLOSE: // Close channel
@@ -105,7 +105,7 @@ unsigned int CFakeIEC::OutSec(unsigned char data)
 					break;
 				    
 				default:
-				    status = ST_ERROR;
+				    status = IEC_ERROR;
 				    state = STATE_IDLE;
 				    break;
 			}

@@ -88,7 +88,6 @@ class UI {
 		void show_title(struct menu_t * menu);
 		void show_menu(struct menu_t *menu);
 		void show_file_list(struct menu_t * menu, UI_MenuClass type);
-		int	 wait_events();
 		bool handle_menu_command(struct element_t *element);
 		struct menu_t *curr_menu;
 		TED *ted8360;
@@ -103,10 +102,14 @@ class UI {
 		unsigned char asc2pet(char c);
 		char *petstr2ascstr(char *string);
 		int enterMenu();
+		void drawMenu();
+		int	 wait_events();
 		void setNewMachine(TED *newTed) {
             ted8360 = newTed;
             display = ted8360->screen;
         };
 };
+
+extern void interfaceLoop(void *arg);
 
 #endif // _INTERFACE_H

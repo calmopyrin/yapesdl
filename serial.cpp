@@ -5,7 +5,8 @@
 
 enum {
 	ST_OK = 0,				// No error
-	ST_ERROR = 0x03,		// Timeout Error
+	ST_EOI = 0x40,			// Timeout 
+	ST_NOT_FOUND = 0x80,	// File not found error
 };
 
 unsigned char CSerial::serialPort[16];
@@ -116,7 +117,7 @@ IecFakeSerial::IecFakeSerial(unsigned int DevNr, CIECDevice *iecDev) : CSerial(D
 	eoi = 0;
 	clkLine = CLK_HI;
 	dataLine = DATA_HI;
-	errorState = 0; // ST_OK
+	errorState = ST_OK;
 	dev_nr = DevNr;
 	dataTransfered = 0;
 	bitCounter = 0;
@@ -138,7 +139,7 @@ void IecFakeSerial::interpretIecByte()
 			step = SM_WAITCLK0;
 			dataLine = DATA_LO;
 			clkLine = CLK_HI;
-		break;
+			break;
 
 		case IEC_CMD_TALK:
 			state |= IEC_STATE_TALKING;
@@ -147,7 +148,7 @@ void IecFakeSerial::interpretIecByte()
 			dataLine = DATA_LO;
 			clkLine = CLK_HI;
 			eoi = 0;
-		break;
+			break;
 		
 		case IEC_CMD_UNLISTEN:
 			if ( state & IEC_STATE_LISTENING) {
@@ -155,19 +156,16 @@ void IecFakeSerial::interpretIecByte()
 					*namePtr = 0;
 					//errorState = iecDevice->Open(secondaryAddress_prev & 0x0F, nameBuffer);
 					errorState = iecDevice->Open(secondaryAddress_prev & 0x0F, 0);
-					if (errorState == 0x80) {
-						//
-					}
 				}
 				state &= ~IEC_STATE_LISTENING;
 			}
-		break;
+			break;
 	
 		case IEC_CMD_UNTALK:
 			state &= ~IEC_STATE_TALKING;
 			//state &= ~IEC_STATE_LISTENING;
 			dataTransfered = 0;
-		break;  	
+			break;  	
 	}
 	
 	switch (secondaryAddress&0xF0) {
@@ -176,7 +174,7 @@ void IecFakeSerial::interpretIecByte()
 				namePtr = nameBuffer;
 				nameLength = 0;
 			}
-			errorState = 0;
+			errorState = ST_OK;
   			break;	
 		case IEC_CMD_CLOSE:
 			if (dev_nr >= 8)
@@ -184,13 +182,7 @@ void IecFakeSerial::interpretIecByte()
 			dataTransfered = 0;
 			break;
 		case IEC_CMD_DATA:
-			if (errorState != 0x80) {
-				dataTransfered = 1;
-			} else {
-				state &= ~IEC_STATE_TALKING;
-				dataLine = DATA_HI;
-				dataTransfered = 0;
-			}
+			dataTransfered = 1;
 			break;
 	}
 	updateBus();
@@ -201,9 +193,7 @@ void IecFakeSerial::update()
 #if IEC_DEBUG >= 6
 	fprintf(stderr, "Device #%i.\n", dev_nr);
 #endif
-	static size_t oldCycleCount = cycleCount;
 	cycleCount = (size_t) TED::instance()->GetClockCount();
-//	_ASSERT(oldCycleCount <= cycleCount);
 
 	if ( !atnInLine && (oldAtnLine&ATN_HI) && !(state & IEC_STATE_ATN)) { // ATN 1 -> 0 
 
@@ -246,7 +236,7 @@ void IecFakeSerial::update()
 #if IEC_DEBUG >= 2
 	fprintf(stderr, "Idling.\n");
 #endif				
-			break;
+				break;
 			
 			case SM_WAITTIMEOUT:
 				if (cycleCount >= timeout) {
@@ -255,7 +245,7 @@ void IecFakeSerial::update()
 			fprintf(stderr, "Resetting bus state\n");
 #endif	
 				}
-			break;
+				break;
 			
 			case SM_WAITCLK0:
 				if (!(readBusWithoutUpdate() & CLK_HI)) {
@@ -264,7 +254,7 @@ void IecFakeSerial::update()
 					fprintf(stderr, "Ready to send.\n");
 #endif					
 				}
-			break;
+				break;
 			
 			case SM_RDY_TO_SEND:
 				if (readBusWithoutUpdate() & CLK_HI) {
@@ -383,7 +373,7 @@ void IecFakeSerial::update()
 					fprintf(stderr, "EOI timed out, setting DATA -> 0.\n");
 #endif					
      			}		
-			break;
+				break;
 			
 			case SM_EOI2:
 				if (!(readBusWithoutUpdate() & CLK_HI)) {
@@ -392,7 +382,7 @@ void IecFakeSerial::update()
 					fprintf(stderr, "Starting bit transfer with ATN hi.\n");
 #endif					
      			}		
-			break;
+				break;
 		}
 	
 	} else if (state & (IEC_STATE_TALKING)) {
@@ -408,8 +398,12 @@ void IecFakeSerial::update()
 					// the talker is holding the Clock line true and
 					// the listener is holding the Data line true.
 					clkLine = CLK_LO;
-					//dataLine = DATA_LO;
-					dataLine = DATA_HI;
+					// FILE NOT FOUND ERROR?
+					if (errorState == ST_NOT_FOUND) {
+						dataLine = DATA_LO;
+					} else {
+						dataLine = DATA_HI;
+					}
 					timeout = cycleCount + TED::usec2cycles(80); // 80
 #if IEC_DEBUG >= 1
 					fprintf(stderr, "Turnaround.\n");
@@ -436,14 +430,13 @@ void IecFakeSerial::update()
 					// get byte from higher abstraction layer
 					if (dataTransfered && dev_nr >= 8) {
 						errorState = iecDevice->Read(secondaryAddress & 0x0F, &io_byte);
-						if (errorState == 0x40) {
+						if (errorState == ST_EOI) {
 							eoi = 1;
 #if IEC_DEBUG >= 1
 							fprintf(stderr, "EOI coming.\n");
 #endif
 						}
-					} else
-						errorState = ST_ERROR;
+					}
 					// the talker will pull the Clock line back to true in less than 200 microseconds
 					// Non-EOI Response to RFD typ: 40 max: 200
 					timeout = cycleCount + TED::usec2cycles(eoi ? 350 : 40);
@@ -519,7 +512,7 @@ void IecFakeSerial::update()
 					// bit setup time 70 us
 					timeout = cycleCount + TED::usec2cycles(70);
 				}
-			break;
+				break;
 
 			case SM_BITTRANS2:
 				if (cycleCount >= timeout) {
@@ -551,7 +544,7 @@ void IecFakeSerial::update()
 			
 			case SM_BYTEREADY2:
 				if (!(readBusWithoutUpdate() & DATA_HI)) {
-					if (0x40 == errorState) { // EOI
+					if (ST_EOI == errorState) { // EOI
 						eoi = 1;
 						state &= ~IEC_STATE_TALKING;
 						errorState = 0;
@@ -643,4 +636,3 @@ void IecFakeSerial::writeBus(unsigned char newLines)
 #endif
 
 }
-

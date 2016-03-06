@@ -83,3 +83,11 @@ YapeSDL.depend
 *.filters
 *.js
 *.depend
+*.d64
+*.bat
+*.data
+Release/YapeSDL.html
+*.mem
+Release/favicon.ico
+*.depend
+YapeSDL.layout

@@ -7,11 +7,11 @@
 //#define LOG_AUDIO
 
 #ifdef __EMSCRIPTEN__
-#define SOUND_BUFSIZE_MSEC 60
+#define SOUND_BUFSIZE_MSEC 20
 // Emscripten needs a buffer with a size of a power of 2
 #define FRAGMENT_SIZE int(pow(2, ceil(log(double(sampleFrq * SOUND_BUFSIZE_MSEC) / 1000.0)/log(2))))
-#define SND_BUF_MAX_READ_AHEAD 4
-#define SND_LATENCY_IN_FRAGS 1
+#define SND_BUF_MAX_READ_AHEAD 6
+#define SND_LATENCY_IN_FRAGS 2
 #else
 // Linux needs a buffer with a size of a factor of 512?
 // 512 1024 2048 4096
@@ -169,6 +169,7 @@ void init_audio(unsigned int sampleFrq)
 	MixingFreq = sampleFrq;
 
 	BufferLength = FRAGMENT_SIZE;
+	if (BufferLength < 512) BufferLength = 512;
 
 	desired.freq		= MixingFreq;
 	desired.format		= AUDIO_S16;
@@ -179,7 +180,7 @@ void init_audio(unsigned int sampleFrq)
 	desired.size		= desired.channels * desired.samples * sizeof(Uint8);
 	desired.silence		= 0x00;
 
-	mixingBuffer = new short[FRAGMENT_SIZE];
+	mixingBuffer = new short[BufferLength];
 	if (!mixingBuffer)
 		return;
 	dev = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
@@ -241,6 +242,6 @@ void sound_change_freq(unsigned int &newFreq)
 void close_audio()
 {
 	SDL_CloseAudioDevice(dev);
-    delete[] sndRingBuffer;
+	delete[] sndRingBuffer;
 	delete[] mixingBuffer;
 }

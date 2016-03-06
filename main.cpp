@@ -47,10 +47,14 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/html5.h>
+#define MAX_FRQ_INDEX 1
+#else
+#define MAX_FRQ_INDEX 5
 #endif
 
 // function prototypes
 static void frameUpdate();
+void setMainLoop(int looptype);
 
 // SDL stuff
 static SDL_Window* sdlWindow;
@@ -520,9 +524,17 @@ static void doSwapJoy()
 static void enterMenu()
 {
 	sound_pause();
+#ifdef __EMSCRIPTEN__
+	setMainLoop(0);
+#else
 	uinterface->enterMenu();
+#endif
 	if (g_SoundOn && g_50Hz)
 		sound_resume();
+	if (!g_bActive) {
+		PopupMsg(" PAUSED ");
+		frameUpdate();
+	}
 }
 
 static void toggleFullThrottle()
@@ -647,12 +659,14 @@ inline static void poll_events(void)
 
 							case SDLK_KP_PLUS:
 							{
+								sound_pause();
 								static unsigned int currFrq = 0;
-								unsigned int frq[] = { 48000, 96000, 192000 };
-								currFrq = (currFrq + 1) % 3;
+								unsigned int frq[] = { 48000, 96000, 192000, 22050, 44100 };
+								currFrq = (currFrq + 1) % MAX_FRQ_INDEX;
 								unsigned int rate = frq[currFrq];
 								sound_change_freq(rate);
 								PopupMsg(" AUDIO FREQUENCY: %u ", rate);
+								sound_resume();
 							}
 							break;
 
@@ -715,6 +729,9 @@ inline static void poll_events(void)
 								g_TotFrames = 0;
 								g_FrameRate = !g_FrameRate;
 								break;
+							/*case SDLK_u:
+								enterMenu();
+								break;*/
 							case SDLK_w :
 								toggleFullThrottle();
 								break;
@@ -771,10 +788,6 @@ inline static void poll_events(void)
 					case SDLK_ESCAPE:
 					case SDLK_F8:
 						enterMenu();
-						if (!g_bActive) {
-							PopupMsg(" PAUSED ");
-							frameUpdate();
-						}
 						break;
 					case SDLK_F9 :
 						g_inDebug=!g_inDebug;
@@ -966,9 +979,27 @@ static void mainLoop()
 		if (ad_vsync(g_50Hz))
 			frameUpdate();
 	} else {
+#ifndef __EMSCRIPTEN__ // does not work in Emscripten
 		if (SDL_WaitEvent(NULL))
+#endif
 			poll_events();
 	}
+}
+
+void setMainLoop(int looptype)
+{
+#ifdef __EMSCRIPTEN__
+	emscripten_cancel_main_loop();
+	if (looptype) {
+		//printf("Entering main loop...\n");
+		emscripten_set_main_loop((em_callback_func) mainLoop, 0, 1);
+	} else {
+		//printf("Entering menu loop...\n");
+		while (SDL_PollEvent(NULL));
+		uinterface->drawMenu();
+		emscripten_set_main_loop_arg((em_arg_callback_func) interfaceLoop, uinterface, 0, 1);
+	}
+#endif
 }
 
 /* ---------- MAIN ---------- */
@@ -1015,22 +1046,25 @@ int main(int argc, char *argv[])
 	}
 	/* ---------- MAIN LOOP ---------- */
 #ifdef __EMSCRIPTEN__
-	printf("Type DIRECTORY and press ENTER to see disk contents. Type DLOAD\"filename* to load a specific file!\n");
+	printf("Type DIRECTORY (or LOAD\"$\",8 and then LIST) and press ENTER to see disk contents. Type LOAD\"filename*\",8 to load a specific file!\n");
+	printf("Or enter the menu by pressing ESC and shift+ENTER to autostart games from there.\n"); 
+	printf("Commodore +4 games start with uppercase, C64 ones with lowercase.\n");
 	printf("Usage:\n");
 	printf("LALT + 1-3   : set window size\n");
 	printf("LALT + I     : switch emulated joystick port\n");
 	printf("LALT + L     : switch among emulators (C+4 cycle based; C+4 line based; C64 cycle based)\n");
 	printf("LALT + M     : enter console based external monitor and disassembler (currently deadlocks!)\n");
 	printf("LALT + P     : toggle CRT emulation\n");
-	printf("LALT + R     : machine reset\n");
+	printf("LALT + R     : machine reset (press Shift+F11 for hard reset)\n");
 	printf("LALT + S     : display frame rate on/off\n");
 	printf("LALT + W     : toggle between unlimited speed and original speed\n");
 	printf("LALT + ENTER : toggle full screen mode\n");
 	printf("LALT + F5    : save emulator snapshot\n");
 	printf("LALT + F6    : load emulator snapshot\n");
+	printf("ESC          : enter/leave menu\n");
+	printf("PAUSE        : suspend/resume emulation\n");
 	printf("Joystick buttons are the arrow keys and SPACE\n");
-	printf("Entering main loop...\n");
-	emscripten_set_main_loop((em_callback_func) mainLoop, 0, 1);
+	setMainLoop(1);
 #else
 	ad_vsync_init();
 	for (;;) {
