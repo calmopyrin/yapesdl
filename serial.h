@@ -40,6 +40,7 @@ public:
 
 inline unsigned char CSerial::readBus()
 {
+	// catch up with all devices to see their state
 	CSerial *sDevPtr = CSerial::getRoot();
 	while (sDevPtr) {
 		sDevPtr->update();
@@ -127,7 +128,6 @@ protected:
 	unsigned int dataTransfered;
 	unsigned char atnInLine;
 	unsigned char oldAtnLine;
-	unsigned long clock_rate;
 	//
 	char nameBuffer[16];	// Buffer for file names and command strings
 	char *namePtr;	// Pointer for reception of file name

@@ -341,16 +341,17 @@ void IecFakeSerial::update()
 						//if ( dataTransfered ) 
 						if (state & (IEC_STATE_LISTENING))
 						{
+							unsigned int command = dataTransfered ? CIECInterface::CMD_DATA : CIECInterface::CMD_OPEN;
 							switch (dev_nr) {
 								case 8:
 								case 9:
 								case 10:
 								case 11:
-									errorState = iecDevice->Write( secondaryAddress & 0x0F, io_byte, CIECInterface::CMD_OPEN, eoi != 0);
+									errorState = iecDevice->Write( secondaryAddress & 0x0F, io_byte, command, eoi != 0);
 									break;
 								case 4:
 								case 5:
-									errorState = iecDevice->Write( secondaryAddress & 0x0F, io_byte, CIECInterface::CMD_OPEN, eoi != 0);
+									errorState = iecDevice->Write( secondaryAddress & 0x0F, io_byte, command, eoi != 0);
 									//errorState = printer_send_byte( io_byte, eoi)
 									;
 							}

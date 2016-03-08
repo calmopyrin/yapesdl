@@ -91,3 +91,4 @@ Release/YapeSDL.html
 Release/favicon.ico
 *.depend
 YapeSDL.layout
+*.yss

@@ -385,7 +385,7 @@ Uint8 CIECFSDrive::Write(int channel, Uint8 data, unsigned int cmd, bool eoi)
 			if (eoi) {
 				name_buf[name_length] = 0;
 				name_length = 0;
-				return ST_OK;
+				return ST_EOF;
 			}
 			return ST_OK;
 		case CIECInterface::CMD_DATA:
