@@ -43,6 +43,8 @@
 		<Unit filename="1541rom.h" />
 		<Unit filename="FdcGcr.cpp" />
 		<Unit filename="FdcGcr.h" />
+		<Unit filename="SaveState.cpp" />
+		<Unit filename="SaveState.h" />
 		<Unit filename="Sid.cpp" />
 		<Unit filename="Sid.h" />
 		<Unit filename="archdep.cpp" />
