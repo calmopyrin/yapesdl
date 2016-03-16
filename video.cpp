@@ -69,7 +69,20 @@ unsigned int *palette_get_rgb()
 	return palette;
 }
 
-static bool doubleScan = true;
+static unsigned int interlacedShade = 85;
+
+static void flipInterlacedShade(void *none)
+{
+	interlacedShade = interlacedShade + 15;
+	if (interlacedShade > 100) interlacedShade = 10;
+}
+
+rvar_t videoSettings[] = {
+	{ "Interlaced line shade", "InterlacedShade", flipInterlacedShade, &interlacedShade, RVAR_INT, NULL },
+	{ NULL, NULL, NULL, NULL, NULL }
+};
+
+static unsigned int doubleScan = 1;
 static unsigned int evenFrame = 0;
 
 void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned char *screenptr)
@@ -90,7 +103,7 @@ void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned 
     do {
         int k = doubleScan & !interlace;
         do {
-            int shade = doubleScan && !k ? 85 : 100;
+            int shade = doubleScan && !k ? interlacedShade : 100;
             int j = 0;
             const Yuv *yuvBuffer = yuvLookup;
 //            const unsigned int lineVphase = (i & 1) ^ thisFrameInterlaced;
