@@ -15,11 +15,15 @@
 
 #include "archdep.h"
 
-struct menu_t;
+enum UI_MenuTypes {
+	MENU_LIST,
+	MENU_CALLBACK
+};
 
 enum UI_MenuClass {
 	UI_MENUITEM_MENULINK = 0,
 	UI_MENUITEM_SEPARATOR,
+	UI_MENUITEM_CALLBACKS,
 	UI_PRG_ITEM,
 	UI_TAP_ITEM,
 	UI_D64_ITEM,
@@ -49,17 +53,20 @@ enum UI_MenuClass {
 	UI_EMULATOR_EXIT
 };
 
+struct menu_t;
+
 struct element_t {
 	char name[MAX_PATH];
-	struct menu_t *child;
+	menu_t *child;
 	UI_MenuClass menufunction;
+	UI_MenuTypes type;
 };
 
 struct menu_t {
 	char title[512];
 	char subtitle[512];
 	struct element_t element[1000];
-	struct menu_t *parent;
+	menu_t *parent;
 	int nr_of_elements;
 	int curr_sel;
 	int uppermost;
@@ -83,13 +90,14 @@ class UI {
 		void texttoscreen(int x,int y, char *scrtxt, size_t len);
 		void chrtoscreen(int x,int y, char scrchr);
 		void set_color(unsigned char foreground, unsigned char background);
-		void hide_sel_bar(struct menu_t *menu);
-		void show_sel_bar(struct menu_t *menu);
-		void show_title(struct menu_t * menu);
-		void show_menu(struct menu_t *menu);
-		void show_file_list(struct menu_t * menu, UI_MenuClass type);
+		void hide_sel_bar(menu_t *menu);
+		void show_sel_bar(menu_t *menu);
+		void show_title(menu_t * menu);
+		void show_menu(menu_t *menu);
+		void show_file_list(menu_t * menu, UI_MenuClass type);
+		void show_settings_list(menu_t * menu, rvar_t *rvItems);
 		bool handle_menu_command(struct element_t *element);
-		struct menu_t *curr_menu;
+		menu_t *curr_menu;
 		TED *ted8360;
 		void menuMoveUp();
 		void menuMoveDown();

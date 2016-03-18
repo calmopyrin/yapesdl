@@ -9,11 +9,6 @@
 #include <SDL2/SDL.h>
 #endif
 
-typedef struct _MEM_PATCH {
-	unsigned int addr;
-	unsigned char byte;
-} mem_patch;
-
 #ifdef __GNUC__ /*__GNUC__*/
 typedef unsigned long long ClockCycle;
 #define TSTATE_T_MID (((long long) -1LL)/2ULL)
@@ -23,6 +18,30 @@ typedef unsigned __int64 ClockCycle;
 #define TSTATE_T_MID (((__int64) -1L)/2UL)
 #define TSTATE_T_LEN "lu"
 #endif
+
+typedef struct _MEM_PATCH {
+	unsigned int addr;
+	unsigned char byte;
+} mem_patch;
+
+enum RvarTypes {
+	RVAR_TOGGLE,
+	RVAR_INT,
+	RVAR_HEX,
+	RVAR_STRING,
+	RVAR_STRING_FLIPLIST,
+	RVAR_VARIANT
+};
+
+typedef struct _RVAR {
+	char menuName[32];
+	char resourceName[32];
+	void (*callback)(void *);
+	void *value;
+	RvarTypes type;
+	const char *(*label)();
+} rvar_t;
+extern rvar_t *settings[];
 
 // Simple linked list class
 template<typename T>

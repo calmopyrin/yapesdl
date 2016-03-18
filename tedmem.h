@@ -63,18 +63,20 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	unsigned char readDMA(unsigned int addr) { return Ram[addr]; }
 	// same as above but with writing
 	void wrtDMA(unsigned int addr, unsigned char value) { Ram[addr]=value; }
-	void setRamMask(unsigned int value) { RAMMask=value;}
-	unsigned int getRamMask(void) { return RAMMask;}
+	// RAM size
+	static void setRamMask(unsigned int value) { RAMMask=value;}
+	static void flipRamMask(void *none);
+	static unsigned int getRamMask(void) { return RAMMask;}
 	// are the ROMs disabled?
   	bool RAMenable;
 	// indicates whether 256K RAM is on
-	bool bigram, bramsm;
+	static unsigned int bigram, bramsm;
 	// /ram/rom path/load variables
 	virtual void loadroms(void);
 	void loadloromfromfile(int nr, char fname[256]);
 	void loadhiromfromfile(int nr, char fname[256]);
-	char romlopath[4][256];
-	char romhighpath[4][256];
+	static char romlopath[4][260];
+	static char romhighpath[4][260];
 	// this is for the FRE support
   	virtual void dumpState();
 	virtual void readState();
@@ -84,7 +86,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	unsigned char screen[512*(SCR_VSIZE*2)];
 	bool render_ok;
 	void texttoscreen(int x, int y, const char *scrtxt);
-	void chrtoscreen(int x, int y, char scrchr);
+	void chrtoscreen(int x, int y, unsigned int scrchr);
 	virtual void copyToKbBuffer(const char *text, unsigned int length = 0);
 	// cursor stuff
 	unsigned int crsrpos;
@@ -109,6 +111,10 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	static TED *instance() { return instance_; };
 	unsigned char *getScreenData() { return screen; };
 	bool enableSidCard(bool enable, unsigned int disableMask);
+	static void toggleSidCard(void *v) {
+		sidCardEnabled = !sidCardEnabled;
+		//enableSidCard(!!sidCardEnabled, 0);
+	}
 	SIDsound *getSidCard();
 	static void writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value);
 	static void tedSoundInit(unsigned int mixingFreq);
@@ -128,6 +134,9 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual void calcSamples(short *buffer, unsigned int nrsamples);
 	virtual void setFrequency(unsigned int sid_frequency);
 	virtual void setSampleRate(unsigned int sampleRate_);
+	//
+	static unsigned int sidCardEnabled;
+	static rvar_t tedSettings[];
 
 private:
 	  KEYS *keys;
@@ -140,7 +149,7 @@ protected:
   	unsigned char RomLo[4][ROMSIZE];
 	unsigned char *actromlo, *actromhi;
 	unsigned char *mem_8000_bfff, *mem_c000_ffff, *mem_fc00_fcff;
-  	unsigned int RAMMask;
+  	static unsigned int RAMMask;
 	unsigned char RamExt[4][RAMSIZE];	// Ram slots for 256 K RAM
 	unsigned char *actram;
 	unsigned char prp, prddr;

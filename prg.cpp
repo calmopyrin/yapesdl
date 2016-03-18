@@ -93,8 +93,10 @@ bool prgSaveBasicMemory(char *prgname, TED *mem, unsigned short &beginAddr, unsi
 			beginAddr = (mem->Read(0x2C) << 8) | mem->Read(0x2B);
 			endAddr = (mem->Read(0x2E) << 8) | mem->Read(0x2F);
 		}
+		fputc(beginAddr & 0xFF, prg);
+		fputc(beginAddr >> 8, prg);
         for(unsigned int i = beginAddr; i <= endAddr; i++)
-            fputc(mem->Read(beginAddr), prg);
+            fputc(mem->Ram[i], prg);
         fclose(prg);
         fprintf(stderr, "Memory $%04X-$%04X saved to %s\n", beginAddr, endAddr, prgname);
     }

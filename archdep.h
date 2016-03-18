@@ -48,7 +48,7 @@ void	ad_exit_drive_selector();
 
 extern void				ad_vsync_init(void);
 extern bool				ad_vsync(bool sync);
-extern unsigned int		ad_get_fps();
+extern unsigned int		ad_get_fps(unsigned int &framesDrawn);
 
 class Sync {
 public:
@@ -69,5 +69,7 @@ public:
 	virtual UI_FileTypes getCurrentFiletype() = 0;
 	virtual unsigned int getCurrentFilesize() = 0;
 };
+
+extern rvar_t archDepSettings[];
 
 #endif

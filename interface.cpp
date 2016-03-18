@@ -28,7 +28,7 @@
 #define SDL_CONTROLLERBUTTONDOWN -1
 #endif
 
-extern bool autostart_file(char *szFile);
+extern bool autostart_file(char *szFile, bool autostart = true);
 extern void machineDoSomeFrames(unsigned int frames);
 extern void machineEnable1551(bool enable);
 extern bool machineIsTrueDriveEnabled(unsigned int dn);
@@ -38,7 +38,7 @@ extern void setMainLoop(int looptype);
 #define COLOR(COL, SHADE) ((SHADE<<4)|COL|0x80)
 #define MAX_LINES 25
 #define MAX_INDEX (MAX_LINES - 1)
-#define LISTOFFSET (ted8360->getCyclesPerRow() == 456 ? 100 : 160)
+#define LISTOFFSET (ted8360->getCyclesPerRow() == 456 ? 52 : 112)
 
 // TODO this is ugly and kludgy like hell but I don't have time for better
 static menu_t main_menu = {
@@ -108,11 +108,7 @@ static menu_t options_menu = {
 	"Options menu",
 	"",
 	{
-		{"ROM settings", 0, UI_MENUITEM_MENULINK },
-		{"             ", 0, UI_MENUITEM_SEPARATOR },
-		{"RAM size     ", 0, UI_MENUITEM_MENULINK },
-		{"             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Monitor settings"	, 0, UI_MENUITEM_MENULINK }
+		{"Dummy", 0, UI_MENUITEM_MENULINK },
 	},
 	0,
 	5,
@@ -127,6 +123,20 @@ static menu_t d64_list;
 static menu_t fre_list;
 static unsigned int pixels[512 * 312 * 2];
 extern void frameUpdate(unsigned char *src, unsigned int *target);
+
+static rvar_t *findRVar(char *name)
+{
+	rvar_t **rv = settings;
+	while (*rv) {
+		rvar_t *item = *rv++;
+		while (item && item->value) {
+			if (!strcmp(name, item->menuName))
+				return item;
+			item++;
+		}
+	}
+	return nullptr;
+}
 
 UI::UI(class TED *ted) :
 	display(ted->screen), charset(kernal + 0x1400), ted8360(ted)
@@ -152,6 +162,21 @@ UI::UI(class TED *ted) :
 	d64_list.parent = curr_menu;
 	//snapshot_menu.parent = curr_menu;
 	fre_list.parent = curr_menu;
+
+	// initialize settings menu
+	unsigned int i = 0, j = 0;
+	rvar_t **rv = settings;
+	while (rv[i]) {
+		rvar_t *item = rv[i++];
+		while (item && item->value) { // FIXME
+			strcpy(options_menu.element[j].name, item->menuName);
+			options_menu.element[j].menufunction = UI_MENUITEM_CALLBACKS;
+			options_menu.element[j].type = (UI_MenuTypes) item->type;
+			item++;
+			j++;
+		}
+	}
+	options_menu.nr_of_elements = j;
 }
 
 void UI::screen_update()
@@ -197,7 +222,7 @@ void UI::chrtoscreen(int x,int y, char scrchr)
 			display[(y + j) * CPR + x + k] = (cset[j] & (0x80 >> k)) ? fgcol : bgcol;
 }
 
-void UI::hide_sel_bar(struct menu_t *menu)
+void UI::hide_sel_bar(menu_t *menu)
 {
 	if ( menu->element[ menu->curr_sel ].menufunction == UI_DIR_ITEM)
 		set_color( COLOR(2,1), COLOR(1,5) );
@@ -208,7 +233,7 @@ void UI::hide_sel_bar(struct menu_t *menu)
 	screen_update();
 }
 
-void UI::show_sel_bar(struct menu_t * menu)
+void UI::show_sel_bar(menu_t * menu)
 {
 	set_color( COLOR(0,0), COLOR(15,7) );
 	texttoscreen(LISTOFFSET, 64 + (curr_menu->curr_line<<3),
@@ -216,7 +241,23 @@ void UI::show_sel_bar(struct menu_t * menu)
 	screen_update();
 }
 
-void UI::show_file_list(struct menu_t * menu, UI_MenuClass type)
+void UI::show_settings_list(menu_t * menu, rvar_t *rvItems)
+{
+	int nf = 0;
+	menu->nr_of_elements = 0;
+	rvar_t *rvPtr = *settings;
+
+	while (rvPtr) {
+		strcpy(menu->element[nf].name, rvPtr->menuName);
+		menu->element[nf].child = 0;
+		menu->element[nf].type = MENU_CALLBACK;
+		nf++;
+		rvPtr++;
+	}
+	menu->nr_of_elements = nf;
+}
+
+void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 {
 	int nf = 0, res;
 	char cfilename[512];
@@ -316,6 +357,44 @@ bool UI::handle_menu_command( struct element_t *element)
 	}
 
 	switch ( menuSelection ) {
+
+		case UI_MENUITEM_MENULINK:
+			return false;
+
+		case UI_MENUITEM_CALLBACKS:
+			{	// find rvar and use callback
+				rvar_t *rv = findRVar(element->name);
+				if (rv) {
+					switch (rv->type) {
+						case RVAR_TOGGLE:
+							// if callback specified, call it otherwise toggle ourselves
+							if (rv->callback)
+								(rv->callback)(NULL);
+							else {
+								unsigned int *value = ((unsigned int*)(rv->value));
+								*value = !*value;
+							}
+							break;
+
+						case RVAR_HEX:
+						case RVAR_INT:
+							if (rv->callback)
+								(rv->callback)(NULL);
+							break;
+
+						case RVAR_STRING_FLIPLIST:
+							if (rv->callback) {
+								char text[64];
+								(rv->callback)(text);
+							}
+							break;
+
+						default:;
+					}
+				}
+			}
+			return false;
+
 		case UI_DRIVE_ITEM:
 			ad_exit_drive_selector();
 		case UI_DIR_ITEM:
@@ -401,8 +480,6 @@ bool UI::handle_menu_command( struct element_t *element)
 		case UI_SNAPSHOT_LOAD:
 			show_file_list( &snapshot_menu, UI_FRE_ITEM );
 			return false;
-		case UI_MENUITEM_MENULINK:
-			return false;
 		case UI_EMULATOR_MONITOR:
 			monitorEnter(ted8360->cpuptr);
 			return true;
@@ -421,7 +498,7 @@ bool UI::handle_menu_command( struct element_t *element)
 	return true;
 }
 
-void UI::show_title(struct menu_t * menu)
+void UI::show_title(menu_t * menu)
 {
 	const unsigned int CPR = ted8360->getCyclesPerRow() == 504 ? 576 : 456;
 
@@ -449,22 +526,60 @@ void UI::show_title(struct menu_t * menu)
 	set_color( fgcol, bgcol );
 }
 
-void UI::show_menu(struct menu_t * menu)
+void UI::show_menu(menu_t * menu)
 {
 	int i;
 	int shown = menu->nr_of_elements - menu->uppermost;
 
-	show_title( menu );
-	if ( shown > 0 ) {
-		if ( shown > MAX_LINES ) shown = MAX_LINES + 1;
+	show_title(menu);
+	if (shown > 0) {
+		if (shown > MAX_LINES)
+			shown = MAX_LINES + 1;
 
 		set_color( COLOR(0,0), COLOR(1,5) );
-		for ( i = 0; i < shown; ++i) {
-			if ( menu->element[menu->uppermost + i].menufunction == UI_DIR_ITEM)
+		for (i = 0; i < shown; ++i) {
+			unsigned int ix = menu->uppermost + i;
+			element_t &elem = menu->element[ix];
+
+			if (elem.menufunction == UI_DIR_ITEM)
 				set_color( COLOR(2,1), COLOR(1,5) );
 			else
 				set_color( COLOR(0,0), COLOR(1,5) );
-			texttoscreen(LISTOFFSET, 64+(i<<3),menu->element[menu->uppermost + i].name);
+			// display menu list element
+			texttoscreen(LISTOFFSET, 64+(i<<3), elem.name);
+
+			// if interactive menu, find out what to do
+			if (elem.menufunction == UI_MENUITEM_CALLBACKS) {
+				char valuetxt[256] = "";
+				unsigned int valuePos = LISTOFFSET + (43 << 3);
+				unsigned int valueTxtLen;
+				
+				rvar_t *rv = findRVar(elem.name);
+				unsigned int type = (RvarTypes) elem.type;
+				switch (type) {
+					case RVAR_TOGGLE:
+						strcpy(valuetxt, *((unsigned int*)(rv->value)) ? "ON" : "OFF");
+						break;
+
+					case RVAR_INT:
+						sprintf(valuetxt, "%u", *((unsigned int*)(rv->value)));
+						break;
+
+					case RVAR_HEX:
+						sprintf(valuetxt, "$%04X", *((unsigned int*)(rv->value)));
+						break;
+
+					case RVAR_STRING_FLIPLIST:
+						if (rv->label)
+							sprintf(valuetxt, "%s", rv->label());
+						break;
+
+					default:;
+				}
+				valueTxtLen = strlen(valuetxt) << 3;
+				set_color(COLOR(2,1), COLOR(1,5));
+				texttoscreen(valuePos - valueTxtLen, 64 + (i << 3), valuetxt);
+			}
 		}
 	}
 	screen_update();
@@ -736,6 +851,7 @@ void interfaceLoop(void *arg)
 {
 	UI *ui = (UI*) arg;
 
-	if (ui->wait_events())
+	if (ui->wait_events()) {
 		setMainLoop(1);
+	}
 }

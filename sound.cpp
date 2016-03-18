@@ -1,32 +1,27 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <memory.h>
+#include <string.h>
 #include <math.h>
 #include "sound.h"
 
 //#define LOG_AUDIO
 
-#ifdef __EMSCRIPTEN__
-#define SOUND_BUFSIZE_MSEC 20
-// Emscripten needs a buffer with a size of a power of 2
-#define FRAGMENT_SIZE int(pow(2, ceil(log(double(sampleFrq * SOUND_BUFSIZE_MSEC) / 1000.0)/log(2))))
-#define SND_BUF_MAX_READ_AHEAD 6
-#define SND_LATENCY_IN_FRAGS 2
-#else
-// Linux needs a buffer with a size of a factor of 512?
-// 512 1024 2048 4096
-#define SOUND_BUFSIZE_MSEC 20
-#define FRAGMENT_SIZE (int(double(sampleFrq * SOUND_BUFSIZE_MSEC) / 1000.0 / 1024.0 + 0.5 ) * 1024)
-#define SND_BUF_MAX_READ_AHEAD 6
-#define SND_LATENCY_IN_FRAGS 2
-#endif
+#define SND_BUF_MAX_READ_AHEAD bufferMaxLeadInFrags
+#define SND_LATENCY_IN_FRAGS bufferLatencyInFrags
 
+// SDL specific
 static SDL_AudioDeviceID dev;
 static SDL_AudioSpec obtained, *audiohwspec;
-
-static int           MixingFreq;
-static unsigned int  BufferLength;
-static unsigned int	 sndBufferPos;
+//
+static const unsigned int bufLenInMsec[] = { 20, 50, 100, 200, 10 };
+static unsigned int bufLenIndex = 0;
+static int bufferLatencyInFrags = 2;
+static int bufferMaxLeadInFrags = 6;
+static unsigned int BufferLengthInMsec;
+//
+static unsigned int	MixingFreq;
+static unsigned int BufferLength;
+static unsigned int	sndBufferPos;
 
 static short *mixingBuffer;
 static short *sndRingBuffer;
@@ -42,13 +37,18 @@ template<> unsigned int LinkedList<SoundSource>::count = 0;
 template<> SoundSource* LinkedList<SoundSource>::root = 0;
 template<> SoundSource* LinkedList<SoundSource>::last = 0;
 unsigned int SoundSource::sampleRate = SAMPLE_FREQ;
+static unsigned int soundEnabled = 1;
+static unsigned int soundPaused = 0;
 
 void SoundSource::bufferFill(unsigned int nrsamples, short *buffer)
 {
 	SoundSource *cb = SoundSource::getRoot();
-	if (cb) {
+	if (cb && !soundPaused) {
 		cb->calcSamples(buffer, nrsamples);
 		cb = cb->getNext();
+	} else {
+		memset(buffer, 0, nrsamples * 2);
+		return;
 	}
 	// multiple sources
 	while (cb) {
@@ -162,13 +162,38 @@ void flushBuffer(ClockCycle cycle, unsigned int frq)
 	lastUpdateCycle = cycle;
 }
 
+static unsigned int calibrateAudioBufferSize(unsigned int msec, unsigned int sampleRate)
+{
+#ifdef __EMSCRIPTEN__
+	// Emscripten needs a buffer with a size of a power of 2
+	double x = msec * sampleRate / 1000.0;
+	return (unsigned int)pow(2, ceil(log(x) / log(2)));
+#elif defined(_WIN32)
+	return (sampleRate / (1000 / msec));
+#else
+	// Linux needs a buffer with a size of a factor of 512?
+	// 512 1024 2048 4096
+	double x = msec * sampleRate / 1000.0;
+	return (unsigned int)((x / 1024.0 + 0.5) * 1024.0);
+#endif
+}
+
+// Emscripten requires audio buffers to be cleaned when stopped
+void sound_reset()
+{
+	for (unsigned int i = 0; i < SND_BUF_MAX_READ_AHEAD * BufferLength; i++)
+		sndRingBuffer[i] = audiohwspec->silence;
+}
+
 void init_audio(unsigned int sampleFrq)
 {
     SDL_AudioSpec desired;
 
+	if (sampleFrq < 11025 || sampleFrq > 192000) sampleFrq = SAMPLE_FREQ;
 	MixingFreq = sampleFrq;
 
-	BufferLength = FRAGMENT_SIZE;
+	BufferLengthInMsec = bufLenInMsec[bufLenIndex];
+	BufferLength = calibrateAudioBufferSize(BufferLengthInMsec, MixingFreq);
 	if (BufferLength < 512) BufferLength = 512;
 
 	desired.freq		= MixingFreq;
@@ -214,17 +239,22 @@ void init_audio(unsigned int sampleFrq)
 	lastSample = 0;
 	lastUpdateCycle = 0;
 	lastSamplePos = 0;
-    SDL_PauseAudioDevice(dev, 0);
+    sound_resume();
 }
 
 void sound_pause()
 {
+#ifdef __EMSCRIPTEN__
+	soundPaused = 1;
+#else
 	SDL_PauseAudioDevice(dev, 1);
+#endif
 }
 
 void sound_resume()
 {
-	SDL_PauseAudioDevice(dev, 0);
+	soundPaused = 0;
+	SDL_PauseAudioDevice(dev, !soundEnabled);
 }
 
 void sound_change_freq(unsigned int &newFreq)
@@ -237,11 +267,49 @@ void sound_change_freq(unsigned int &newFreq)
 	}
 	init_audio(newFreq);
 	newFreq = audiohwspec->freq;
+	SoundSource::setSamplingRate(newFreq);
 }
 
 void close_audio()
 {
+	SDL_PauseAudioDevice(dev, 1);
 	SDL_CloseAudioDevice(dev);
 	delete[] sndRingBuffer;
 	delete[] mixingBuffer;
 }
+
+//-- sound options management
+
+static void flipAudioBufferSize(void *none)
+{
+	const unsigned int arraySize = sizeof(bufLenInMsec) / sizeof(bufLenInMsec[0]);
+	close_audio();
+	bufLenIndex = (bufLenIndex + 1) % arraySize;
+	init_audio(MixingFreq);
+}
+
+static void flipAudioFrequency(void *none)
+{
+	const unsigned int frq[] = { 48000, 96000, 192000, 22050, 44100 };
+	const unsigned int current = MixingFreq;
+	const unsigned int entries = sizeof(frq) / sizeof(frq[0]);
+	int i = entries;
+	bool found;
+
+	do {
+		i -= 1;
+		found = frq[i] == current;
+	} while (i && !found);
+	i = (i + 1) % entries;
+	unsigned int rate = frq[i];
+	sound_change_freq(rate);
+}
+
+rvar_t soundSettings[] = {
+	{ "Sound enabled", "SoundOn", NULL, &soundEnabled, RVAR_TOGGLE, NULL },
+#ifndef __EMSCRIPTEN__
+	{ "Audio frequency", "SoundFrequency", flipAudioFrequency, &MixingFreq, RVAR_INT, NULL },
+	{ "Audio buffer length in msec", "AudioBufferLength", flipAudioBufferSize, &BufferLengthInMsec, RVAR_INT, NULL },
+#endif
+	{ NULL, NULL, NULL, NULL, NULL }
+};

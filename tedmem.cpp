@@ -53,6 +53,26 @@ bool TED::endOfScreen;
 bool TED::delayedDMA;
 TED *TED::instance_;
 unsigned int TED::retraceScanLine;
+char TED::romlopath[4][260];
+char TED::romhighpath[4][260];
+unsigned int TED::bigram, TED::bramsm;
+// 64 kbytes of memory allocated by default
+unsigned int TED::RAMMask = 0xFFFF;
+unsigned int TED::sidCardEnabled;
+
+rvar_t TED::tedSettings[] = {
+	//{ "Sid card", "SidCardEnabled", TED::toggleSidCard, &TED::sidCardEnabled, RVAR_TOGGLE, NULL },
+	//{ "rom c0 low", "ROMC0LOW", NULL, TED::romlopath[0], RVAR_STRING },
+	//{ "rom c1 low", "ROMC1LOW", NULL, TED::romlopath[1], RVAR_STRING },
+	//{ "rom c2 low", "ROMC2LOW", NULL, TED::romlopath[2], RVAR_STRING },
+	//{ "rom c3 low", "ROMC3LOW", NULL, TED::romlopath[3], RVAR_STRING },
+	//{ "rom c0 hi", "ROMC0HIGH", NULL, TED::romhighpath[0], RVAR_STRING },
+	//{ "rom c1 hi", "ROMC1HIGH", NULL, TED::romhighpath[1], RVAR_STRING },
+	//{ "rom c2 hi", "ROMC2HIGH", NULL, TED::romhighpath[2], RVAR_STRING },
+	{ "C264 RAM mask", "RamMask", TED::flipRamMask, &TED::RAMMask, RVAR_HEX },
+	//{ "C264 RAM expansion", "256KBRAM", TED::bigram, &TED::bigram, RVAR_TOGGLE },
+	{ NULL, NULL, NULL, NULL, NULL }
+};
 
 enum {
 	TSS = 1 << 1,
@@ -85,9 +105,6 @@ TED::TED() : sidCard(0), SaveState()
 	// default ROM sets
 	strcpy(romlopath[0],"BASIC");
 	strcpy(romhighpath[0],"KERNAL");
-
-	// 64 kbytes of memory allocated
-	RAMMask=0xFFFF;
 
 	// actual ram bank pointer default setting
 	actram=Ram;
@@ -134,6 +151,19 @@ TED::TED() : sidCard(0), SaveState()
 	tedSoundInit(sampleRate);
 	if (enableSidCard(true, 0)) {
 		//sidCard->setModel(SID8580DB);
+	}
+}
+
+void TED::flipRamMask(void *none) 
+{
+	if (RAMMask == 0xFFFF) RAMMask = 0x3FFF;
+	else if (RAMMask == 0x7FFF) RAMMask = 0xFFFF;
+	else RAMMask = 0x7FFF;
+	TED *ted = instance_;
+	// only reset if C264
+	if (ted->getCyclesPerRow() == SCR_HSIZE) {
+		ted->cpuptr->Reset();
+		ted->Reset(true);
 	}
 }
 
@@ -191,21 +221,16 @@ void TED::copyToKbBuffer(const char *text, unsigned int length)
 		Write(0x0527+length, text[length]);
 }
 
-void TED::chrtoscreen(int x,int y, char scrchr)
+void TED::chrtoscreen(int x,int y, unsigned int scrchr)
 {
-	register int j, k;
+	unsigned int j, k;
 	const unsigned int CPR = getCyclesPerRow();
 	unsigned char *charset = (unsigned char *) kernal + 0x1000;
 
 	if (isalpha(scrchr)) {
-		scrchr=toupper(scrchr)-64;
-		charset+=(scrchr<<3);
-		for (j=0;j<8;j++)
-			for (k=0;k<8;k++)
-				screen[(y+j)*CPR+x+k] = (*(charset+j) & (0x80>>k)) ? 0x00 : 0x71;
-		return;
+		scrchr = (scrchr & ~0xE0) | ((scrchr & 0x20) << 2);
 	}
-	charset+=(scrchr<<3);
+	charset += (scrchr << 3);
 	for (j=0;j<8;j++)
 		for (k=0;k<8;k++)
 			screen[(y+j)*CPR+x+k] = (*(charset+j) & (0x80>>k)) ? 0x00 : 0x71;
@@ -1528,16 +1553,17 @@ bool TED::enableSidCard(bool enable, unsigned int disableMask)
 	if (enable) {
 		if (sidCard) {
 			return true;
-			//enableSidCard(false, 0);
         }
 		sidCard = new SIDsound(SID8580DB, disableMask);
 		sidCard->setSampleRate(SAMPLE_FREQ);
 		sidCard->setFrequency(TED_SOUND_CLOCK / 2);
+		sidCardEnabled = 1;
 	} else {
 		if (!sidCard)
 			return false;
 		delete sidCard;
 		sidCard = 0;
+		sidCardEnabled = 0;
 	}
 	return false;
 }

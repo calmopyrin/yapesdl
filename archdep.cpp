@@ -26,7 +26,24 @@ extern "C" FILE * __cdecl __iob_func(void)
 #endif
 #endif
 
+// forward declarations
+static void flipMaxFps(void *v);
+
 unsigned int	tick_50hz, tick_vsync, fps;
+static unsigned int framesShown = 50;
+static const unsigned int maxFpsValues[] = { 100, 60, 50, 25, 10 };
+static unsigned int maxFps = 100;
+static unsigned int maxFpsIndex = 0;
+rvar_t archDepSettings[] = {
+	{ "Maximum framerate", "MaxFrameRate", flipMaxFps, &maxFps, RVAR_INT, NULL },
+	{ NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+static void flipMaxFps(void *v)
+{
+	maxFpsIndex = (maxFpsIndex + 1) % (sizeof(maxFpsValues) / sizeof(maxFpsValues[0]));
+	maxFps = maxFpsValues[maxFpsIndex];
+}
 
 /* functions for Windows */
 #if defined(_WIN32)
@@ -169,41 +186,43 @@ void ad_vsync_init(void)
 bool ad_vsync(bool sync)
 {
 	unsigned int time_limit = timeelapsed + 20;
+	static unsigned int nextFrameTime = timeelapsed + (1000 / maxFps);
+
 	timeelapsed = SDL_GetTicks();
 	if (sync) {
 		if (time_limit > timeelapsed) {
-			int nr10ms = ((time_limit-timeelapsed)/10) * 10;
+			int nr10ms = ((time_limit - timeelapsed) / 10) * 10;
 			SDL_Delay(nr10ms);
 			timeelapsed = SDL_GetTicks();
-			while (time_limit>timeelapsed) {
+			while (time_limit > timeelapsed) {
 				SDL_Delay(0);
 				timeelapsed = SDL_GetTicks();
 			}
 		}
-		return true;
+	}
+	if (nextFrameTime > timeelapsed) {
+		return false;
 	} else {
-		static unsigned int prevFrameTime = timeelapsed;
-		if (prevFrameTime + 10 > timeelapsed) {
-			return false;
-		} else {
-			prevFrameTime = timeelapsed;
-			return true;
-		}
+		nextFrameTime = timeelapsed + ((1000 + maxFps / 2) / maxFps);
+		framesShown++;
+		return true;
 	}
 }
 
-unsigned int ad_get_fps()
+unsigned int ad_get_fps(unsigned int &framesDrawn)
 {
-	static unsigned int fps = 50;
+	static unsigned int fps = 100;
 	static unsigned int g_TotElapsed = SDL_GetTicks();
 	static unsigned int g_TotFrames = 0;
 
-	g_TotFrames++;
 	if (g_TotElapsed + 2000 < timeelapsed) {
 		g_TotElapsed = SDL_GetTicks();
-		fps = g_TotFrames / 2;
+		fps = g_TotFrames;
 		g_TotFrames = 0;
-	}
+		framesDrawn = framesShown / 2;
+		framesShown = 0;
+	} else
+		g_TotFrames++;
 	return fps;
 }
 #endif
@@ -368,8 +387,9 @@ bool ad_vsync(bool sync)
 	return true;
 }
 
-unsigned int ad_get_fps()
+unsigned int ad_get_fps(unsigned int &framesDrawn)
 {
+	framesDrawn = fps;
 	return fps;
 }
 

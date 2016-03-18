@@ -79,7 +79,6 @@ CSerial::~CSerial()
 #define ATN_HI 0x10
 #define DATA_HI 0x80
 #define CLK_HI 0x40
-#define NAMEBUF_LENGTH 44
 
 #define IEC_DEBUG 0
 

@@ -36,9 +36,13 @@ class KEYS {
 		void latch(unsigned int keyrow, unsigned int joyrow);
 		unsigned char feedkey(unsigned char latch);
 		unsigned char feedjoy(unsigned char latch);
-		unsigned int swapjoy();
 		void empty(void);
+		static unsigned int swapjoy();
 		static unsigned int activejoy;
+		static const char *activeJoyTxt() {
+			const char *txt[] = { "NONE", "PORT1", "PORT2", "BOTH" };
+			return txt[activejoy];
+		}
 		unsigned char readLatch() { return latched | blockMask; };
 		void block(bool isBlocked) { blockMask = isBlocked ? 0xFF : 0x00; };
 };

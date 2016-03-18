@@ -32,7 +32,7 @@ COMPILE
   
   To be able to compile on Linux, you must have the latest SDL
   package from http://libsdl.org. The recent stable release as of time of
-  this writing is 2.0.3. You will need the development libraries.
+  this writing is 2.0.4. You will need the development libraries.
   
   The provided makefile is written for the GNU C++ compiler but can also
   be easily adjusted for other compilers.
@@ -52,6 +52,10 @@ COMPILE
   
   to start the emulator, where filename is optional.
   
+  Note that the 2.0.4 version of the Windows SDL runtime library has a
+  serious crash in its DX9 driver. The one included in the Windows 
+  yapesdl binary package is a bugfixed build.
+
 USAGE
 =====
 
@@ -84,7 +88,7 @@ USAGE
   LALT + KPLUS : collate replay frequencies
   
   Internal disk LOAD/SAVE operations are supported to the current
-  file system directory - which is usually '/home/<username>/yape' - in C+4 modes.
+  file system directory - which is usually '/home/<username>/yape'.
   Any PRG files you may wish to load, should go there, although you can browse the directory tree
   from the user interface, too.
    
