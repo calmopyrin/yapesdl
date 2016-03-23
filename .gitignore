@@ -92,3 +92,4 @@ Release/favicon.ico
 *.depend
 YapeSDL.layout
 *.yss
+*.opendb

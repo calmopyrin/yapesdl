@@ -42,7 +42,7 @@ static const unsigned int origkeys[5]={
 
 //--------------------------------------------------------------
 unsigned int KEYS::nrOfJoys;
-SDL_Joystick *KEYS::sdlJoys[2];
+SDL_GameController *KEYS::sdlJoys[2];
 unsigned int KEYS::activejoy = 0;
 
 KEYS::KEYS() 
@@ -60,7 +60,7 @@ void KEYS::initPcJoys()
 	if (i > 2) i = 2;
 	while (i) {
 		i -= 1;
-		sdlJoys[i] = SDL_JoystickOpen(i);
+		sdlJoys[i] = SDL_GameControllerOpen(i);
 	}
 	
 	fprintf(stderr, "Found %i joysticks.\n", nrOfJoys);
@@ -103,7 +103,7 @@ unsigned char KEYS::keyReadMatrixRow(unsigned int r)
 				|(kbstate[SDL_SCANCODE_F1]<<4)
 				|(kbstate[SDL_SCANCODE_F2]<<5)
 				|(kbstate[SDL_SCANCODE_F3]<<6)
-				|(kbstate[SDL_SCANCODE_MINUS]<<7));
+				|(kbstate[SDL_SCANCODE_LEFTBRACKET]<<7)); // '@'
 			break;
 
 		case 1:
@@ -164,7 +164,7 @@ unsigned char KEYS::keyReadMatrixRow(unsigned int r)
 				|(kbstate[SDL_SCANCODE_PERIOD]<<4)
 				|(kbstate[SDL_SCANCODE_KP_PERIOD]<<4) /* numeric . */
 				|(kbstate[SDL_SCANCODE_SEMICOLON]<<5)
-				|(kbstate[SDL_SCANCODE_RIGHTBRACKET]<<6)
+				|(kbstate[SDL_SCANCODE_EQUALS]<<6)
 				|(kbstate[SDL_SCANCODE_KP_MINUS]<<6) /* numeric - */
 				|(kbstate[SDL_SCANCODE_COMMA]<<7));
 			//if (!activejoy)
@@ -179,8 +179,8 @@ unsigned char KEYS::keyReadMatrixRow(unsigned int r)
 				|(kbstate[SDL_SCANCODE_KP_MULTIPLY]<<1)
 				|(kbstate[SDL_SCANCODE_APOSTROPHE]<<2)
 				|(kbstate[SDL_SCANCODE_GRAVE]<<4)
-				|(kbstate[SDL_SCANCODE_EQUALS]<<5)
-				|(kbstate[SDL_SCANCODE_LEFTBRACKET]<<6)
+				|(kbstate[SDL_SCANCODE_RIGHTBRACKET]<<5)
+				|(kbstate[SDL_SCANCODE_MINUS]<<6)
 				|(kbstate[SDL_SCANCODE_KP_PLUS]<<6) /* numeric + */
 				|(kbstate[SDL_SCANCODE_SLASH]<<7)
 				|(kbstate[SDL_SCANCODE_KP_DIVIDE]<<7));  /* numeric / */
@@ -248,22 +248,23 @@ unsigned char KEYS::getPcJoyState(unsigned int joyNr, unsigned int activeJoy)
 	const Sint16 deadZone = 32767 / 5;
 	unsigned char state;
 	Sint16 x_move, y_move;
+	SDL_GameController *thisController = sdlJoys[joyNr];
 
-	state = SDL_JoystickGetButton(sdlJoys[joyNr], 0);
-	state |= SDL_JoystickGetButton(sdlJoys[joyNr], 10);
+	state = SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_A);
+	state |= SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_RIGHTSTICK);
 	state <<= fireButtonIndex(activeJoy);
 	// if (state)
 // 	  fprintf(stderr,"Joy(%i) state: %X ", joyNr, state);
-	x_move = SDL_JoystickGetAxis(sdlJoys[joyNr], 0);
-	y_move = SDL_JoystickGetAxis(sdlJoys[joyNr], 1);
-	if (x_move >= deadZone) {
+	x_move = SDL_GameControllerGetAxis(thisController, SDL_CONTROLLER_AXIS_LEFTX);
+	y_move = SDL_GameControllerGetAxis(thisController, SDL_CONTROLLER_AXIS_LEFTY);
+	if (x_move >= deadZone || SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) {
 		state |= 8;
-	} else if (x_move <= -deadZone) {
+	} else if (x_move <= -deadZone || SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_DPAD_LEFT)) {
 		state |= 4;
 	}
-	if (y_move >= deadZone) {
+	if (y_move >= deadZone || SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_DPAD_DOWN)) {
 		state |= 2;
-	} else if (y_move <= -deadZone) {
+	} else if (y_move <= -deadZone || SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_DPAD_UP)) {
 		state |= 1;
 	}
 	return state ^ 0xFF;
@@ -302,7 +303,7 @@ void KEYS::closePcJoys()
 	int i = nrOfJoys;
 	while (i) {
 		i -= 1;
-		SDL_JoystickClose(sdlJoys[i]);
+		SDL_GameControllerClose(sdlJoys[i]);
 	}
 }
 

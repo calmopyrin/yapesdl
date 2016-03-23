@@ -118,6 +118,9 @@
     <ClInclude Include="vic2mem.h">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="keyoverlay.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Changes" />

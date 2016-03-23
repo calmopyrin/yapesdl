@@ -576,7 +576,7 @@ void UI::show_menu(menu_t * menu)
 
 					default:;
 				}
-				valueTxtLen = strlen(valuetxt) << 3;
+				valueTxtLen = (unsigned int) (strlen(valuetxt) << 3);
 				set_color(COLOR(2,1), COLOR(1,5));
 				texttoscreen(valuePos - valueTxtLen, 64 + (i << 3), valuetxt);
 			}

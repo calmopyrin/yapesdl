@@ -43,6 +43,7 @@
 #include "icon.h"
 #include "vic2mem.h"
 #include "SaveState.h"
+#include "keyoverlay.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -63,6 +64,7 @@ static void doSwapJoy(void *txt);
 static void flipMachineTypeFwd(void *name);
 static const char *machineTypeLabel();
 static void flipWindowScale(void *none);
+static void toggleTrueDriveEmulation(void *none);
 
 // SDL stuff
 static SDL_Window* sdlWindow;
@@ -71,6 +73,8 @@ static SDL_Texture *sdlTexture = NULL;
 
 // class pointer for the user interface
 static UI				*uinterface = NULL;
+static unsigned int		timeOutOverlayKeys = 0;
+static bool mouseBtnHeld = 0;
 
 ////////////////
 // Supplementary
@@ -95,17 +99,19 @@ static unsigned int		g_FrameRate = true;
 static unsigned int		g_50Hz = true;
 static unsigned int		g_bSaveSettings = true;
 static unsigned int     g_bUseOverlay = 0;
-static unsigned int		g_bWindowMultiplier = 2;
+static unsigned int		g_iWindowMultiplier = 2;
 static unsigned int		g_iEmulationLevel = 0;
+static unsigned int		g_bTrueDriveEmulation = 0;
 static char				lastSnapshotName[512] = "";
 static rvar_t mainSettings[] = {
 	{ "Show framerate", "DisplayFrameRate", toggleShowSpeed, &g_FrameRate, RVAR_TOGGLE, nullptr },
 	{ "Display debug info", "DisplayQuickDebugInfo", nullptr, &g_inDebug, RVAR_TOGGLE, nullptr },
 	{ "Speed limit", "50HzTimerActive", toggleFullThrottle, &g_50Hz, RVAR_TOGGLE, nullptr },
-	{ "Window scale", "WindowMultiplier", flipWindowScale, &g_bWindowMultiplier, RVAR_INT, nullptr },
+	{ "Window scale", "WindowMultiplier", flipWindowScale, &g_iWindowMultiplier, RVAR_INT, nullptr },
 	{ "Active joystick", "ActiveJoystick", doSwapJoy, &KEYS::activejoy, RVAR_STRING_FLIPLIST, &KEYS::activeJoyTxt },
 	{ "Machine type", "EmulationLevel", flipMachineTypeFwd, &g_iEmulationLevel, RVAR_STRING_FLIPLIST, &machineTypeLabel },
 	{ "CRT emulation", "CRTEmulation", toggleCrtEmulation, &g_bUseOverlay, RVAR_TOGGLE, nullptr },
+	{ "True drive emulation", "TrueDriveEmulation", toggleTrueDriveEmulation, &g_bTrueDriveEmulation, RVAR_TOGGLE, nullptr },
 	{ "Save settings on exit", "SaveSettingsOnExit", nullptr, &g_bSaveSettings, RVAR_TOGGLE, nullptr },
 	{ NULL, NULL, NULL, NULL, NULL }
 };
@@ -128,7 +134,7 @@ inline static void ShowFrameRate(unsigned int show)
 	unsigned int speed = ad_get_fps(fps);
 	if (show) {
 		sprintf(fpstxt, "%u%%/%ufps", speed, fps);
-		size_t s = strlen(fpstxt) << 3;
+		unsigned int s = (unsigned int) strlen(fpstxt) << 3;
 		ted8360->texttoscreen((ted8360->getCyclesPerRow() == 504 ? 472 : 408) - s, 34, fpstxt);
 	}
 }
@@ -138,7 +144,7 @@ inline static void ShowFrameRate(unsigned int show)
 //-----------------------------------------------------------------------------
 inline static void DebugInfo()
 {
-	const unsigned int hpos = (ted8360->getCyclesPerRow() == 456 ? 48 : 112), vpos = 10;
+	unsigned int hpos = (ted8360->getCyclesPerRow() == 456 ? 48 : 112), vpos = 10;
 
 	sprintf(textout, "OPCODE: %02X ", machine->getcins());
 	ted8360->texttoscreen(hpos, vpos, textout);
@@ -146,6 +152,7 @@ inline static void DebugInfo()
 	sprintf(textout, ";%04X %02X %02X %02X %02X %02X", machine->getPC(),
 		machine->getST(), machine->getAC(), machine->getX(), machine->getY(), machine->getSP());
 	ted8360->texttoscreen(hpos, vpos+16, textout);
+	vpos += 24;
 	sprintf(textout, "TAPE: %08d ", ted8360->tap->TapeSoFar);
 	CTrueDrive *d = CTrueDrive::Drives[0];
 	if (d) {
@@ -157,11 +164,11 @@ inline static void DebugInfo()
 		d->GetFdc()->trackSector(t, s);
 		sprintf(driveText, "DRIVE:  T/S:%02u/%02u", t, s);
 		strcat(textout, driveText);
-		ted8360->texttoscreen(hpos, vpos+24, textout);
-		ted8360->showled(hpos+21*8, vpos+24, motorState);
-		ted8360->showled(hpos+22*8, vpos+24, ledState);
+		ted8360->texttoscreen(hpos, vpos, textout);
+		ted8360->showled(hpos+21*8, vpos, motorState);
+		ted8360->showled(hpos+22*8, vpos, ledState);
 	} else {
-		ted8360->texttoscreen(hpos, vpos+24, textout);
+		ted8360->texttoscreen(hpos, vpos, textout);
 	}
 }
 
@@ -198,6 +205,7 @@ void machineEnable1551(bool enable)
 		} else {
 			fsd1541 = new FakeSerialDrive(8);
 		}
+		g_bTrueDriveEmulation = 0;
 	}
 	else {
 		ted8360->HookTCBM(NULL);
@@ -210,12 +218,19 @@ void machineEnable1551(bool enable)
 			drive1541 = new CTrueDrive(1, 8);
 			drive1541->Reset();
 		}
+		g_bTrueDriveEmulation = 1;
 	}
 }
 
 bool machineIsTrueDriveEnabled(unsigned int dn = 8)
 {
 	return drive1541 != NULL;
+}
+
+static void toggleTrueDriveEmulation(void *none)
+{
+	bool e = !machineIsTrueDriveEnabled();
+	machineEnable1551(!e);
 }
 
 bool start_file(char *szFile, bool autostart = true)
@@ -313,30 +328,62 @@ inline void PopupMsg(const char *msg, ...)
 	popupMessageTimeOut = 60; // frames
 }
 
+static void showKeyboardOverlay()
+{
+	static SDL_Texture* texture = NULL;
+	static SDL_Rect rc = { 0 };
+
+	if (!texture) {
+		SDL_RWops *rwops = SDL_RWFromMem((void*) keyoverlay, sizeof(keyoverlay));
+		SDL_Surface* loadedSurface = SDL_LoadBMP_RW(rwops, 1);
+		if (loadedSurface) {
+			// Note: the logical size of the window surface is 2×!
+			rc.w = loadedSurface->w * 2;
+			rc.h = loadedSurface->h * 2;
+			rc.x = SCREENX - rc.w / 2;
+			rc.y = SCREENY * 2 - rc.h;
+			texture = SDL_CreateTextureFromSurface(sdlRenderer, loadedSurface);
+			SDL_FreeSurface(loadedSurface);
+			if (!texture)
+				return;
+			SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+		}
+	}
+	SDL_SetTextureAlphaMod(texture, timeOutOverlayKeys);
+	SDL_RenderCopy(sdlRenderer, texture, NULL, &rc);
+}
+
 static unsigned int pixels[512 * SCR_VSIZE * 2];
 
 void frameUpdate(unsigned char *src, unsigned int *target)
 {
-    unsigned int i, j;
-    unsigned int *texture = target;
-	unsigned int pixelsPerRow = ted8360->getCyclesPerRow();
+	const unsigned int pixelsPerRow = ted8360->getCyclesPerRow();
+	const unsigned int sourcePitch = (pixelsPerRow - SCREENX);
+	const unsigned int targetPitch = sourcePitch;
+	const unsigned int *texture = target;
+	unsigned int i, j;
 
     //
     if (g_bUseOverlay) {
         video_convert_buffer(target, pixelsPerRow, src);
     } else {
-        unsigned int *palette = palette_get_rgb();
+        const unsigned int *palette = palette_get_rgb();
         for(i = 0; i < SCREENY; i++) {
             for(j = 0; j < SCREENX; j++) {
 				*target++ = palette[*src++];
 			}
-			src += (pixelsPerRow - SCREENX);
-			target += (pixelsPerRow - SCREENX);
+			src += sourcePitch;
+			target += targetPitch;
 		}
     }
-    //
+    // TODO: use SDL_LockTexture instead
 	int e = SDL_UpdateTexture(sdlTexture, NULL, texture, pixelsPerRow * sizeof (unsigned int));
 	e = SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
+	if (timeOutOverlayKeys) {
+		showKeyboardOverlay();
+		if (!mouseBtnHeld)
+			timeOutOverlayKeys -= 4;
+	}
 	SDL_RenderPresent(sdlRenderer);
 }
 
@@ -382,7 +429,7 @@ bool SaveSettings(char *inifileName)
 		ad_get_curr_dir(tmpStr);
 		fprintf(ini, "CurrentDirectory = %s\n", tmpStr);
 		fprintf(ini, "CRTEmulation = %u\n", g_bUseOverlay);
-		fprintf(ini, "WindowMultiplier = %u\n", g_bWindowMultiplier);
+		fprintf(ini, "WindowMultiplier = %u\n", g_iWindowMultiplier);
 		fprintf(ini, "EmulationLevel = %u\n", g_iEmulationLevel);
 
 		fclose(ini);
@@ -445,7 +492,7 @@ bool LoadSettings(char *inifileName)
 				else if (!strcmp(keyword, "CRTEmulation"))
 					g_bUseOverlay = !!atoi(value);
 				else if (!strcmp(keyword, "WindowMultiplier"))
-					g_bWindowMultiplier = number ? (number & 3) : 1;
+					g_iWindowMultiplier = number ? (number & 3) : 1;
 				else if (!strcmp(keyword, "EmulationLevel"))
 					g_iEmulationLevel = atoi(value);
 			}
@@ -557,6 +604,7 @@ static void doSwapJoy()
 
 static void enterMenu()
 {
+	timeOutOverlayKeys = 0;
 	sound_pause();
 #ifdef __EMSCRIPTEN__
 	setMainLoop(0);
@@ -630,8 +678,7 @@ static void setEmulationLevel(unsigned int level)
                 break;
             case 2:
                 ted8360 = new Vic2mem;
-				fsd1541 = new FakeSerialDrive(8);
-                break;
+				break;
 		}
 		uinterface->setNewMachine(ted8360);
 		unsigned int newCpr = ted8360->getCyclesPerRow();
@@ -644,6 +691,7 @@ static void setEmulationLevel(unsigned int level)
 		// reload ROMs for machine type switch
 		ted8360->loadroms();
 		if (oldCpr != newCpr) {
+			machineEnable1551(!g_bTrueDriveEmulation);
 			machine->Reset();
 			ted8360->Reset(false);
             init_palette(ted8360);
@@ -657,8 +705,6 @@ static void setEmulationLevel(unsigned int level)
             ted8360->Write(0, prddr);
             ted8360->Write(1, prp & prddr);
 		}
-		//CSerial::InitPorts();
-		//CTrueDrive::ResetAllDrives();
 		//
 		sound_resume();
 		g_bActive = 1;
@@ -707,8 +753,8 @@ static void setWindowScale(int newScale)
 
 static void flipWindowScale(void *none)
 {
-	g_bWindowMultiplier = (g_bWindowMultiplier % 3) + 1;
-	setWindowScale(g_bWindowMultiplier);
+	g_iWindowMultiplier = (g_iWindowMultiplier % 3) + 1;
+	setWindowScale(g_iWindowMultiplier);
 }
 
 //-----------------------------------------------------------------------------
@@ -755,7 +801,7 @@ inline static void poll_events(void)
 							case SDLK_3:
 								{
 									int mult = (event.key.keysym.sym - SDLK_0);
-									g_bWindowMultiplier = mult;
+									g_iWindowMultiplier = mult;
 									setWindowScale(mult);
 									PopupMsg(" WINDOW SIZE: %ux ", mult);
 								}
@@ -896,7 +942,7 @@ inline static void poll_events(void)
 					enterMenu();
 				} else if (event.jbutton.button == 4) {
 					ted8360->copyToKbBuffer("RUN:\r",5);
-				} else if (event.jbutton.button == 11) {
+				} else if (event.jbutton.button == 11 || event.jbutton.button == 1) {
 					doSwapJoy();
 				} else if (event.jbutton.button == 12) {
 					toggleFullThrottle(NULL);
@@ -912,10 +958,17 @@ inline static void poll_events(void)
 				break;
 
 			case SDL_MOUSEBUTTONDOWN:
-				//if (event.button.clicks >= 2)
-				//	enterMenu();
-				//else
-					PopupMsg(" No overlay keyboard... ");
+				// stupid workaround for too early detection
+				if (ted8360->GetClockCount() > 10 * TED_REAL_CLOCK_M10) {
+					if (timeOutOverlayKeys) {
+					}
+					timeOutOverlayKeys = 192;
+					mouseBtnHeld = true;
+				}
+				break;
+
+			case SDL_MOUSEBUTTONUP:
+				mouseBtnHeld = false;
 				break;
 
             case SDL_QUIT:
@@ -1011,7 +1064,7 @@ static void setSDLIcon(SDL_Window* window)
 
 static void app_initialise()
 {
-    if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) < 0 ) { //  SDL_INIT_AUDIO|
+    if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) < 0 ) {
         fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError());
         exit(1);
     }
@@ -1023,25 +1076,30 @@ static void app_initialise()
     // create a new window
     sdlWindow = SDL_CreateWindow(NAME,
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        WINDOWX * g_bWindowMultiplier, WINDOWY * g_bWindowMultiplier,
+        WINDOWX * g_iWindowMultiplier, WINDOWY * g_iWindowMultiplier,
 		SDL_WINDOW_RESIZABLE); // SDL_WINDOW_FULLSCREEN_DESKTOP
     if ( !sdlWindow ) {
         printf("Unable to create window: %s\n", SDL_GetError());
         return;
     }
 	setSDLIcon(sdlWindow);
-    sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, 0);
+    sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-    SDL_RenderSetLogicalSize(sdlRenderer, 768, 576);
+    SDL_RenderSetLogicalSize(sdlRenderer, SCREENX * 2, SCREENY * 2);
 
     sdlTexture = SDL_CreateTexture(sdlRenderer,
                                g_bUseOverlay ? SDL_PIXELFORMAT_UYVY : SDL_PIXELFORMAT_ARGB8888,
-                               SDL_TEXTUREACCESS_STREAMING,
+                               SDL_TEXTUREACCESS_STREAMING | SDL_TEXTUREACCESS_TARGET,
 							   WINDOWX, WINDOWY * (g_bUseOverlay ? 2 : 1));
-
+	// Make target texture to render to
+	SDL_SetRenderTarget(sdlRenderer, sdlTexture);
 	init_audio();
+	if (!g_50Hz) 
+		sound_pause();
+	KEYS::initPcJoys();
 }
 
+/* ---------- MAIN LOOP ---------- */
 static void mainLoop()
 {
 	// hook into the emulation loop if active
@@ -1078,7 +1136,6 @@ void setMainLoop(int looptype)
 }
 
 /* ---------- MAIN ---------- */
-
 int main(int argc, char *argv[])
 {
 	machineInit();
@@ -1110,16 +1167,21 @@ int main(int argc, char *argv[])
 #endif
 
 	app_initialise();
-	if (!g_50Hz) sound_pause();
-	KEYS::initPcJoys();
+
 	/* ---------- Command line parameters ---------- */
 	if (argv[1]!='\0') {
 		printf("Parameter 1 :%s\n", argv[1]);
+#ifdef __EMSCRIPTEN__
+		printf("Parameter 2 :%s\n", argv[2]);
+		emscripten_wget(argv[1], argv[2]);
+		autostart_file(argv[2], true);
+#else
 		// and then try to load the parameter as file
 		autostart_file(argv[1], true);
+#endif
 	}
-	/* ---------- MAIN LOOP ---------- */
 #ifdef __EMSCRIPTEN__
+	printf("%s - Javascript build using Emscripten.\n", NAME);
 	printf("Type DIRECTORY (or LOAD\"$\",8 and then LIST) and press ENTER to see disk contents. Type LOAD\"filename*\",8 to load a specific file!\n");
 	printf("Or enter the menu by pressing ESC and shift+ENTER to autostart games from there.\n"); 
 	printf("Commodore +4 games start with uppercase, C64 ones with lowercase.\n");

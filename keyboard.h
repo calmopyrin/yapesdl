@@ -20,7 +20,7 @@ class KEYS {
 		unsigned char joy_trans(unsigned char r);
 		//
 		static unsigned int nrOfJoys;
-		static SDL_Joystick *sdlJoys[2];
+		static SDL_GameController *sdlJoys[2];
 		static unsigned int joystickScanCodes[5];
 		unsigned char getPcJoyState(unsigned int joyNr, unsigned int activeJoy);
 		unsigned char latched;

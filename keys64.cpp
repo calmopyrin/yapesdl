@@ -84,15 +84,15 @@ unsigned char KEYS64::keyReadMatrixRow(unsigned int r)
 
 		case 5:
 			tmp = ~
-				((kbstate[SDL_SCANCODE_LEFTBRACKET]<<0)
+				((kbstate[SDL_SCANCODE_MINUS]<<0)
 				|(kbstate[SDL_SCANCODE_KP_PLUS]<<0) /* numeric + */
 				|(kbstate[SDL_SCANCODE_P]<<1)
 				|(kbstate[SDL_SCANCODE_L]<<2)
-				|(kbstate[SDL_SCANCODE_MINUS]<<3) /* US keyb '-' */
+				|(kbstate[SDL_SCANCODE_EQUALS]<<3)
 				|(kbstate[SDL_SCANCODE_PERIOD]<<4)
 				|(kbstate[SDL_SCANCODE_KP_PERIOD]<<4) /* numeric . */
 				|(kbstate[SDL_SCANCODE_SEMICOLON]<<5)
-				|(kbstate[SDL_SCANCODE_RIGHTBRACKET]<<6)
+				|(kbstate[SDL_SCANCODE_LEFTBRACKET]<<6)
 				|(kbstate[SDL_SCANCODE_KP_MINUS]<<6) /* numeric - */
 				|(kbstate[SDL_SCANCODE_COMMA]<<7));
 			break;
@@ -105,7 +105,7 @@ unsigned char KEYS64::keyReadMatrixRow(unsigned int r)
 				|(kbstate[SDL_SCANCODE_APOSTROPHE]<<2)
 				|(kbstate[SDL_SCANCODE_HOME]<<3)
 				|(kbstate[SDL_SCANCODE_RSHIFT]<<4)
-				|(kbstate[SDL_SCANCODE_EQUALS]<<5)
+				|(kbstate[SDL_SCANCODE_RIGHTBRACKET]<<5)
 				|(kbstate[SDL_SCANCODE_PAGEUP]<<6)
 				|(kbstate[SDL_SCANCODE_SLASH]<<7)
 				|(kbstate[SDL_SCANCODE_KP_DIVIDE]<<7));  /* numeric / */

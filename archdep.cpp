@@ -390,7 +390,7 @@ bool ad_vsync(bool sync)
 unsigned int ad_get_fps(unsigned int &framesDrawn)
 {
 	framesDrawn = fps;
-	return fps;
+	return fps << 1;
 }
 
 #endif

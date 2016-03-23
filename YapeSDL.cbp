@@ -12,6 +12,7 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
+					<Add option="-std=c++11" />
 					<Add option="-g" />
 				</Compiler>
 			</Target>
@@ -21,7 +22,9 @@
 				<Option type="0" />
 				<Option compiler="gcc" />
 				<Compiler>
+					<Add option="-march=pentium-m" />
 					<Add option="-O3" />
+					<Add option="-std=c++11" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -36,6 +39,7 @@
 				<Option compiler="cb64-bit_gnu_gcc_compiler" />
 				<Compiler>
 					<Add option="-O2" />
+					<Add option="-std=c++11" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -79,6 +83,7 @@
 		<Unit filename="interface.h" />
 		<Unit filename="keyboard.cpp" />
 		<Unit filename="keyboard.h" />
+		<Unit filename="keyoverlay.h" />
 		<Unit filename="keys64.cpp" />
 		<Unit filename="keys64.h" />
 		<Unit filename="main.cpp" />

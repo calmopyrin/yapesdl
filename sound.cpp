@@ -174,7 +174,7 @@ static unsigned int calibrateAudioBufferSize(unsigned int msec, unsigned int sam
 	// Linux needs a buffer with a size of a factor of 512?
 	// 512 1024 2048 4096
 	double x = msec * sampleRate / 1000.0;
-	return (unsigned int)((x / 1024.0 + 0.5) * 1024.0);
+	return (unsigned int)(x / 1024.0 + 0.5) * 1024.0;
 #endif
 }
 
