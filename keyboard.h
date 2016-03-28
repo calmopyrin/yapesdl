@@ -21,7 +21,7 @@ class KEYS {
 		//
 		static unsigned int nrOfJoys;
 		static SDL_GameController *sdlJoys[2];
-		static unsigned int joystickScanCodes[5];
+		static unsigned int joystickScanCodes[][5];
 		unsigned char getPcJoyState(unsigned int joyNr, unsigned int activeJoy);
 		unsigned char latched;
 		unsigned char keyReadMatrixRow(unsigned int r);
@@ -37,14 +37,22 @@ class KEYS {
 		unsigned char feedkey(unsigned char latch);
 		unsigned char feedjoy(unsigned char latch);
 		void empty(void);
-		static unsigned int swapjoy();
+		static void swapjoy(void *none);
 		static unsigned int activejoy;
+		static unsigned int joystickScanCodeIndex;
 		static const char *activeJoyTxt() {
 			const char *txt[] = { "NONE", "PORT1", "PORT2", "BOTH" };
 			return txt[activejoy];
 		}
+		static void swapKeyset(void *none);
+		static const char *activeJoyKeyset() {
+			const char *txt[] = { "NUMPAD24680", "ARROWS+SPACE", "WASD+RCtrl" };
+			return txt[joystickScanCodeIndex];
+		}
 		unsigned char readLatch() { return latched | blockMask; };
 		void block(bool isBlocked) { blockMask = isBlocked ? 0xFF : 0x00; };
 };
+
+extern rvar_t inputSettings[];
 
 #endif // _KEYBOARD_H

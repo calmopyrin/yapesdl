@@ -104,19 +104,19 @@ static unsigned int		g_iEmulationLevel = 0;
 static unsigned int		g_bTrueDriveEmulation = 0;
 static char				lastSnapshotName[512] = "";
 static rvar_t mainSettings[] = {
-	{ "Show framerate", "DisplayFrameRate", toggleShowSpeed, &g_FrameRate, RVAR_TOGGLE, nullptr },
-	{ "Display debug info", "DisplayQuickDebugInfo", nullptr, &g_inDebug, RVAR_TOGGLE, nullptr },
-	{ "Speed limit", "50HzTimerActive", toggleFullThrottle, &g_50Hz, RVAR_TOGGLE, nullptr },
-	{ "Window scale", "WindowMultiplier", flipWindowScale, &g_iWindowMultiplier, RVAR_INT, nullptr },
-	{ "Active joystick", "ActiveJoystick", doSwapJoy, &KEYS::activejoy, RVAR_STRING_FLIPLIST, &KEYS::activeJoyTxt },
+	{ "Show framerate", "DisplayFrameRate", toggleShowSpeed, &g_FrameRate, RVAR_TOGGLE, NULL },
+	{ "Display debug info", "DisplayQuickDebugInfo", NULL, &g_inDebug, RVAR_TOGGLE, NULL },
+	{ "Speed limit", "50HzTimerActive", toggleFullThrottle, &g_50Hz, RVAR_TOGGLE, NULL },
+	{ "Window scale", "WindowMultiplier", flipWindowScale, &g_iWindowMultiplier, RVAR_INT, NULL },
 	{ "Machine type", "EmulationLevel", flipMachineTypeFwd, &g_iEmulationLevel, RVAR_STRING_FLIPLIST, &machineTypeLabel },
-	{ "CRT emulation", "CRTEmulation", toggleCrtEmulation, &g_bUseOverlay, RVAR_TOGGLE, nullptr },
-	{ "True drive emulation", "TrueDriveEmulation", toggleTrueDriveEmulation, &g_bTrueDriveEmulation, RVAR_TOGGLE, nullptr },
-	{ "Save settings on exit", "SaveSettingsOnExit", nullptr, &g_bSaveSettings, RVAR_TOGGLE, nullptr },
-	{ NULL, NULL, NULL, NULL, NULL }
+	{ "CRT emulation", "CRTEmulation", toggleCrtEmulation, &g_bUseOverlay, RVAR_TOGGLE, NULL },
+	{ "True drive emulation", "TrueDriveEmulation", toggleTrueDriveEmulation, &g_bTrueDriveEmulation, RVAR_TOGGLE, NULL },
+	{ "Save settings on exit", "SaveSettingsOnExit", NULL, &g_bSaveSettings, RVAR_TOGGLE, NULL },
+	{ NULL, NULL, NULL, NULL, NULL, NULL }
 };
 rvar_t *settings[] = {
 	mainSettings,
+	inputSettings,
 	soundSettings,
 	archDepSettings,
 	TED::tedSettings,
@@ -588,18 +588,10 @@ bool mainSaveMemoryAsPrg(const char *prgname, unsigned short &beginAddr, unsigne
 	return prgSaveBasicMemory(newPrgname, ted8360, beginAddr, endAddr, beginAddr == endAddr);
 }
 
-static void doSwapJoy(void *text)
-{
-	unsigned int active = KEYS::swapjoy();
-}
-
 static void doSwapJoy()
 {
-	char out[64];
-	doSwapJoy(out);
-	sprintf(textout, " ACTIVE JOY IS : %s ", KEYS::activeJoyTxt());
-	printf("%s\n", textout);
-	PopupMsg(textout);
+	KEYS::swapjoy(NULL);
+	PopupMsg(" ACTIVE JOY IS : %s ", KEYS::activeJoyTxt());
 }
 
 static void enterMenu()
@@ -959,7 +951,7 @@ inline static void poll_events(void)
 
 			case SDL_MOUSEBUTTONDOWN:
 				// stupid workaround for too early detection
-				if (ted8360->GetClockCount() > 10 * TED_REAL_CLOCK_M10) {
+				if (ted8360->GetClockCount() > TED_REAL_CLOCK_M10 / 10) {
 					if (timeOutOverlayKeys) {
 					}
 					timeOutOverlayKeys = 192;

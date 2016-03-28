@@ -7,7 +7,7 @@
 	and/or modify it under certain conditions. For more information,
 	read 'Copying'.
 
-	(c) 2000, 2001, 2004, 2015 Attila Grósz
+	(c) 2000, 2001, 2004, 2015, 2016 Attila Grósz
 */
 #include <memory.h>
 #include <stdio.h>
@@ -25,25 +25,26 @@ enum {
   	P4K_1, P4K_HOME, P4K_CTRL, P4K_2,  P4K_SPACE, P4K_COMMIE, P4K_Q, P4K_STOP
 };
 
-unsigned int KEYS::joystickScanCodes[5] = {
+unsigned int KEYS::joystickScanCodeIndex =
 #ifdef __EMSCRIPTEN__
-	SDL_SCANCODE_UP, SDL_SCANCODE_RIGHT, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_SPACE
+	1;
 #else
-	SDL_SCANCODE_KP_8, SDL_SCANCODE_KP_6, SDL_SCANCODE_KP_2, SDL_SCANCODE_KP_4, SDL_SCANCODE_KP_0 
+	0;
 #endif
+unsigned int KEYS::joystickScanCodes[][5] = {
+	{ SDL_SCANCODE_KP_8, SDL_SCANCODE_KP_6, SDL_SCANCODE_KP_2, SDL_SCANCODE_KP_4, SDL_SCANCODE_KP_0  },
+	{ SDL_SCANCODE_UP, SDL_SCANCODE_RIGHT, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_SPACE },
+	{ SDL_SCANCODE_W, SDL_SCANCODE_D, SDL_SCANCODE_S, SDL_SCANCODE_A, SDL_SCANCODE_RCTRL }
 }; // PC keycodes up, right, down, left and fire
-
-static const unsigned int joykeys[2][5]=
-	{ {P4K_5, P4K_6, P4K_R, P4K_D, P4K_T }, // keys for joystick 1 and 2 up, right, down, left and fire
-	{P4K_3, P4K_4, P4K_W, P4K_A, P4K_SHIFT } };
-
-static const unsigned int origkeys[5]={
-	P4K_UP, P4K_RIGHT, P4K_DOWN, P4K_LEFT, 255};
-
-//--------------------------------------------------------------
 unsigned int KEYS::nrOfJoys;
 SDL_GameController *KEYS::sdlJoys[2];
 unsigned int KEYS::activejoy = 0;
+
+rvar_t inputSettings[] = {
+	{ "Active joystick port", "ActiveJoystick", KEYS::swapjoy, &KEYS::activejoy, RVAR_STRING_FLIPLIST, &KEYS::activeJoyTxt },
+	{ "Active keyset for joystick", "KeysetIndex", KEYS::swapKeyset, &KEYS::joystickScanCodeIndex, RVAR_STRING_FLIPLIST, &KEYS::activeJoyKeyset },
+	{ NULL, NULL, NULL, NULL, NULL, NULL }
+};
 
 KEYS::KEYS() 
 {
@@ -230,15 +231,15 @@ unsigned char KEYS::joy_trans(unsigned char r)
 	unsigned char tmp;
 
 	tmp = ~
-		((kbstate[joystickScanCodes[0]]<<0)
-		|(kbstate[joystickScanCodes[2]]<<1)
-		|(kbstate[joystickScanCodes[3]]<<2)
-		|(kbstate[joystickScanCodes[1]]<<3));
+		((kbstate[joystickScanCodes[joystickScanCodeIndex][0]]<<0)
+		|(kbstate[joystickScanCodes[joystickScanCodeIndex][2]]<<1)
+		|(kbstate[joystickScanCodes[joystickScanCodeIndex][3]]<<2)
+		|(kbstate[joystickScanCodes[joystickScanCodeIndex][1]]<<3));
 
 	if (activejoy & 1)
-		tmp &= ~(kbstate[joystickScanCodes[4]] << 6);
+		tmp &= ~(kbstate[joystickScanCodes[joystickScanCodeIndex][4]] << 6);
 	if (activejoy & 2)
-		tmp &= ~(kbstate[joystickScanCodes[4]] << 7);
+		tmp &= ~(kbstate[joystickScanCodes[joystickScanCodeIndex][4]] << 7);
 
 	return tmp;
 }
@@ -293,9 +294,14 @@ unsigned char KEYS::feedjoy(unsigned char latch)
 	return tmp;
 }
 
-unsigned int KEYS::swapjoy()
+void KEYS::swapjoy(void *none)
 {
-	return (activejoy = (activejoy + 1) & 3);
+	activejoy = (activejoy + 1) & 3;
+}
+
+void KEYS::swapKeyset(void *none)
+{
+	joystickScanCodeIndex = (joystickScanCodeIndex + 1) % 3;
 }
 
 void KEYS::closePcJoys()

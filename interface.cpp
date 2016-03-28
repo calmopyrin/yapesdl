@@ -135,7 +135,7 @@ static rvar_t *findRVar(char *name)
 			item++;
 		}
 	}
-	return nullptr;
+	return NULL;
 }
 
 UI::UI(class TED *ted) :
