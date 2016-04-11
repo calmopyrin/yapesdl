@@ -28,7 +28,9 @@
 #define SDL_CONTROLLERBUTTONDOWN -1
 #endif
 
-extern bool autostart_file(char *szFile, bool autostart = true);
+extern bool autostart_file(const char *szFile, bool autostart = true);
+extern bool start_file(const char *szFile, bool autostart = true);
+extern bool openZipDisk(const char *fname, bool autostart);
 extern void machineDoSomeFrames(unsigned int frames);
 extern void machineEnable1551(bool enable);
 extern bool machineIsTrueDriveEnabled(unsigned int dn);
@@ -307,12 +309,17 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 				ftypes[0].menufunction = UI_TAP_ITEM;
 				break;
 			case UI_D64_ITEM:
+			case UI_ZIP_ITEM:
                 strcpy(ftypes[0].name, "*.d64");
 				ftypes[0].menufunction = UI_D64_ITEM;
-#ifndef WIN32
-                nrOfExts = 2;
-				strcpy(ftypes[1].name, "*.D64");
-                ftypes[1].menufunction = UI_D64_ITEM;
+				strcpy(ftypes[1].name, "*.zip");
+				ftypes[1].menufunction = UI_ZIP_ITEM;
+#ifdef WIN32
+				nrOfExts = 2;
+#else
+                nrOfExts = 3;
+				strcpy(ftypes[2].name, "*.D64");
+                ftypes[2].menufunction = UI_D64_ITEM;
 #endif
 				break;
 			case UI_FRE_ITEM:
@@ -341,6 +348,18 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 		//
 	}
 	menu->nr_of_elements = nf;
+}
+
+void UI::openD64Item(const char *name)
+{
+	machineEnable1551(false);
+	if (CTrueDrive::GetRoot()) {
+		CTrueDrive::SwapDisk(name);
+		const Uint8 *state = SDL_GetKeyboardState(NULL);
+		if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT]) {
+			autostart_file(name);
+		}
+	}
 }
 
 bool UI::handle_menu_command( struct element_t *element)
@@ -437,14 +456,10 @@ bool UI::handle_menu_command( struct element_t *element)
 			ted8360->tap->attach_tap();
 			break;
 		case UI_D64_ITEM:
-			machineEnable1551(false);
-			if (CTrueDrive::GetRoot()) {
-				CTrueDrive::SwapDisk(element->name);
-				const Uint8 *state = SDL_GetKeyboardState(NULL);
-				if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT]) {
-					autostart_file(element->name);
-				}
-			}
+			openD64Item(element->name);
+			break;
+		case UI_ZIP_ITEM:
+			start_file(element->name, true);
 			break;
 		case UI_FRE_ITEM:
 			SaveState::openSnapshot(element->name, false);

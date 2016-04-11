@@ -34,16 +34,17 @@ unsigned int KEYS::joystickScanCodeIndex =
 unsigned int KEYS::joystickScanCodes[][5] = {
 	{ SDL_SCANCODE_KP_8, SDL_SCANCODE_KP_6, SDL_SCANCODE_KP_2, SDL_SCANCODE_KP_4, SDL_SCANCODE_KP_0  },
 	{ SDL_SCANCODE_UP, SDL_SCANCODE_RIGHT, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_SPACE },
-	{ SDL_SCANCODE_W, SDL_SCANCODE_D, SDL_SCANCODE_S, SDL_SCANCODE_A, SDL_SCANCODE_RCTRL }
+	{ SDL_SCANCODE_W, SDL_SCANCODE_D, SDL_SCANCODE_S, SDL_SCANCODE_A, SDL_SCANCODE_RSHIFT }
 }; // PC keycodes up, right, down, left and fire
 unsigned int KEYS::nrOfJoys;
 SDL_GameController *KEYS::sdlJoys[2];
-unsigned int KEYS::activejoy = 0;
+// both joysticks are active by default
+unsigned int KEYS::activejoy = 3;
 
 rvar_t inputSettings[] = {
 	{ "Active joystick port", "ActiveJoystick", KEYS::swapjoy, &KEYS::activejoy, RVAR_STRING_FLIPLIST, &KEYS::activeJoyTxt },
 	{ "Active keyset for joystick", "KeysetIndex", KEYS::swapKeyset, &KEYS::joystickScanCodeIndex, RVAR_STRING_FLIPLIST, &KEYS::activeJoyKeyset },
-	{ NULL, NULL, NULL, NULL, NULL, NULL }
+	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };
 
 KEYS::KEYS() 

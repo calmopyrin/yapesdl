@@ -24,7 +24,7 @@ static void prgLoadFromBuffer(unsigned short &adr, unsigned int size, unsigned c
     mem->Write(loadEndAddPtr + 1,(endaddr)>>8);
 }
 
-bool PrgLoad(char *fname, int loadaddress, TED *mem)
+bool PrgLoad(const char *fname, int loadaddress, TED *mem)
 {
 	unsigned short	loadaddr;
 	unsigned int	fsize;
@@ -34,7 +34,7 @@ bool PrgLoad(char *fname, int loadaddress, TED *mem)
 	if ((prg = fopen(fname, "rb"))== NULL) {
     	return false;
 	} else {
-		fext = strrchr( fname, '.');
+		fext = (char *) strrchr( fname, '.');
 		if (!strcmp( fext, ".p00") || !strcmp(fext, ".P00"))
 			p00offset = 26;
 		// load PRG file
@@ -59,7 +59,7 @@ bool PrgLoad(char *fname, int loadaddress, TED *mem)
 	return true;
 }
 
-bool prgLoadFromT64(char *t64path, unsigned short *loadAddress, TED *mem)
+bool prgLoadFromT64(const char *t64path, unsigned short *loadAddress, TED *mem)
 {
 	if ((prg = fopen(t64path, "rb"))) {
 	    unsigned char dirEntry[32];
@@ -86,7 +86,7 @@ bool prgLoadFromT64(char *t64path, unsigned short *loadAddress, TED *mem)
     return false;
 }
 
-bool prgSaveBasicMemory(char *prgname, TED *mem, unsigned short &beginAddr, unsigned short &endAddr, bool isBasic)
+bool prgSaveBasicMemory(const char *prgname, TED *mem, unsigned short &beginAddr, unsigned short &endAddr, bool isBasic)
 {
     if ((prg = fopen(prgname, "wb"))) {
 		if (isBasic || beginAddr >= endAddr) {

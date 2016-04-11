@@ -79,7 +79,7 @@ static void flipInterlacedShade(void *none)
 
 rvar_t videoSettings[] = {
 	{ "Interlaced line shade", "InterlacedShade", flipInterlacedShade, &interlacedShade, RVAR_INT, NULL },
-	{ NULL, NULL, NULL, NULL, NULL }
+	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };
 
 static unsigned int doubleScan = 1;

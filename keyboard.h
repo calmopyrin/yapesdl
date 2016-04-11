@@ -46,7 +46,7 @@ class KEYS {
 		}
 		static void swapKeyset(void *none);
 		static const char *activeJoyKeyset() {
-			const char *txt[] = { "NUMPAD24680", "ARROWS+SPACE", "WASD+RCtrl" };
+			const char *txt[] = { "NUMPAD24680", "ARROWS+SPACE", "WASD+RShift" };
 			return txt[joystickScanCodeIndex];
 		}
 		unsigned char readLatch() { return latched | blockMask; };

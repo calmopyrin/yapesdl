@@ -9,7 +9,7 @@ class SaveState :
 public:
 	SaveState();
 	~SaveState();
-	static bool openSnapshot(char *fname, bool isWrite);
+	static bool openSnapshot(const char *fname, bool isWrite);
 	void setId(const char *id);
 	char *getId() { return componentName; }
 	static SaveState *findId(const char *id);

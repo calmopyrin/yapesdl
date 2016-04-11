@@ -17,6 +17,19 @@
 
 // Hack to store master volume
 unsigned int SIDsound::masterVolume = 0;
+// ugly but necessary for SID model selection to work for now
+unsigned int SIDsound::model_ = SID6581;
+unsigned int SIDsound::combinedWaveFormMask;
+int SIDsound::dcMixer;
+int SIDsound::dcVoice;
+int SIDsound::dcWave;
+int SIDsound::w0;
+int SIDsound::cutOffFreq[2048];
+unsigned int SIDsound::filterCutoff;
+rvar_t SIDsound::sidSettings[2] = {
+	{ "SID model", "SidModel", SIDsound::flipSidModel, &SIDsound::model_, RVAR_STRING_FLIPLIST, SIDsound::getSidModelLabel },
+	{ "", "", NULL, NULL, RVAR_NULL, NULL }
+};
 
 //
 //	Random number generator for noise waveform
@@ -61,6 +74,7 @@ inline int SIDsound::waveNoise(SIDVoice &v)
 void SIDsound::setModel(unsigned int model)
 {
 	int i;
+	double temp[2048];
 
 	switch (model) {
 		case SID8580DB:
@@ -73,7 +87,7 @@ void SIDsound::setModel(unsigned int model)
 				// approximate with a 2-degree polynomial
 				//double cf = -0.0177*x*x + 55.261*x - 55.518; // CSG 8580R4
 				double cf = -0.0156*x*x + 48.473*x - 45.074; // 8580R5
-				cutOffFreq[i] = cf <= 0 ? 0 : cf;
+				temp[i] = cf <= 0 ? 0 : cf;
 			}
 			dcWave = 0x000;
 			dcMixer = 0;
@@ -83,16 +97,16 @@ void SIDsound::setModel(unsigned int model)
 
 		case SID6581: // R4 actually
 			for (i=0; i<1024; i++) {
-				cutOffFreq[i] = (tanh(((double)i/1.5 - 1024.0)/1024.0*M_PI) + tanh(M_PI))
+				temp[i] = (tanh(((double)i/1.5 - 1024.0)/1024.0*M_PI) + tanh(M_PI))
 					* (6000.0 - 220.0) + 220.0;
 			}
 			for (; i<1056; i++) {
 				double x = ((double)i - 1024.0) / (1056.0 - 1003.);
-				cutOffFreq[i] = x*(1315.0 - 1003.0) + 1003.0;
+				temp[i] = x*(1315.0 - 1003.0) + 1003.0;
 			}
 			for (; i<2048; i++) {
 				double x = ((double)i - 1056.0) / (2048.0 - 1056.0);
-				cutOffFreq[i] = //(tanh (((double)i - 2048.0)/1024.0*M_PI) + tanh(M_PI))
+				temp[i] = //(tanh (((double)i - 2048.0)/1024.0*M_PI) + tanh(M_PI))
 					//* (20163.0 - 1315.0) + 1315.0;
 					(20163.0 - 1315.0) * x + 1315.0;
 			}
@@ -104,11 +118,11 @@ void SIDsound::setModel(unsigned int model)
 
 		case SID6581R1: // 6581 R1
 			for (i=0; i<1024; i++) {
-				cutOffFreq[i] = (tanh(((double)i-1024.0)/1024.0*M_PI) + tanh(M_PI))
+				temp[i] = (tanh(((double)i-1024.0)/1024.0*M_PI) + tanh(M_PI))
 					* (6000.0 - 220.0) + 220.0;
 			}
 			for (; i<2048; i++) {
-				cutOffFreq[i] = (tanh (((double)i-2048.0)/1024.0*M_PI) + tanh(M_PI))
+				temp[i] = (tanh (((double)i-2048.0)/1024.0*M_PI) + tanh(M_PI))
 					* (18000.0 - 4600.0) + 4600.0;
 			}
 			dcWave = 0x380;
@@ -116,6 +130,10 @@ void SIDsound::setModel(unsigned int model)
 			dcVoice = 0x800*0xFF;
 			combinedWaveFormMask = 0x3F;
 			break;
+	}
+	for (i=0; i<2048; i++) {
+		const double freqDomainDivCoeff = 2 * M_PI * 1.048576;
+		cutOffFreq[i] = int(temp[i] * freqDomainDivCoeff);
 	}
 	setFilterCutoff();
 	model_ = model;
@@ -451,11 +469,11 @@ void SIDsound::write(unsigned int adr, unsigned char value)
 
 inline void SIDsound::setFilterCutoff()
 {
-	const double freqDomainDivCoeff = 2 * M_PI * 1.048576;
-	w0 = int(cutOffFreq[filterCutoff] * freqDomainDivCoeff);
+	w0 = cutOffFreq[filterCutoff];
 	// Limit cutoff to Nyquist frq to keep the sample based filter stable
-	const double NyquistFrq = double(sampleRate) / 2;
-	const double maxCutOff = NyquistFrq > 16000.0 ? 16000.0 : NyquistFrq;
+	const int NyquistFrq = sampleRate / 2;
+	const int maxCutOff = NyquistFrq > 16000 ? 16000 : NyquistFrq;
+	const double freqDomainDivCoeff = 2 * M_PI * 1.048576;
 	const int w0MaxDt = int(maxCutOff * freqDomainDivCoeff); // 16000
 	if (w0 > w0MaxDt) w0 = w0MaxDt;
 }

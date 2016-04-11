@@ -180,7 +180,7 @@ void FdcGcr::readState()
 	readVar(&spinFactor, sizeof(spinFactor));
 }
 
-void FdcGcr::openDiskImage(char *filepath)
+void FdcGcr::openDiskImage(const char *filepath)
 {
 	closeDiskImage();
 	attachD64file(filepath);
@@ -213,7 +213,7 @@ void FdcGcr::closeDiskImage()
 	isDiskInserted = false;
 }
 
-void FdcGcr::attachD64file(char *filepath)
+void FdcGcr::attachD64file(const char *filepath)
 {
 	unsigned long size;
 	unsigned char magic[4];

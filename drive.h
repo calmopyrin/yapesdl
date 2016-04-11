@@ -18,7 +18,7 @@ public:
 	};
 	virtual ~Drive() {	};
 	virtual void Reset() = 0;
-	virtual void AttachDisk(char *fname) = 0;
+	virtual void AttachDisk(const char *fname) = 0;
 	virtual void DetachDisk() = 0;
 	static void ChangeEmulation();
 protected:
@@ -32,7 +32,7 @@ public:
 	FakeDrive();
 	virtual ~FakeDrive() {	};
 	virtual void Reset();
-	virtual void AttachDisk(char *fname);
+	virtual void AttachDisk(const char *fname);
 	virtual void DetachDisk();
 private:
 	CTCBM *tcbm;
@@ -60,9 +60,9 @@ public:
 	FdcGcr *GetFdc() {
 		return static_cast<FdcGcr*>(Fdc);
 	};
-	virtual void AttachDisk(char *fname);
+	virtual void AttachDisk(const char *fname);
 	virtual void DetachDisk();
-	static void SwapDisk(char *fname);
+	static void SwapDisk(const char *fname);
 	static CTrueDrive *GetRoot() { return RootDevice; };
 	CTrueDrive *GetNext() { return NextDevice; };
 	unsigned int GetDevNr() { return devNr; };
@@ -124,7 +124,7 @@ public:
 	FakeSerialDrive(unsigned int dn);
 	virtual ~FakeSerialDrive();
 	virtual void Reset() {};
-	virtual void AttachDisk(char *fname) {
+	virtual void AttachDisk(const char *fname) {
 		//iecDrive->
 	}
 	virtual void DetachDisk() {

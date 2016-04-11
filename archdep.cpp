@@ -36,7 +36,7 @@ static unsigned int maxFps = 100;
 static unsigned int maxFpsIndex = 0;
 rvar_t archDepSettings[] = {
 	{ "Maximum framerate", "MaxFrameRate", flipMaxFps, &maxFps, RVAR_INT, NULL },
-	{ NULL, NULL, NULL, NULL, NULL, NULL }
+	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };
 
 static void flipMaxFps(void *v)
@@ -393,4 +393,40 @@ unsigned int ad_get_fps(unsigned int &framesDrawn)
 	return fps << 1;
 }
 
+#endif
+
+#if defined(__EMSCRIPTEN__) || defined(ZIP_SUPPORT)
+#pragma comment(lib, "zlibstat.lib")
+#include "zlib/unzip.h"
+
+bool zipOpen(const char *zipName, unsigned char *buffer, unsigned int &bufferSize)
+{
+	unzFile zipFile = unzOpen(zipName);
+	   
+	if (zipFile) {
+		if (unzGoToFirstFile(zipFile) == UNZ_OK) {
+			unz_file_info zipfileinfo;
+			char zippedName[512];
+			if (unzOpenCurrentFile(zipFile) == UNZ_OK) {
+				int result = unzGetCurrentFileInfo(zipFile, &zipfileinfo, zippedName, 512, NULL, 0, NULL, 0);
+				fprintf(stderr, "First file in ZIP: %s\n", zippedName);
+				unsigned int fsize = zipfileinfo.uncompressed_size;
+
+				if (fsize > bufferSize) 
+					fsize = bufferSize;
+				bufferSize = fsize;
+				unzReadCurrentFile(zipFile, buffer, fsize);
+				unzCloseCurrentFile(zipFile);
+				unzClose(zipFile);
+				return true;
+			}
+		}
+	}
+	return false;
+}
+#else
+bool zipOpen(const char *zipName, unsigned char *buffer, unsigned int &bufferSize)
+{
+	return false;
+}
 #endif

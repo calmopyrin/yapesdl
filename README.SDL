@@ -76,14 +76,16 @@ USAGE
   F10		: save current settings to user's home directory
 
   LALT + 1-3   : set window size
-  LALT + E	   : switch among emulators (C+4 cycle based; C+4 line based; C64 cycle based)
+  LALT + L	   : switch among emulators (C+4 cycle based; C+4 line based; C64 cycle based)
   LALT + I	   : switch emulated joystick port
   LALT + M     : enter console based external monitor and disassembler
   LALT + P	   : toggle CRT emulation
-  LALT + R     : machine reset
+  LALT + R     : machine forced reset
   LALT + S     : display frame rate on/off  
   LALT + W	   : toggle between unlimited speed and 50 Hz frame rate (original speed)
   LALT + ENTER : toggle full screen mode
+  LALT + F5    : save emulator state
+  LALT + F6    : load emulator state
   LALT + F8	   : save memory pointed by $2B/$2C and $2D/$2E
   LALT + KPLUS : collate replay frequencies
   

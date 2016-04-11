@@ -19,7 +19,7 @@ public:
 	FdcGcr();
 	virtual ~FdcGcr();
 
-	virtual void openDiskImage(char *filepath);
+	virtual void openDiskImage(const char *filepath);
 	void moveHeadOut();
 	void moveHeadIn();
 	unsigned char SyncFound();
@@ -56,7 +56,7 @@ public:
 
 private:
 
-	void attachD64file(char *filepath);
+	void attachD64file(const char *filepath);
 	bool readSector(int track, int sector, unsigned char *buffer);
 	bool writeSector(int track, int sector, unsigned char *buffer);
 	unsigned int secnumFromTS(unsigned int track, unsigned int sector);

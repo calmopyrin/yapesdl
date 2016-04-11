@@ -25,6 +25,7 @@ typedef struct _MEM_PATCH {
 } mem_patch;
 
 enum RvarTypes {
+	RVAR_NULL,
 	RVAR_TOGGLE,
 	RVAR_INT,
 	RVAR_HEX,

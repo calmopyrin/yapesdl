@@ -9,6 +9,8 @@
 #define SAMPLE_FREQ 48000 //48000 192000
 #endif
 
+//#define AUDIO_CALLBACK
+
 // derive from this class for sound sources
 class SoundSource : public LinkedList<SoundSource> {
 public:

@@ -30,7 +30,7 @@ void FakeDrive::Reset()
 	device->Reset();	
 }
 
-void FakeDrive::AttachDisk(char *fname)
+void FakeDrive::AttachDisk(const char *fname)
 {
 	
 }
@@ -76,14 +76,14 @@ CTrueDrive::CTrueDrive(unsigned int type, unsigned int dn)
 	Drives[dn&7] = this;
 }
 
-void CTrueDrive::AttachDisk(char *fname)
+void CTrueDrive::AttachDisk(const char *fname)
 {
 	if (FdcGCR) {
 		FdcGCR->openDiskImage(fname);
 	}
 }
 
-void CTrueDrive::SwapDisk(char *fname)
+void CTrueDrive::SwapDisk(const char *fname)
 {
 	CTrueDrive *d = CTrueDrive::GetRoot();
 	if (d) {

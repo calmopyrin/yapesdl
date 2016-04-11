@@ -69,9 +69,9 @@ rvar_t TED::tedSettings[] = {
 	//{ "rom c0 hi", "ROMC0HIGH", NULL, TED::romhighpath[0], RVAR_STRING },
 	//{ "rom c1 hi", "ROMC1HIGH", NULL, TED::romhighpath[1], RVAR_STRING },
 	//{ "rom c2 hi", "ROMC2HIGH", NULL, TED::romhighpath[2], RVAR_STRING },
-	{ "C264 RAM mask", "RamMask", TED::flipRamMask, &TED::RAMMask, RVAR_HEX },
+	{ "C264 RAM mask", "RamMask", TED::flipRamMask, &TED::RAMMask, RVAR_HEX, NULL },
 	//{ "C264 RAM expansion", "256KBRAM", TED::bigram, &TED::bigram, RVAR_TOGGLE },
-	{ NULL, NULL, NULL, NULL, NULL }
+	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };
 
 enum {

@@ -27,6 +27,7 @@ enum UI_MenuClass {
 	UI_PRG_ITEM,
 	UI_TAP_ITEM,
 	UI_D64_ITEM,
+	UI_ZIP_ITEM,
 	UI_DIR_ITEM,
 	UI_DRIVE_ITEM,
 	UI_T64_ITEM,
@@ -102,6 +103,7 @@ class UI {
 		void menuMoveUp();
 		void menuMoveDown();
 		int menuEnter(bool forceAutoRun);
+		void openD64Item(const char *name);
 
 	public:
 		UI(class TED *ted);

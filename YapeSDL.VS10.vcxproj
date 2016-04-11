@@ -76,10 +76,8 @@
   <PropertyGroup>
     <_ProjectFileVersion>10.0.40219.1</_ProjectFileVersion>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Debug\</OutDir>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Emscripten'">Debug\</OutDir>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">DebugX64\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Debug\</IntDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Emscripten'">Debug\</IntDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">DebugX64\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</LinkIncremental>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Emscripten'">true</LinkIncremental>
@@ -88,10 +86,8 @@
     <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|Emscripten'">false</GenerateManifest>
     <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</GenerateManifest>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Release\</OutDir>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Emscripten'">Release\</OutDir>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">ReleaseX64\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Release\</IntDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Emscripten'">Release\</IntDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">ReleaseX64\</IntDir>
     <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</GenerateManifest>
     <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|Emscripten'">false</GenerateManifest>
@@ -149,6 +145,7 @@
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <PreprocessToFile>false</PreprocessToFile>
       <AdditionalOptions>-g4 %(AdditionalOptions)</AdditionalOptions>
+      <GenerateDebugInformation>FullDebugInfo</GenerateDebugInformation>
     </ClCompile>
     <Link>
       <AdditionalDependencies>-lSDL2main;-lSDL2;%(AdditionalDependencies)</AdditionalDependencies>
@@ -215,7 +212,11 @@
       <JsLibrary>
       </JsLibrary>
       <PreloadFile>.\Debug\p4games@\;%(PreloadFile)</PreloadFile>
-      <AdditionalOptions>-s TOTAL_MEMORY=67108864 -s ASYNCIFY=1 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>"D:\Program Files\Emscripten\emscripten\1.35.0\system\lib\zlib.bc" -s TOTAL_MEMORY=104857600</AdditionalOptions>
+      <PostJsFile>
+      </PostJsFile>
+      <PreJsFile>
+      </PreJsFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

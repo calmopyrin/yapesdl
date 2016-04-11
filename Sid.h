@@ -31,13 +31,22 @@ public:
 	virtual void dumpState();
 	virtual void readState();
 	//
-	void setModel(unsigned int model);
+	static void setModel(unsigned int model);
 	void calcEnvelopeTable();
 	unsigned char read(unsigned int adr);
 	void write(unsigned int adr, unsigned char byte);
 	void enableDisableChannel(unsigned int ch, bool enabled) {
 		voice[ch].disabled = !enabled;
 	}
+	static void flipSidModel(void *n) {
+		model_ = (model_ + 1) % 4;
+		setModel(model_);
+	}
+	static const char *getSidModelLabel() {
+		const char *label[] = { "6581R4", "8580", "8580+DB", "6581R1" };
+		return label[model_];
+	}
+	static rvar_t sidSettings[2];
 
 private:
 
@@ -96,9 +105,9 @@ private:
 	unsigned int sidCyclesPerSampleInt;
 	unsigned int clockDeltaRemainder; // Accumulator for frequency conversion
 	unsigned int clockDeltaFraction; // Fractional component for frequency conversion
-	int dcMixer; // different for 6581 and 8580 (constant level output for digi)
-	int dcVoice;
-	int dcWave;
+	static int dcMixer; // different for 6581 and 8580 (constant level output for digi)
+	static int dcVoice;
+	static int dcWave;
 	int dcDigiBlaster;
 	int extIn;
 	//
@@ -122,21 +131,21 @@ private:
 	unsigned char reg[32];
 	// filter stuff
 	unsigned char	filterType; // filter type
-	unsigned int	filterCutoff;	// SID filter frequency
+	static unsigned int	filterCutoff;	// SID filter frequency
 	unsigned char	filterResonance;	// filter resonance (0..15)
-	double cutOffFreq[2048];	// filter cutoff frequency register
+	static int cutOffFreq[2048];	// filter cutoff frequency register
 	int resonanceCoeffDiv1024;		// filter resonance * 1024
-	int w0;					// filter cutoff freq
+	static int w0;					// filter cutoff freq
 	void setResonance();
-	void setFilterCutoff();
+	static void setFilterCutoff();
 	int filterOutput(unsigned int cycles, int Vi);
 	int Vhp; // highpass
 	int Vbp; // bandpass
 	int Vlp; // lowpass
 	//
 	unsigned char lastByteWritten;// Last value written to the SID
-	int model_;
-	unsigned int combinedWaveFormMask;
+	static unsigned int model_;
+	static unsigned int combinedWaveFormMask;
 	bool enableDigiBlaster;
 };
 

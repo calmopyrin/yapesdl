@@ -90,7 +90,7 @@ Vic2mem::Vic2mem()
 	if (!sidCard)
 		enableSidCard(true, 0);
 	sidCard->setFrequency(VIC_SOUND_CLOCK);
-	sidCard->setModel(SID6581R1);
+	sidCard->setModel(SID6581);
 	masterClock = VIC_REAL_CLOCK_M10;
 	actram = Ram;
 	loadroms();
@@ -1043,8 +1043,24 @@ skip:
 								SET_BITS(mob[i].enabled, value);
 								break;
 							case 0x17:
-								SET_BITS(mob[i].expandY, value);
-								SET_BITS(mob[i].reloadFlipFlop, value);
+								// sprite crunch?
+								if (beamx == 2) {
+									unsigned int i = 7; 
+									do {
+										unsigned int bit = (1 << i);
+										unsigned int newBitOn = value & bit;
+										if ((vicReg[0x17] & bit) && !newBitOn) {
+											unsigned int &dcReload = mob[i].dataCountReload;
+											unsigned int dc = (dcReload + 3) & 0x3F;
+											dcReload = (0x2A & dcReload & dc) | (0x15 & (dcReload | dc));
+										}
+										mob[i].expandY = mob[i].reloadFlipFlop = !!newBitOn;
+									} while(i--);
+								} else 
+								{
+									SET_BITS(mob[i].expandY, value);
+									SET_BITS(mob[i].reloadFlipFlop, value);
+								}
 								break;
 							case 0x1B:
 								SET_BITS(mob[i].priority, value);
@@ -1167,7 +1183,7 @@ void Vic2mem::latchCounters()
 void Vic2mem::doHRetrace()
 {
 	static unsigned char *sPtr = scrptr;
-	if (vicReg[0x15]) 
+	//if (vicReg[0x15]) 
 		drawSpritesPerLine(sPtr);
 	// the beam reached a new line
 	sPtr = scrptr;
@@ -2006,7 +2022,7 @@ inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
 				// set flipflop to Y expension bit
 				flipFlop = mob[i].expandY;
 			}
-			dc = dcReload + 3;
+			dc = (dcReload + 3) & 0x3F;
 			const unsigned int tvX = RASTERX2TVCOL(mob[i].x);
 			unsigned char *d = vicBase + mob[i].dataAddress + dcReload;
 			unsigned char *p = lineBuf + tvX;

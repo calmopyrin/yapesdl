@@ -29,6 +29,7 @@
 #include "tedmem.h"
 #include "tape.h"
 #include "sound.h"
+#include "Sid.h"
 #include "archdep.h"
 #include "iec.h"
 #include "device.h"
@@ -112,12 +113,13 @@ static rvar_t mainSettings[] = {
 	{ "CRT emulation", "CRTEmulation", toggleCrtEmulation, &g_bUseOverlay, RVAR_TOGGLE, NULL },
 	{ "True drive emulation", "TrueDriveEmulation", toggleTrueDriveEmulation, &g_bTrueDriveEmulation, RVAR_TOGGLE, NULL },
 	{ "Save settings on exit", "SaveSettingsOnExit", NULL, &g_bSaveSettings, RVAR_TOGGLE, NULL },
-	{ NULL, NULL, NULL, NULL, NULL, NULL }
+	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };
 rvar_t *settings[] = {
 	mainSettings,
 	inputSettings,
 	soundSettings,
+	SIDsound::sidSettings,
 	archDepSettings,
 	TED::tedSettings,
 	videoSettings,
@@ -233,9 +235,41 @@ static void toggleTrueDriveEmulation(void *none)
 	machineEnable1551(!e);
 }
 
-bool start_file(char *szFile, bool autostart = true)
+static void startd64(const char *fileName, bool autostart)
 {
-	char *pFileExt = strrchr(szFile, '.');
+	if (!machineIsTrueDriveEnabled()) {
+		machineEnable1551(false);
+		machineDoSomeFrames(70);
+		CTrueDrive::SwapDisk(fileName);
+	}
+	if (autostart)
+		ted8360->copyToKbBuffer("L\317\042*\042,8,1\rRUN:\r", 15);
+	else
+		ted8360->copyToKbBuffer("L\317\042*\042,8,1\r\r", 11);
+}
+
+bool openZipDisk(const char *fname, bool autostart)
+{
+	const unsigned int size = 1 << 20;
+	unsigned char b[200000];
+	unsigned int fsize = size;
+	const char *tmpName = "tmp.d64";
+
+	if (zipOpen(fname, b, fsize)) {
+		FILE *tmp = fopen(tmpName, "wb");
+		if (tmp) {
+			fwrite(b, sizeof(char), fsize, tmp);
+			fclose(tmp);
+			startd64(tmpName, autostart);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool start_file(const char *szFile, bool autostart = true)
+{
+	char *pFileExt = (char *) strrchr(szFile, '.');
 
 	if (pFileExt) {
 		char *fileext = pFileExt;
@@ -244,16 +278,11 @@ bool start_file(char *szFile, bool autostart = true)
 			pFileExt++;
 		} while (*pFileExt);
 		if (!strcmp(fileext,".d64") || !strcmp(fileext,".D64")) {
-			if (!machineIsTrueDriveEnabled()) {
-				machineEnable1551(false);
-				machineDoSomeFrames(70);
-				CTrueDrive::SwapDisk(szFile);
-			}
-			if (autostart)
-				ted8360->copyToKbBuffer("L\317\042*\042,8,1\rRUN:\r", 15);
-			else
-				ted8360->copyToKbBuffer("L\317\042*\042,8,1\r\r", 11);
+			startd64(szFile, autostart);
 			return true;
+		}
+		if (!strcmp(fileext,".zip") || !strcmp(fileext,".ZIP")) {
+			return openZipDisk(szFile, autostart);
 		}
 		if (!strcmp(fileext,".prg") || !strcmp(fileext,".PRG")
 			|| !strcmp(fileext,".p00") || !strcmp(fileext,".P00")) {
@@ -281,7 +310,7 @@ bool start_file(char *szFile, bool autostart = true)
 	return false;
 }
 
-bool autostart_file(char *szFile, bool autostart)
+bool autostart_file(const char *szFile, bool autostart)
 {
 	machineReset(true);
 	// do some frames
@@ -1166,6 +1195,8 @@ int main(int argc, char *argv[])
 #ifdef __EMSCRIPTEN__
 		printf("Parameter 2 :%s\n", argv[2]);
 		emscripten_wget(argv[1], argv[2]);
+		if (argc >= 3 && !strcmp(argv[3], "-c64"))
+			setEmulationLevel(2);
 		autostart_file(argv[2], true);
 #else
 		// and then try to load the parameter as file

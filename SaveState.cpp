@@ -34,7 +34,7 @@ SaveState *SaveState::findId(const char *id)
 	return NULL;
 }
 
-bool SaveState::openSnapshot(char *fname, bool isWrite)
+bool SaveState::openSnapshot(const char *fname, bool isWrite)
 {
 	const char *mode = isWrite ? "wb" : "rb";
 	ssfp = fopen(fname, mode);

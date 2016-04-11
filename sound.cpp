@@ -15,8 +15,8 @@ static SDL_AudioSpec obtained, *audiohwspec;
 //
 static const unsigned int bufLenInMsec[] = { 20, 50, 100, 200, 10 };
 static unsigned int bufLenIndex = 0;
-static int bufferLatencyInFrags = 2;
-static int bufferMaxLeadInFrags = 6;
+static int bufferLatencyInFrags = 1;
+static int bufferMaxLeadInFrags = 4;
 static unsigned int BufferLengthInMsec;
 //
 static unsigned int	MixingFreq;
@@ -63,6 +63,9 @@ void SoundSource::bufferFill(unsigned int nrsamples, short *buffer)
 
 static void add_new_frag()
 {
+#ifndef AUDIO_CALLBACK
+	SDL_QueueAudio(dev, sndWriteBufferPtr, BufferLength * 2);
+#endif
 	sndWriteBufferIndex++;
 	sndWriteBufferPtr = sndRingBuffer
 		+ (BufferLength * (sndWriteBufferIndex % SND_BUF_MAX_READ_AHEAD));
@@ -77,7 +80,12 @@ static void delete_frag()
 
 static int getLeadInFrags()
 {
+#ifdef AUDIO_CALLBACK
 	return (int) (sndWriteBufferIndex - sndPlayBufferIndex);
+#else
+	unsigned int b = SDL_GetQueuedAudioSize(dev);
+	return (int) (b / (BufferLength << 1));
+#endif
 }
 
 static void fragmentDone()
@@ -174,7 +182,7 @@ static unsigned int calibrateAudioBufferSize(unsigned int msec, unsigned int sam
 	// Linux needs a buffer with a size of a factor of 512?
 	// 512 1024 2048 4096
 	double x = msec * sampleRate / 1000.0;
-	return (unsigned int)(x / 1024.0 + 0.5) * 1024.0;
+	return (unsigned int)(x / 1024.0 + 0.5) * 1024;
 #endif
 }
 
@@ -200,7 +208,12 @@ void init_audio(unsigned int sampleFrq)
 	desired.format		= AUDIO_S16;
 	desired.channels	= 1;
 	desired.samples		= BufferLength;
-	desired.callback	= audioCallback;
+	desired.callback	= 
+#ifdef AUDIO_CALLBACK
+		audioCallback;
+#else
+		NULL;
+#endif
 	desired.userdata	= NULL;
 	desired.size		= desired.channels * desired.samples * sizeof(Uint8);
 	desired.silence		= 0x00;
@@ -311,5 +324,5 @@ rvar_t soundSettings[] = {
 	{ "Audio frequency", "SoundFrequency", flipAudioFrequency, &MixingFreq, RVAR_INT, NULL },
 	{ "Audio buffer length in msec", "AudioBufferLength", flipAudioBufferSize, &BufferLengthInMsec, RVAR_INT, NULL },
 #endif
-	{ NULL, NULL, NULL, NULL, NULL }
+	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };

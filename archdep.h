@@ -50,6 +50,8 @@ extern void				ad_vsync_init(void);
 extern bool				ad_vsync(bool sync);
 extern unsigned int		ad_get_fps(unsigned int &framesDrawn);
 
+extern bool zipOpen(const char *zipName, unsigned char *buffer, unsigned int &bufferSize);
+
 class Sync {
 public:
 	Sync();
