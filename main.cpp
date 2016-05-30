@@ -410,6 +410,7 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 	e = SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
 	if (timeOutOverlayKeys) {
 		showKeyboardOverlay();
+		//SDL_StartTextInput();
 		if (!mouseBtnHeld)
 			timeOutOverlayKeys -= 4;
 	}
@@ -1099,10 +1100,14 @@ static void app_initialise()
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         WINDOWX * g_iWindowMultiplier, WINDOWY * g_iWindowMultiplier,
 		SDL_WINDOW_RESIZABLE); // SDL_WINDOW_FULLSCREEN_DESKTOP
-    if ( !sdlWindow ) {
+    if (!sdlWindow) {
         printf("Unable to create window: %s\n", SDL_GetError());
         return;
     }
+	printf("On-screen keyboard");
+	if (!SDL_HasScreenKeyboardSupport()) 
+		printf(" not");
+	printf(" supported.\n");
 	setSDLIcon(sdlWindow);
     sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");

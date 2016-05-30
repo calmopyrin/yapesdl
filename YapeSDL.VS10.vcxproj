@@ -203,7 +203,7 @@
       <OptimizationLevel>O3</OptimizationLevel>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>-lSDL2;-lSDL2main;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>-lSDL2;-lSDL2main;D:\Program Files\Emscripten\emscripten\1.35.0\system\lib\zlib.bc;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -211,8 +211,9 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <JsLibrary>
       </JsLibrary>
-      <PreloadFile>.\Debug\p4games@\;%(PreloadFile)</PreloadFile>
-      <AdditionalOptions>"D:\Program Files\Emscripten\emscripten\1.35.0\system\lib\zlib.bc" -s TOTAL_MEMORY=104857600</AdditionalOptions>
+      <PreloadFile>
+      </PreloadFile>
+      <AdditionalOptions>"D:\Program Files\Emscripten\emscripten\1.35.0\system\lib\zlib.bc" -s TOTAL_MEMORY=104857600 -s ASYNCIFY=1 </AdditionalOptions>
       <PostJsFile>
       </PostJsFile>
       <PreJsFile>
