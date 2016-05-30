@@ -24,37 +24,73 @@ LEGAL
   You should have received a copy of the GNU General Public License
   along with this program; if not see <http://www.gnu.org/licenses/>.
 
-  The ROM file headers in the package are 
+  The ROM file headers in the package used to be 
   Copyright (C) by Commodore Business Machines.
 
 COMPILE
 =======
+
+  Define AUDIO_CALLBACK if you want to use the older audio API using
+  callbacks (pre-2.0.4 versions of SDL2 only support this one).
+
+  Define explicitly ZIP_SUPPORT in case you need preliminary ZIP file 
+  support - only used for opening compressed D64 files for now.
+
+  GNU
+  ---
   
   To be able to compile on Linux, you must have the latest SDL
   package from http://libsdl.org. The recent stable release as of time of
-  this writing is 2.0.4. You will need the development libraries.
+  this writing is 2.0.4. You will also need the development libraries.
   
   The provided makefile is written for the GNU C++ compiler but can also
   be easily adjusted for other compilers.
   
-  It is very likely that if SDL is supported on your system, than Yape can
-  be compiled and run. Hence, an Android port is also possible, and Yape has
-  been succesfully compiled on Windows and 64 bit Linux systems as well.
+  It is very likely that if SDL and GCC are supported on your system, then 
+  Yape can be compiled and run. Hence, an Android port is also possible, 
+  and Yape has been succesfully compiled on Windows and 64 bit Linux systems
+  as well.
   
   Once the libraries and header files are installed, you should
   extract the source tarball to a directory, and simply type:
   
   make
+
+  Alternatively, you can use the provided Code::Blocks project
+  file to compile Yape.
   
   If the compilation finished with no error, you can type:
   
-  ./yapesdl [PRG/TAP filename]
+      ./yapesdl [PRG/P00/T64/TAP/D64/ZIP filename] [-c64]
   
-  to start the emulator, where filename is optional.
+  to start the emulator, where [] means optional arguments.
+
+  Windows
+  -------
+
+  Make sure you install either the Visual Studio or the Mingw version
+  of the SDL development library. You can use either compiler
+  targeting 32 as well as 64-bit binary builds.
   
   Note that the 2.0.4 version of the Windows SDL runtime library has a
   serious crash in its DX9 driver. The one included in the Windows 
   yapesdl binary package is a bugfixed build.
+
+  Emscripten
+  ----------
+
+  Compiling for Emscripten (Javascript) requires a lot of ugly manual
+  workarounds. These will be documented at a later stage.
+
+  Under Windows it's best to use the official package that is embedded
+  into Visual Studio 2010.
+
+  You might also need to download SDL2 headers separately from here:
+  https://github.com/kripken/emscripten
+  https://github.com/emscripten-ports/SDL2
+
+  Also download the prebuilt SDL2 libraries required for linking:
+  https://buildbot.libsdl.org/sdl-builds/sdl-emscripten/?C=M;O=D
 
 USAGE
 =====
@@ -142,9 +178,10 @@ FEATURES
 LINKS
 =====
 
-  http://yapesdl.codeplex.com			: source repository for yape/SDL
+  http://yapesdl.codeplex.com           : source repository for yape/SDL
   http://yape.plus4.net                 : Yape homepage
   http://plus4world.powweb.com          : Commodore +4 World (games, tape images, scans etc.)
-  http://c64.rulez.org	                : Commodore plus/4 mail list and FTP archive
+  http://c64.rulez.org	                : Commodore plus/4 FTP archive
   http://gaia.atilia.eu                 : My emulator page
   
+
