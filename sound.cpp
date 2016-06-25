@@ -5,6 +5,9 @@
 #include "sound.h"
 
 //#define LOG_AUDIO
+#ifndef __EMSCRIPTEN__
+#define AUDIO_CALLBACK
+#endif
 
 #define SND_BUF_MAX_READ_AHEAD bufferMaxLeadInFrags
 #define SND_LATENCY_IN_FRAGS bufferLatencyInFrags
@@ -15,8 +18,8 @@ static SDL_AudioSpec obtained, *audiohwspec;
 //
 static const unsigned int bufLenInMsec[] = { 20, 50, 100, 200, 10 };
 static unsigned int bufLenIndex = 0;
-static int bufferLatencyInFrags = 1;
-static int bufferMaxLeadInFrags = 4;
+static int bufferLatencyInFrags = 2;
+static int bufferMaxLeadInFrags = 5;
 static unsigned int BufferLengthInMsec;
 //
 static unsigned int	MixingFreq;

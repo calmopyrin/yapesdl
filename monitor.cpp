@@ -23,7 +23,7 @@ static struct {
 	{ "> [<address>] [<arg1>] [<arg2>] .. [<arg#>]", MON_CMD_CHANGEMEM, "Show/change memory from <address>." },
 	{ "d [<address>]", MON_CMD_DISASS, "Disassemble (from <address>)." },
 	{ "f <src_from> <src_to> <value>", MON_CMD_FILLMEM, "Fill memory range with <value>." },
-	{ "g [<address>]", MON_CMD_GO, "Go (to [<address>])." },
+	{ "g [<address>]", MON_CMD_GO, "Set PC (to [<address>])." },
 	{ "m [<address>]", MON_CMD_MEM, "Memory dump (from [<address>])." },
 	{ "s <filename> [<address1>] [<address2>]", MON_CMD_SAVEPRG, "Save memory as PRG (from <address1> to <address2>" },
 	{ "t <src_from> <src_to> <target>", MON_CMD_TRANSFER, "Memory copy transfer (from start address)." },
@@ -360,7 +360,6 @@ void executeCmd(unsigned int cmd, vector<string> &args, char *wholeLine)
 			if (argCount >= 1) {
 				cpuptr->setPC(argval[0]);
 			}
-			command = MON_CMD_EXIT;
 			break;
 
 		//case MON_CMD_ATTACHIMAGE:

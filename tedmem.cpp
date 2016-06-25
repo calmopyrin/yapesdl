@@ -25,6 +25,8 @@
 #include "Clockable.h"
 #include "video.h"
 
+#define RETRACESCANLINEMAX 360
+
 unsigned int		TED::vertSubCount;
 int				TED::x;
 unsigned char	*TED::VideoBase;
@@ -117,7 +119,7 @@ TED::TED() : sidCard(0), SaveState()
 	fastmode=1;
 	// initial position of the electron beam (upper left corner)
 	irqline=vertSubCount=0;
-	beamy=0;
+	beamy = ff1d_latch = 0;
 	beamx=0;
 	hshift = 0;
 	scrblank= false;
@@ -146,7 +148,7 @@ TED::TED() : sidCard(0), SaveState()
 	irqFlag = 0;
 	BadLine = 0;
 	CycleCounter = 0;
-	retraceScanLine = 340;
+	retraceScanLine = RETRACESCANLINEMAX;
 	
 	tedSoundInit(sampleRate);
 	if (enableSidCard(true, 0)) {
@@ -523,12 +525,12 @@ void TED::Write(unsigned int addr, unsigned char value)
 			switch ( addr >> 8 ) {
 				case 0xFF:
 					switch (addr) {
-						case 0xFF00 :
+						case 0xFF00:
 							t1on=false; // Timer1 disabled
 							t1start=(t1start & 0xFF00)|value;
 							timer1=(timer1 & 0xFF00)|value;
 							return;
-						case 0xFF01 :
+						case 0xFF01:
 							t1on=true; // Timer1 enabled
 							t1start=(t1start & 0xFF)|(value<<8);
 							timer1=(timer1 & 0x00FF)|(value<<8);
@@ -537,19 +539,19 @@ void TED::Write(unsigned int addr, unsigned char value)
 							t2on=false; // Timer2 disabled
 							timer2=(timer2 & 0xFF00)|value;
 							return;
-						case 0xFF03 :
+						case 0xFF03:
 							t2on=true; // Timer2 enabled
 							timer2=(timer2&0x00FF)|(value<<8);
 							return;
-						case 0xFF04 :
+						case 0xFF04:
 							t3on=false;  // Timer3 disabled
 							timer3=(timer3&0xFF00)|value;
 							return;
-						case 0xFF05 :
+						case 0xFF05:
 							t3on=true; // Timer3 enabled
 							timer3=(timer3&0x00FF)|(value<<8);
 							return;
-						case 0xFF06 :
+						case 0xFF06:
 							/*fprintf(stderr, "%04X write %02X in cycle %d, in line: %d\n", addr,
 									value, beamx, beamy);*/
 							Ram[0xFF06]=value;
@@ -615,7 +617,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 								}
 							}
 							return;
-						case 0xFF07 :
+						case 0xFF07:
 							Ram[0xFF07]=value;
 							// check for narrow screen (38 columns)
 							nrwscr=value&0x08;
@@ -627,10 +629,10 @@ void TED::Write(unsigned int addr, unsigned char value)
 							scrattr = (scrattr & ~(MULTICOLOR|REVERSE)) | (value & (MULTICOLOR|REVERSE));
 							changeCharsetBank();
 							return;
-						case 0xFF08 :
+						case 0xFF08:
 							keys->latch(Ram[0xfd30], Ram[0xFF08] = value);
 							return;
-						case 0xFF09 :
+						case 0xFF09:
 							// clear the interrupt requester bits
 							// by writing 1 into them (!!)
 							Ram[0xFF09]=(Ram[0xFF09]&0x7F)&(~value);
@@ -643,7 +645,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 								irqFlag = 0;
 							}
 							return;
-						case 0xFF0A :
+						case 0xFF0A:
 							{
 								Ram[0xFF0A]=value;
 								// change the raster irq line
@@ -664,7 +666,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 								}
 							}
 							return;
-						case 0xFF0B :
+						case 0xFF0B:
 							{
 								Ram[0xFF0B]=value;
 								unsigned int newirqline = value|(irqline&0x0100);
@@ -677,31 +679,31 @@ void TED::Write(unsigned int addr, unsigned char value)
 								}
 							}
 							return;
-						case 0xFF0C :
+						case 0xFF0C:
 							crsrpos=((value<<8)|(crsrpos&0xFF))&0x3FF;
 							return;
-						case 0xFF0D :
+						case 0xFF0D:
 							crsrpos=value|(crsrpos&0xFF00);
 							return;
-						case 0xFF0E :
+						case 0xFF0E:
 							if (value != Ram[0xFF0E]) {
 								writeSoundReg(CycleCounter, 0, value);
 								Ram[0xFF0E]=value;
 							}
 							return;
-						case 0xFF0F :
+						case 0xFF0F:
 							if (value != Ram[0xFF0F]) {
 								writeSoundReg(CycleCounter, 1, value);
 								Ram[0xFF0F]=value;
 							}
 							return;
-						case 0xFF10 :
+						case 0xFF10:
 							if (value != Ram[0xFF10]) {
 								writeSoundReg(CycleCounter, 2, value & 3);
 								Ram[0xFF10]=value;
 							}
 							return;
-						case 0xFF11 :
+						case 0xFF11:
 							if (value != Ram[0xFF11]) {
 								writeSoundReg(CycleCounter, 3, value);
 								Ram[0xFF11]=value;
@@ -721,7 +723,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 							}
 							Ram[0xFF12]=value;
 							return;
-						case 0xFF13 :
+						case 0xFF13:
 							// the 0th bit is not writable, it indicates if the ROMs are on
 							Ram[0xFF13]=(value&0xFE)|(Ram[0xFF13]&0x01);
 							// bit 1 is the fast/slow mode switch
@@ -740,40 +742,43 @@ void TED::Write(unsigned int addr, unsigned char value)
 								(charrom) ? cset = charrombank : cset = charrambank;
 							}
 							return;
-						case 0xFF14 :
+						case 0xFF14:
 							Ram[0xFF14]=value;
 							VideoBase = Ram+(((value&0xF8)<<8)&RAMMask);
 							return;
-						case 0xFF15 :
+						case 0xFF15:
 							ecol[0]=bmmcol[0]=mcol[0]=value&0x7F;
 							return;
-						case 0xFF16 :
+						case 0xFF16:
 							ecol[1]=bmmcol[3]=mcol[1]=value&0x7F;
 							return;
-						case 0xFF17 :
+						case 0xFF17:
 							ecol[2]=mcol[2]=value&0x7F;
 							return;
-						case 0xFF18 :
+						case 0xFF18:
 							ecol[3]=value&0x7F;
 							return;
-						case 0xFF19 :
+						case 0xFF19:
 							value &= 0x7F;
 							framecol=(value<<24)|(value<<16)|(value<<8)|value;
 							return;
-						case 0xFF1A :
+						case 0xFF1A:
 							CharacterPositionReload = (CharacterPositionReload & 0xFF) | ((value&3)<<8);
 							return;
-						case 0xFF1B :
+						case 0xFF1B:
 							CharacterPositionReload = (CharacterPositionReload & 0x300) | value;
 							return;
-						case 0xFF1C :
+						case 0xFF1C:
+							/*fprintf(stderr, "%04X write %d (%02X) in line: %d (%03X) @ TV line %d @PC=%04X in cycle %llu \n",
+								addr, value, value, beamy, beamy, TVScanLineCounter, cpuptr->getPC(), CycleCounter);*/
 							beamy=((value&0x01)<<8)|(beamy&0xFF);
 							return;
-						case 0xFF1D :
-							//fprintf(stderr, "%04X write %02X in cycle %llu in line: %d\n", addr, value, CycleCounter, beamy);
+						case 0xFF1D:
+							/*fprintf(stderr, "%04X write %d (%02X) in line: %d (%03X) @ TV line %d @PC=%04X in cycle %llu \n", 
+								addr, value, value, beamy, beamy, TVScanLineCounter, cpuptr->getPC(), CycleCounter);*/
 							beamy=(beamy&0x0100)|value;
 							return;
-						case 0xFF1E :
+						case 0xFF1E:
 							{
 								/*fprintf(stderr, "%04X write %02X in cycle %d, in line: %d\n", addr,
 									value ^ 0xFF, beamx, beamy);*/
@@ -1197,7 +1202,7 @@ void TED::doVRetrace()
 	// reset screen pointer ("TV" electron beam)
 	TVScanLineCounter = 0;
 	scrptr = screen;
-	retraceScanLine = 340;
+	retraceScanLine = RETRACESCANLINEMAX;
 	VBlanking = false;
 }
 
@@ -1205,8 +1210,9 @@ void TED::doHRetrace()
 {
 	// the beam reached a new line
 	TVScanLineCounter += 1;
-	if ( TVScanLineCounter >= 340 || TVScanLineCounter >= retraceScanLine) {
-		doVRetrace();
+	if ( TVScanLineCounter >= RETRACESCANLINEMAX || TVScanLineCounter >= retraceScanLine) {
+		//if (TVScanLineCounter > SCR_VSIZE - (RETRACESCANLINEMAX - SCR_VSIZE))
+			doVRetrace();
 	}
 	scrptr = screen + TVScanLineCounter * SCR_HSIZE;
 	endptr = scrptr + SCR_HSIZE;
@@ -1449,7 +1455,7 @@ void TED::ted_process(const unsigned int continuous)
 				doHRetrace();
 				break;
 			case 113:
-				ff1d_latch = (beamy + 1) & 0x1FF;
+				ff1d_latch = beamy + 1;
 				break;
 			case 114: // HSYNC end
     			newLine();

@@ -760,10 +760,10 @@ unsigned char Vic2mem::Read(unsigned int addr)
 					case 0xD3:
 						addr &= 0x3F;
 						switch (addr) {
-							case 0x12:
-								return beamy & 0xFF;
 							case 0x11:
 								return (vicReg[0x11] & 0x7f) | ((beamy & 0x100) >> 1);
+							case 0x12:
+								return beamy & 0xFF;
 							case 0x13: // LPX
 								return lpLatchX;
 							case 0x14: // LPY
@@ -795,6 +795,20 @@ unsigned char Vic2mem::Read(unsigned int addr)
 							case 0x23:
 							case 0x24:
 								return ecol[(addr & 0x3F) - 0x21] | 0xF0;
+							case 0x25:
+							case 0x26:
+								return mobExtCol[((addr - 0x25) << 1) + 1] | 0xF0;
+							case 0x27:
+							case 0x28:
+							case 0x29:
+							case 0x2A:
+							case 0x2B:
+							case 0x2C:
+							case 0x2D:
+							case 0x2E:
+								return vicReg[addr] | 0xF0;
+							case 0x2F: // unconnected
+								return 0xFF;
 						}
 						return vicReg[addr];
 					case 0xD4: // SID

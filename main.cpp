@@ -537,31 +537,16 @@ bool LoadSettings(char *inifileName)
 static bool saveScreenshotBMP(char* filepath, SDL_Window* SDLWindow, SDL_Renderer* SDLRenderer)
 {
 	SDL_Surface* saveSurface = NULL;
-	SDL_Surface* infoSurface = NULL;
-	infoSurface = SDL_GetWindowSurface(SDLWindow);
-	if (infoSurface == NULL) {
-		return false;
-	} else {
-		unsigned char *pxls = new unsigned char[infoSurface->w * infoSurface->h * infoSurface->format->BytesPerPixel];
-		if (SDL_RenderReadPixels(SDLRenderer, &infoSurface->clip_rect, infoSurface->format->format, pxls, infoSurface->w * infoSurface->format->BytesPerPixel) != 0) {
-			pxls = NULL;
-			return false;
-		} else {
-			saveSurface = SDL_CreateRGBSurfaceFrom(pixels, infoSurface->w, infoSurface->h, infoSurface->format->BitsPerPixel,
-				infoSurface->w * infoSurface->format->BytesPerPixel, infoSurface->format->Rmask,
-				infoSurface->format->Gmask, infoSurface->format->Bmask, infoSurface->format->Amask);
-			if (saveSurface == NULL) {
-				return false;
-			}
-			SDL_SaveBMP(saveSurface, filepath);
-			SDL_FreeSurface(saveSurface);
-			saveSurface = NULL;
-		}
-		delete[] pxls;
-		SDL_FreeSurface(infoSurface);
-		infoSurface = NULL;
+	int w, h;
+
+	SDL_GetRendererOutputSize(SDLRenderer, &w, &h);
+	saveSurface = SDL_CreateRGBSurface(0, w, h, 32, 0x00ff0000, 0x0000ff00, 0x000000ff, 0xff000000);
+	if (saveSurface && 0 == SDL_RenderReadPixels(SDLRenderer, 0, SDL_PIXELFORMAT_ARGB8888, saveSurface->pixels, saveSurface->pitch)) {
+		SDL_SaveBMP(saveSurface, filepath);
+		SDL_FreeSurface(saveSurface);
+		return true;
 	}
-	return true;
+	return false;
 }
 
 static bool getSerializedFilename(const char *name, const char *extension, char *out)
