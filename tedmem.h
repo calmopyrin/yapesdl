@@ -117,7 +117,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	}
 	SIDsound *getSidCard();
 	static void writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value);
-	static void tedSoundInit(unsigned int mixingFreq);
+	void tedSoundInit(unsigned int mixingFreq);
 	static size_t usec2cycles(unsigned long usecs) {
 		return (unsigned long) (((double) masterClock) / 10000000.0f * (double) usecs);
 	}
@@ -134,6 +134,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual void calcSamples(short *buffer, unsigned int nrsamples);
 	virtual void setFrequency(unsigned int sid_frequency);
 	virtual void setSampleRate(unsigned int sampleRate_);
+	void setClockStep(unsigned int originalFreq, unsigned int samplingFreq);
 	//
 	static unsigned int sidCardEnabled;
 	static rvar_t tedSettings[];
@@ -162,7 +163,6 @@ protected:
 	// char/color buffers
 	unsigned char DMAbuf[64*3];
 	unsigned char *chrbuf, *clrbuf, *tmpClrbuf;
-	int cposy;
 	// rendering functions
 	void	(TED::*scrmode)();
 	inline void	hi_text();
@@ -185,8 +185,7 @@ protected:
 	// various memory pointers
 	unsigned char *charrombank, *charrambank;
 	unsigned char *grbank;
-	unsigned char *scrptr, *endptr, *ramptr;
-	const char *DMAptr;
+	unsigned char *scrptr, *endptr;
 	unsigned int fastmode, irqline;
 	unsigned char hcol[2], mcol[4], ecol[4], bmmcol[4], *cset;
 	//

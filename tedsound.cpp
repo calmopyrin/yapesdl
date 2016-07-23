@@ -5,53 +5,60 @@
 #define OSCRELOADVAL (0x3FF << PRECISION)
 
 static int             Volume;
-static int             Snd1Status;
-static int             Snd2Status;
+static int             channelStatus[2];
 static int             SndNoiseStatus;
 static int             DAStatus;
-static unsigned short  Freq1;
-static unsigned short  Freq2;
+static unsigned short  Freq[2];
 static int             NoiseCounter;
-static int             FlipFlop[2];
-static int             oscCount1;
-static int             oscCount2;
+static int             FlipFlop;
+static int             oscCount[2];
 static int             OscReload[2];
 static int             oscStep;
 static unsigned char    noise[256]; // 0-8
 static unsigned int		MixingFreq;
 static unsigned int		originalFreq;
+static int				volumeTable[64];
+static int				cachedDigiSample;
+static int				cachedSoundSample[2];
 
 void TED::tedSoundInit(unsigned int mixingFreq)
 {
 	originalFreq = TED_SOUND_CLOCK / 8;
-	oscStep = (int) (( TED_SOUND_CLOCK / 8 * (double) (1 << PRECISION) ) / (double) (mixingFreq) + 0.5);
-    FlipFlop[0] = 0;
-    FlipFlop[1] = 0;
-    oscCount1 = 0;
-    oscCount2 = 0;
-    NoiseCounter = 0;
-	Freq1 = Freq2 = 0;
-	DAStatus = 0;
 	MixingFreq = mixingFreq;
+	setClockStep(originalFreq, MixingFreq);
+    FlipFlop = 0;
+    oscCount[0] = oscCount[1] = 0;
+    NoiseCounter = 0;
+	Freq[0] = Freq[1] = 0;
+	DAStatus = cachedDigiSample = 0;
+	cachedSoundSample[0] = cachedSoundSample[1] = 0;
 
 	/* initialise im with 0xa8 */
 	int im = 0xa8;
     for (int i=0; i<256; i++) {
-		noise[i] = im & 1;
+		noise[i] = (im & 1) * 0x20;
 		im = (im<<1)+(1^((im>>7)&1)^((im>>5)&1)^((im>>4)&1)^((im>>1)&1));
     }
+	for (int i = 0; i < 64; i++) {
+		volumeTable[i] = (i & 0x0F && i & 0x30) ? (586 + (((i & 0x0F) < 9 ? (i & 0x0F) : 8) - 1) * 1024) << (((i & 0x30) == 0x30) ? 1 : 0) : 0;
+	}
+}
+
+void TED::setClockStep(unsigned int originalFreq, unsigned int samplingFreq)
+{
+	oscStep = (int)((originalFreq * (double)(1 << PRECISION)) / (double)(samplingFreq) + 0.5);
 }
 
 void TED::setFrequency(unsigned int frequency)
 {
 	originalFreq = frequency;
-	oscStep = (int)((frequency * (double)(1 << PRECISION)) / (double)(MixingFreq)+0.5);
+	setClockStep(frequency, MixingFreq);
 }
 
 void TED::setSampleRate(unsigned int sampleRate)
 {
 	MixingFreq = sampleRate;
-	oscStep = (int)((originalFreq * (double)(1 << PRECISION)) / (double)(MixingFreq)+0.5);
+	setClockStep(originalFreq, sampleRate);
 }
 
 void TED::calcSamples(short *buffer, unsigned int nrsamples)
@@ -59,51 +66,40 @@ void TED::calcSamples(short *buffer, unsigned int nrsamples)
     // Rendering...
 	// Calculate the buffer...
 	if (DAStatus) {// digi?
-		short sample = 0;
-		if (Snd1Status) sample = Volume;
-		if (Snd2Status) sample += Volume;
 		for (;nrsamples--;) {
-			*buffer++ = sample;
+			*buffer++ = cachedDigiSample;
 		}
 	} else {
-		unsigned int result1, result2;
 		for (;nrsamples--;) {
 			// Channel 1
-			if ((oscCount1 += oscStep) >= OSCRELOADVAL) {
-				if (OscReload[0] != (0x3FF << PRECISION))
-					FlipFlop[0] ^= 1;
-				oscCount1 = OscReload[0] + (oscCount1 - OSCRELOADVAL);
+			if ((oscCount[0] += oscStep) >= OSCRELOADVAL) {
+				if (OscReload[0] != (0x3FF << PRECISION)) {
+					FlipFlop ^= 0x10;
+					cachedSoundSample[0] = volumeTable[Volume | (FlipFlop & channelStatus[0])];
+				}
+				oscCount[0] = OscReload[0] + (oscCount[0] - OSCRELOADVAL);
 			}
 			// Channel 2
-			if ((oscCount2 += oscStep) >= OSCRELOADVAL) {
+			if ((oscCount[1] += oscStep) >= OSCRELOADVAL) {
 				if (OscReload[1] != (0x3FF << PRECISION)) {
-					FlipFlop[1] ^= 1;
-					if (NoiseCounter++==256)
-						NoiseCounter=0;
+					FlipFlop ^= 0x20;
+					if (++NoiseCounter == 256)
+						NoiseCounter = 0;
+					cachedSoundSample[1] = volumeTable[Volume | (FlipFlop & channelStatus[1]) | (noise[NoiseCounter] & SndNoiseStatus)];
 				}
-				oscCount2 = OscReload[1] + (oscCount2 - OSCRELOADVAL);
+				oscCount[1] = OscReload[1] + (oscCount[1] - OSCRELOADVAL);
 			}
-			result1 = (FlipFlop[0] && Snd1Status) ? Volume : 0;
-			if (Snd2Status) {
-				result2 = FlipFlop[1] ? Volume : 0;
-			} else if (SndNoiseStatus) {
-				result2 = noise[NoiseCounter] ? Volume : 0;
-			} else {
-				result2 = 0;
-			}
-			*buffer++ = result1 + result2;
+			*buffer++ = cachedSoundSample[0] + cachedSoundSample[1];
 		}   // for
 	}
 }
 
 inline void setFreq(unsigned int channel, int freq)
 {
-	if (freq == 0x3FF) {
-		freq = -1;
-	} else if (freq == 0x3FE) {
-		FlipFlop[channel] = 1;
+	if (freq == 0x3FE) {
+		FlipFlop |= 0x10 << channel;
 	}
-	OscReload[channel] = ((freq + 1)&0x3FF) << PRECISION;
+	OscReload[channel] = ((freq + 1) & 0x3FF) << PRECISION;
 }
 
 void TED::writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value)
@@ -112,35 +108,35 @@ void TED::writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value)
 
 	switch (reg) {
 		case 0:
-			Freq1 = (Freq1 & 0x300) | value;
-			setFreq(0, Freq1);
+			Freq[0] = (Freq[0] & 0x300) | value;
+			setFreq(0, Freq[0]);
 			break;
 		case 1:
-			Freq2 = (Freq2 & 0x300) | value;
-			setFreq(1, Freq2);
+			Freq[1] = (Freq[1] & 0x300) | value;
+			setFreq(1, Freq[1]);
 			break;
 		case 2:
-			Freq2 = (Freq2 & 0xFF) | (value << 8);
-			setFreq(1, Freq2);
+			Freq[1] = (Freq[1] & 0xFF) | (value << 8);
+			setFreq(1, Freq[1]);
 			break;
 		case 3:
 			if ((DAStatus = (value & 0x80))) {
-				FlipFlop[0] = 1;
-				FlipFlop[1] = 1;
-				oscCount1 = OscReload[0];
-				oscCount2 = OscReload[1];
+				FlipFlop = 0x30;
+				oscCount[0] = OscReload[0];
+				oscCount[1] = OscReload[1];
 				NoiseCounter = 0xFF;
+				cachedDigiSample = volumeTable[value & 0x3F];
 			}
 			Volume = value & 0x0F;
-			if (Volume > 8) Volume = 8;
-			Volume <<= 10;
-			Snd1Status = value & 0x10;
-			Snd2Status = value & 0x20;
-			SndNoiseStatus = value & 0x40;
+			channelStatus[0] = value & 0x10;
+			channelStatus[1] = value & 0x20;
+			SndNoiseStatus = ((value & 0x40) >> 1) & (channelStatus[1] ^ 0x20);
+			cachedSoundSample[0] = volumeTable[Volume | (FlipFlop & channelStatus[0])];
+			cachedSoundSample[1] = volumeTable[Volume | (FlipFlop & channelStatus[1]) | (noise[NoiseCounter] & SndNoiseStatus)];
 			break;
 		case 4:
-			Freq1 = (Freq1 & 0xFF) | (value << 8);
-			setFreq(0, Freq1);
+			Freq[0] = (Freq[0] & 0xFF) | (value << 8);
+			setFreq(0, Freq[0]);
 			break;
 	}
 }

@@ -48,7 +48,7 @@ bool PrgLoad(const char *fname, int loadaddress, TED *mem)
 		if (loadaddress&0x10000)
 			loadaddr = loadaddress&0xFFFF;
 		else
-			loadaddr = lpBufPtr[p00offset]|(lpBufPtr[p00offset + 1] << 8);
+			loadaddr = lpBufPtr[0]|(lpBufPtr[1] << 8);
 
 		if (fsize < 2)
 			return false;

@@ -728,8 +728,18 @@ void TED::Write(unsigned int addr, unsigned char value)
 							Ram[0xFF13]=(value&0xFE)|(Ram[0xFF13]&0x01);
 							// bit 1 is the fast/slow mode switch
 							if ((fastmode ^ value) & 2) {
-								fastmode = !(value&0x02);
-								clockingState = fastmode ? TDSDELAY : TSSDELAY;
+								fastmode = (value & 2) ^ 2;
+								if (!fastmode) {
+									if (clockingState == TDS) {
+										clockingState = TSSDELAY;
+									} else if (clockingState == TRFSH) {
+										clockingState = TSS;
+									}
+								} else {
+									if (clockingState == TSS) {
+										clockingState = TDSDELAY;
+									}
+								}
 							}
 							(ecmode || rvsmode) ? tmp=(0xF800)&RAMMask : tmp=(0xFC00)&RAMMask;
 							charbank = ((value)<<8)&tmp;
@@ -787,7 +797,8 @@ void TED::Write(unsigned int addr, unsigned char value)
 								// inverted value must be written
 								unsigned int new_beamx=((~value))&0xFC;
 								new_beamx >>= 1;
-								new_beamx>=98 ?  new_beamx -= 98 : new_beamx += 16;
+								if (new_beamx < 114)
+									new_beamx>=98 ?  new_beamx -= 98 : new_beamx += 16;
 								// writes are aligned to single clock cycles
 								if (low_x) {
 									aligned_write = true;
@@ -1426,7 +1437,7 @@ void TED::ted_process(const unsigned int continuous)
 				}
   			    break;
 
-            case 102:
+            case 101:
 		    	clockingState = fastmode ? TDS : TSS;
 		    	break;
 
@@ -1450,15 +1461,18 @@ void TED::ted_process(const unsigned int continuous)
 				}
 				break;
 
-			case 255:
-			case 128:
-				doHRetrace();
-				break;
 			case 113:
 				ff1d_latch = beamy + 1;
 				break;
+
 			case 114: // HSYNC end
-    			newLine();
+				newLine();
+				break;
+
+			case 127:
+				beamx = 15;
+				doHRetrace();
+				break;
 		}
 
 		if (beamx&1) {	// perform these only in every second cycle
@@ -1507,7 +1521,7 @@ void TED::ted_process(const unsigned int continuous)
  	    	case TSS|1:
  	    	case TDS|1:
        		case TDS:
-     	    	cpuptr->process();
+				cpuptr->process();
      	    	break;
 			case TDMADELAY|1:
 				cpuptr->process();
@@ -1552,6 +1566,7 @@ void TED::ted_process(const unsigned int continuous)
 #endif
 
 	} while (loop_continuous);
+
 }
 
 bool TED::enableSidCard(bool enable, unsigned int disableMask)

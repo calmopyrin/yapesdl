@@ -11,7 +11,7 @@
 	(c) 2005 VENESZ Roland
 */
 
-#define NAME    "Yape/SDL 0.70.1"
+#define NAME    "Yape/SDL 0.70.2"
 #define WINDOWX SCREENX
 #define WINDOWY SCREENY
 

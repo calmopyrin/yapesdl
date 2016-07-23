@@ -2063,7 +2063,7 @@ inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
 	for(i = 0; i < VIC_PIXELS_PER_ROW; i++) {
 		if (spriteCollisions[i]) {
             const unsigned char newReg = spriteCollisionReg | collisionLookup[spriteCollisions[i]];
-            if (!spriteCollisionReg & newReg) {
+            if (!spriteCollisionReg && newReg) {
                 vicReg[0x19] |= (vicReg[0x1A] & 4) ? 0x84 : 0x04;
                 checkIRQflag();
             }

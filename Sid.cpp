@@ -225,6 +225,8 @@ void SIDsound::reset(void)
 		// Initial value of internal shift register
 		voice[v].shiftReg = 0x7FFFFC;
 		voice[v].envExpCounter = 0;
+		// don't forget to zero the cached wave noise
+		voice[v].waveNoiseOut = 0;
 		voice[v].envAttackAdd = voice[v].envDecaySub = voice[v].envReleaseSub = 0;
 		voice[v].envCounterCompare = 0;
 		voice[v].envCounter = 0x7fff;
