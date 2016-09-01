@@ -38,14 +38,9 @@ typedef struct _MTAP {
 static FILE *tapfile;
 static MTATAPBuffer tap_header_read;
 
-TAP::TAP()
+TAP::TAP() : TapeSoFar(0), TapeFileSize(0), TAPBuffer(NULL), lastCycle(0), edge(0)
 {
-	TapeSoFar=0;
-	TapeFileSize=0;
-	TAPBuffer=NULL;
 	buttonPressed = motorOn = false;
-	lastCycle = 0;
-	edge = 0;
 }
 
 bool TAP::attach_tap()
@@ -58,7 +53,7 @@ bool TAP::attach_tap()
 		TapeFileSize=ftell(tapfile);
 		fseek(tapfile, 0L, SEEK_SET);
 		// allocate and load file
-		TAPBuffer=(unsigned char *) malloc(TapeFileSize);
+		TAPBuffer = new unsigned char[TapeFileSize];
 		fread(TAPBuffer,TapeFileSize,1,tapfile);
 
 		// initialise TAP image
@@ -111,9 +106,9 @@ bool TAP::detach_tap()
 		fwrite(&TapeSoFar,sizeof(TapeSoFar),1,tapfile);
 		fseek(tapfile, 0L, SEEK_END);
 	}
-	if (TAPBuffer!=NULL) { // just to be sure....
-		free(TAPBuffer);
-		TAPBuffer=NULL;
+	if (TAPBuffer != NULL) { // just to be sure....
+		delete [] TAPBuffer;
+		TAPBuffer = NULL;
 	}
 	if (tapfile!=NULL) {
 		fclose(tapfile);

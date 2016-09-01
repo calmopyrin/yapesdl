@@ -26,6 +26,7 @@
 #include "video.h"
 
 #define RETRACESCANLINEMAX 360
+#define RETRACESCANLINEMIN (SCR_VSIZE - (RETRACESCANLINEMAX - SCR_VSIZE))
 
 unsigned int		TED::vertSubCount;
 int				TED::x;
@@ -1222,7 +1223,7 @@ void TED::doHRetrace()
 	// the beam reached a new line
 	TVScanLineCounter += 1;
 	if ( TVScanLineCounter >= RETRACESCANLINEMAX || TVScanLineCounter >= retraceScanLine) {
-		//if (TVScanLineCounter > SCR_VSIZE - (RETRACESCANLINEMAX - SCR_VSIZE))
+		if (TVScanLineCounter > RETRACESCANLINEMIN)
 			doVRetrace();
 	}
 	scrptr = screen + TVScanLineCounter * SCR_HSIZE;
@@ -1302,21 +1303,36 @@ inline void TED::newLine()
         		crsrblinkon ^= 1;
 			break;
 
+		case 226: // NTSC
+			VBlanking = !!(Ram[0xFF07] & 0x40);
+			break;
+
+		case 229: // NTSC
+			if ((Ram[0xFF07] & 0x40))
+				retraceScanLine = TVScanLineCounter + 20;
+			break;
+
+		case 247: // NTSC
+			if (Ram[0xFF07] & 0x40)
+				VBlanking = false;
+			break;
+
 		case 251:
-			VBlanking = true;
+			VBlanking = !(Ram[0xFF07] & 0x40);
 			break;
 
 		case 254:
 			// Schedule vertical retrace @ 274
-			retraceScanLine = TVScanLineCounter + 20;
+			if (!(Ram[0xFF07] & 0x40))
+				retraceScanLine = TVScanLineCounter + 20;
 			break;
 
 		case 261:
-			//doVRetrace();
 			break;
 
 		case 274:
-			VBlanking = false;
+			if (!(Ram[0xFF07] & 0x40))
+				VBlanking = false;
 			break;
 
 		case 512:
@@ -1500,7 +1516,7 @@ void TED::ted_process(const unsigned int continuous)
 				Ram[0xFF09] |= Ram[0xFF0A]&0x08 ? 0x88 : 0x08; // interrupt
 				irqFlag |= Ram[0xFF09] & 0x80;
 			}
-			if (!(HBlanking |VBlanking)) {
+			if (!(HBlanking||VBlanking)) {
 				if (SideBorderFlipFlop) { // drawing the visible part of the screen
 					// call the relevant rendering function
 					render();

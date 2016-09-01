@@ -2047,7 +2047,7 @@ inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
 				dcReload = dc;
 			}
 #else
-		if (mob[i].rendering && mob[i].x < 504) {
+		if (mob[i].rendering && mob[i].x < VIC_PIXELS_PER_ROW) {
 			const unsigned int tvX = RASTERX2TVCOL(mob[i].x);
 			unsigned char *d = mob[i].sdb[1].shiftRegBuf;
 			unsigned char *p = lineBuf + tvX;

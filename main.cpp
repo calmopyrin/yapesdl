@@ -137,7 +137,7 @@ inline static void ShowFrameRate(unsigned int show)
 	if (show) {
 		sprintf(fpstxt, "%u%%/%ufps", speed, fps);
 		unsigned int s = (unsigned int) strlen(fpstxt) << 3;
-		ted8360->texttoscreen((ted8360->getCyclesPerRow() == 504 ? 472 : 408) - s, 34, fpstxt);
+		ted8360->texttoscreen((ted8360->getCyclesPerRow() == VIC_PIXELS_PER_ROW ? 472 : 408) - s, 34, fpstxt);
 	}
 }
 
@@ -420,8 +420,8 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 static void frameUpdate()
 {
 	const unsigned int cyclesPerRow = ted8360->getCyclesPerRow();
-	const int offsetX = cyclesPerRow == 504 ? -72 : 8;
-	const int offsetY = cyclesPerRow == 504 ? 9 : 0;
+	const int offsetX = cyclesPerRow == VIC_PIXELS_PER_ROW ? -72 : 8;
+	const int offsetY = cyclesPerRow == VIC_PIXELS_PER_ROW ? 9 : 0;
 
 	if (popupMessageTimeOut)
 		showPopUpMessage();
