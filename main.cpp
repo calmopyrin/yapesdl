@@ -19,11 +19,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
-#ifdef _WIN32
-#include <SDL/SDL.h>
-#else
-#include <SDL2/SDL.h>
-#endif
 #include "keyboard.h"
 #include "cpu.h"
 #include "tedmem.h"
@@ -61,7 +56,6 @@ void setMainLoop(int looptype);
 static void toggleShowSpeed(void *none);
 static void toggleFullThrottle(void *none);
 static void toggleCrtEmulation(void *none);
-static void doSwapJoy(void *txt);
 static void flipMachineTypeFwd(void *name);
 static const char *machineTypeLabel();
 static void flipWindowScale(void *none);
@@ -155,7 +149,7 @@ inline static void DebugInfo()
 		machine->getST(), machine->getAC(), machine->getX(), machine->getY(), machine->getSP());
 	ted8360->texttoscreen(hpos, vpos+16, textout);
 	vpos += 24;
-	sprintf(textout, "TAPE: %08d ", ted8360->tap->TapeSoFar);
+	sprintf(textout, "TAPE: %08d ", ted8360->tap->tapeSoFar);
 	CTrueDrive *d = CTrueDrive::Drives[0];
 	if (d) {
 		char driveText[64];
@@ -288,18 +282,21 @@ bool start_file(const char *szFile, bool autostart = true)
 			|| !strcmp(fileext,".p00") || !strcmp(fileext,".P00")) {
 			PrgLoad(szFile, 0, ted8360 );
 			if (autostart)
-				ted8360->copyToKbBuffer("RUN:\r",5);
+				ted8360->copyToKbBuffer("RUN:\r");
 			return true;
 		}
 		if (!strcmp(fileext, ".t64") || !strcmp(fileext,".T64")) {
             prgLoadFromT64(szFile, 0, ted8360);
 			if (autostart)
-				ted8360->copyToKbBuffer("RUN:\r",5);
+				ted8360->copyToKbBuffer("RUN:\r");
 		}
 		if (!strcmp(fileext,".tap") || !strcmp(fileext,".TAP")) {
-			ted8360->tap->detach_tap();
-			strcpy(ted8360->tap->tapefilename, szFile);
-			ted8360->tap->attach_tap();
+			ted8360->tap->detachTape();
+			ted8360->tap->attachTape(szFile);
+			if (autostart) {
+				ted8360->copyToKbBuffer("Lo:\rRUN\r");
+				ted8360->tap->pressTapeButton(ted8360->GetClockCount(), 1);
+			}
 			return true;
 		}
 		if (!strcmp(fileext, ".yss")) {
@@ -889,7 +886,10 @@ inline static void poll_events(void)
                         break;
 					case SDLK_F5 :
 					case SDLK_F6 :
-						ted8360->tap->PressTapeButton(ted8360->GetClockCount());
+						{
+							unsigned int buttonPressed = ted8360->tap->IsButtonPressed();
+							ted8360->tap->pressTapeButton(ted8360->GetClockCount(), !buttonPressed);
+						}
 						break;
 
 						break;

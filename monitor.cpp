@@ -79,12 +79,12 @@ char cbmToASCII(unsigned char c)
 		return c ^ 0x40;
 	if (c >= 0x1b && c < 0x20)
 		return '_';
-	if (c == 0x25)
-		return '/';
 	if (c >= 0x41 && c <= 0x5A)
 		return c ^ 0x20;
 	if ((c >= 0xc1) && (c <= 0xda))
 		return c ^ 0x80;
+	if (!isprint(c))
+		return '.';
 
 	return (char) c;
 }
@@ -193,21 +193,18 @@ static void memShow(int pc, int dumpwidth)
 		sprintf( line, " %04X: ", current_pc );
 		for  ( i = 0; i<dumpwidth/2; i++) {
 			if ((i&0xF)==8) strcat( line, " ");
-			sprintf( temp, "%02X ", mem.Read(current_pc+i) & 0xFF);
+			sprintf(temp, "%02X ", mem.Read(current_pc+i) & 0xFF);
 			strcat( line, temp);
 		}
-		strcat( line, ":");
-		for  ( i = 0; i<dumpwidth/2; i++) {
-			unsigned char a = mem.Read(current_pc+i);
-			if (!(a & 0x80))
-				sprintf(temp, "%c", cbmToASCII(a));
-			else
-				sprintf(temp, ".");
-			strcat( line, temp);
+		strcat(line, ":");
+		for(i = 0; i < dumpwidth/2; i++) {
+			unsigned char a = mem.Read(current_pc + i);
+			temp[i] = cbmToASCII(a);
 		}
-		strcat( line, "\n");
-		printf("%s", line);
-		strcpy( line, "\0");
+		temp[i] = 0;
+		strcat(line, temp);
+		printf("%s\n", line);
+		strcpy(line, "\0");
 		current_pc += dumpwidth/2;
 		rowcount++;
 	}

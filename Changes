@@ -1,3 +1,9 @@
+Changes in v0.70.2
+==================
+
+- TED sound fixes & optimizations
+- tape loading in WAV format and MTAP support in C64 mode added
+
 Changes in v0.70.1
 ==================
 

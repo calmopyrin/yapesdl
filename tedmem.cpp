@@ -91,7 +91,7 @@ enum {
 	TRFSHDELAY = 1 << 11
 };
 
-TED::TED() : sidCard(0), SaveState()
+TED::TED() : sidCard(0), SaveState(), clockDivisor(10)
 {
 	unsigned int i;
 
@@ -180,8 +180,6 @@ void TED::Reset(bool clearmem)
 	RAMenable = false;
 	loadroms();
 	ChangeMemBankSetup();
-	// this should not be HERE, but where else could I've put it??
-	tap->rewind();
 	// clear RAM with powerup pattern
 	if (clearmem)
 		for (int i=0;i<RAMSIZE;Ram[i] = (i>>1)<<1==i ? 0 : 0xFF, i++);
@@ -338,9 +336,9 @@ unsigned char TED::Read(unsigned int addr)
 						}
 #endif
 						unsigned char retval =
-							(readBus()&0xC0)
-							|(tap->ReadCSTIn(CycleCounter)&0x10);
-						return (prp&prddr)|(retval&~prddr);
+							(readBus() & 0xC0)
+							|(tap->readCSTIn(CycleCounter) & 0x10);
+						return (prp & prddr)|(retval & ~prddr);
 					}
 				default:
 					return actram[addr&0xFFFF];
@@ -457,7 +455,7 @@ void TED::UpdateSerialState(unsigned char portVal)
 	static unsigned char prevVal = 0x00;
 
 	if ((prevVal ^ portVal) & 8)
-		tap->SetTapeMotor(CycleCounter, portVal&8);
+		tap->setTapeMotor(CycleCounter, portVal&8);
 
 	if ((prevVal ^ portVal) & 7 ) {		// serial lines changed
 		serialPort[0] = ((portVal << 7) & 0x80)	// DATA OUT -> DATA IN
@@ -624,6 +622,8 @@ void TED::Write(unsigned int addr, unsigned char value)
 							nrwscr=value&0x08;
 							// get horizontal offset of screen when smooth scroll
 							hshift=value&0x07;
+							// NTSC/PAL clock
+							clockDivisor = (value & 0x40) ? 8 : 10;
 							// check for reversed mode
 							rvsmode = value & 0x80;
 							// check for multicolor mode

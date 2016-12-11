@@ -735,7 +735,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 				case 0:
 					return prddr;
 				case 1:
-					return (prp & prddr) | ((portState | 0x17) & ~prddr & 0xDF); // (!tap->IsButtonPressed() << 4)
+					return (prp & prddr) | ((portState | 0x17) & ~prddr & 0xDF & (!(tap->IsButtonPressed()) << 4));
 				default:
 					return actram[addr & 0xFFFF];
 			}
@@ -897,18 +897,18 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 						goto skip;
 
 					case 1:
-						if ((prp ^ value) & 8)
-							tap->SetTapeMotor(CycleCounter, value & 8);
+						if ((prp ^ value) & 0x20)
+							tap->setTapeMotor(CycleCounter, !(value & 0x20));
 						prp = value;
 skip:
-					portState = (portState & ~prddr) | (prp & 0xC8 & prddr);
-					port = prp | ~prddr;
-					mem_8000_bfff = ((port & 3) == 3) ? RomLo[0] : Ram + 0xa000; // a000..bfff
-					mem_c000_ffff = ((port & 2) == 2) ? RomHi[0] : Ram + 0xe000; // e000..ffff
-					charrom = (!(port & 4) && (port & 3));
-					return;
+						portState = (portState & ~prddr) | (prp & 0xC8 & prddr);
+						port = prp | ~prddr;
+						mem_8000_bfff = ((port & 3) == 3) ? RomLo[0] : Ram + 0xa000; // a000..bfff
+						mem_c000_ffff = ((port & 2) == 2) ? RomHi[0] : Ram + 0xe000; // e000..ffff
+						charrom = (!(port & 4) && (port & 3));
+						return;
 				default:
-					actram[addr & 0xFFFF] = value;
+						actram[addr & 0xFFFF] = value;
 				}
 			}
 			return;
@@ -1488,7 +1488,15 @@ void Vic2mem::ted_process(const unsigned int continuous)
 		cia[1].countTimers();
 		//
 		CycleCounter += 1;
-
+		//
+		if (tap->isMotorOn()) {
+			if (tap->getFallingEdgeState(CycleCounter)) {
+				cia[0].icr |= 0x10;
+				cia[0].setIRQflag(cia[0].icr & cia[0].irq_mask);
+				tap->resetFallingEdge(CycleCounter);
+			}
+		}
+		//
 		unsigned int i = 0;
 		while (Clockable::itemHeap[i]) {
 			Clockable *c = Clockable::itemHeap[i];

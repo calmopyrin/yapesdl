@@ -33,6 +33,7 @@ class Vic2mem : public TED
 		void latchCounters();
 		virtual void copyToKbBuffer(const char *text, unsigned int length = 0);
 		virtual unsigned int getSoundClock() { return VIC_SOUND_CLOCK; }
+		virtual unsigned int getRealSlowClock() { return VIC_REAL_CLOCK_M10 / 10 / 2; }
 		virtual unsigned int getEmulationLevel() { return 2; }
 #if !FAST_BOOT
 		virtual unsigned int getAutostartDelay() { return 175; }
@@ -127,9 +128,9 @@ class Vic2mem : public TED
 			static void frames2tod(unsigned int frames, TOD &todout, unsigned int frq);
 			unsigned int todCount, alarmCount;
 			static unsigned int refCount;
-			void (*irqCallback)(void *param);
+			CallBackFunctor irqCallback;
 			void *callBackParam;
-			void setIrqCallback(void (*irqCallback_)(void *), void *param) {
+			void setIrqCallback(CallBackFunctor irqCallback_, void *param) {
 				irqCallback = irqCallback_;
 				callBackParam = param;
 			}

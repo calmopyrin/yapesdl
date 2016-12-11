@@ -157,7 +157,7 @@ void updateAudio(unsigned int nrsamples)
 static inline unsigned int getNrOfSamplesToGenerate(ClockCycle clock, unsigned int deviceFrq)
 {
 	// OK this should really be INT but I'm tired right now
-	unsigned int samplePos = (unsigned int) ((double) clock * (double) MixingFreq / deviceFrq);
+	const unsigned int samplePos = (unsigned int) ((double) clock * (double) MixingFreq / deviceFrq);
 	unsigned int samplesToDo = samplePos - lastSamplePos;
 	//fprintf( stderr, "Sound: %i cycles/%f samples\n", clock, (double) clock * (double) MixingFreq / deviceFrq);
 	// 'clock' might have been reset but 'lastSamplePos' not!

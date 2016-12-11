@@ -7,53 +7,78 @@
 	and/or modify it under certain conditions. For more information,
 	read 'Copying'.
 
-	(c) 2000, 2001, 2007 Attila Grósz
+	(c) 2000, 2001, 2007, 2016 Attila Grósz
 */
 #ifndef _TAPE_H
 #define _TAPE_H
 
 #include "types.h"
 
+#define C64PALFREQ  123156	/*  985248 / 8 */
+#define C64NTSCFREQ 127841	/* 1022727 / 8 */
+#define VICPALFREQ  138551	/* 1108405 / 8 */
+#define VICNTSCFREQ 127841	/* 1022727 / 8 */
+#define C16PALFREQ  110840	/*  886724 / 8 */
+#define C16NTSCFREQ 111860	/*  894886 / 8 */
+
+enum TapeFormat {
+	TAPE_FORMAT_MTAP1 = 0,
+	TAPE_FORMAT_MTAP2,
+	TAPE_FORMAT_PCM8,
+	TAPE_FORMAT_PCM16,
+	TAPE_FORMAT_NONE
+};
+
 class TAP {
 	private:
-		unsigned int TapeFileSize;
-		unsigned char *TAPBuffer;
-		ClockCycle tapeDelay, origTapeDelay;
-		// indicates if we started the TAP process
-		bool inwave;
-		char buf;
+		char tapefilename[260];
+		unsigned int tapeFileSize;
+		unsigned char *tapeBuffer;
+		unsigned int tapeDelay, origTapeDelay;
 		//
 		ClockCycle lastCycle;
-		unsigned char pio;
 		unsigned char edge;
 		bool motorOn;
-		bool buttonPressed;
-		void ConvTAPUnitsToCycles();
-		void Advance(unsigned int);
-		ClockCycle ReadNextTapDelay();
-		unsigned int wholeWave;
+		unsigned int buttonPressed;
+		void convTAPUnitsToCycles();
+		void readMtapData(unsigned int);
+		void readWavData(unsigned int elapsed);
+		unsigned int readNextTapDelay();
+		TapeFormat tapeFormat;
+		bool fallingEdge;
+		unsigned char *tapeHeaderRead;
+		unsigned int tapeImageHeaderSize;
+		unsigned int tapeImageSampleRate;
 
 	public:
 		TAP();
 		class TED *mem;
-		char tapefilename[256];
-		bool attach_tap();
-		bool create_tap();
-		bool detach_tap();
-		void stop();
+		bool attachTape(const char *fname);
+		bool createTape(const char *fname);
+		bool detachTape();
 		void rewind();
 		void changewave(bool wholewave);
-		unsigned int TapeSoFar;
+		unsigned int tapeSoFar;
 		//
-		unsigned char ReadCSTIn(ClockCycle cycle);
-		void WriteCSTOut(ClockCycle cycle, unsigned char value);
-		void PressTapeButton(ClockCycle cycle);
+		unsigned char readCSTIn(ClockCycle cycle);
+		void writeCSTOut(ClockCycle cycle, unsigned char value);
+		void pressTapeButton(ClockCycle cycle, unsigned int);
 		unsigned int IsButtonPressed() { 
 			//fprintf(stderr,"Button state checked: %i\n", buttonPressed);
 			return buttonPressed;
-		};
-		void SetTapeMotor(ClockCycle cycle, unsigned int on);
+		}
+		void setTapeMotor(ClockCycle cycle, unsigned int on);
+		inline bool isMotorOn() { 
+			return motorOn;
+		}
+		bool getFallingEdgeState(ClockCycle clk) {
+			readCSTIn(clk);
+			return fallingEdge;
+		}
+		void resetFallingEdge(ClockCycle clk) {
+			readCSTIn(clk);
+			fallingEdge = false;
+		}
 };
-
 
 #endif // _TAPE_H

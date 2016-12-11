@@ -128,6 +128,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual unsigned int getCyclesPerRow() const { return SCR_HSIZE; }
 	virtual unsigned char *getIrqReg() { return &irqFlag; }
 	virtual unsigned int getSoundClock() { return TED_SOUND_CLOCK; }
+	virtual unsigned int getRealSlowClock() { return TED_REAL_CLOCK_M10 / clockDivisor / 2; }
 	virtual unsigned int getEmulationLevel() { return 0; }
 	virtual unsigned int getAutostartDelay() { return 70; }
 	virtual unsigned short getEndLoadAddressPtr() { return 0x9D; };
@@ -223,6 +224,7 @@ protected:
 	void doHRetrace();
 	void doVRetrace();
 	void newLine();
+	unsigned int clockDivisor;
 	//
 	void updateSerialDevices(unsigned char newAtn);
 	//

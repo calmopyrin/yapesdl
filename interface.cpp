@@ -306,7 +306,10 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
                 break;
 			case UI_TAP_ITEM:
 				strcpy(ftypes[0].name, "*.tap");
+				strcpy(ftypes[1].name, "*.wav");
 				ftypes[0].menufunction = UI_TAP_ITEM;
+				ftypes[1].menufunction = UI_TAP_ITEM;
+				nrOfExts = 2;
 				break;
 			case UI_D64_ITEM:
 			case UI_ZIP_ITEM:
@@ -452,8 +455,13 @@ bool UI::handle_menu_command( struct element_t *element)
             break;
 
 		case UI_TAP_ITEM:
-			strcpy( ted8360->tap->tapefilename, element->name);
-			ted8360->tap->attach_tap();
+			{
+				const Uint8 *state = SDL_GetKeyboardState(NULL);
+				if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT]) {
+					autostart_file(element->name);
+				} else 
+					ted8360->tap->attachTape(element->name);
+			}
 			break;
 		case UI_D64_ITEM:
 			openD64Item(element->name);
@@ -467,7 +475,7 @@ bool UI::handle_menu_command( struct element_t *element)
 			break;
 
 		case UI_TAPE_DETACH_TAP:
-			ted8360->tap->detach_tap();
+			ted8360->tap->detachTape();
 			break;
 		case UI_TAPE_REWIND:
 			ted8360->tap->rewind();

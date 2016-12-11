@@ -44,6 +44,28 @@ typedef struct _RVAR {
 } rvar_t;
 extern rvar_t *settings[];
 
+/* WAV file header structure */
+/* should be 1-byte aligned */
+#pragma pack(1)
+typedef struct _WAV_HEADER {
+	char riff[4];
+	unsigned int rLen;
+	char WAVEfmt[8];
+	unsigned int fLen; /* 0x1020 */
+	unsigned short wFormatTag; /* 0x0001 */
+	unsigned short nChannels; /* 0x0001 */
+	unsigned int nSamplesPerSec;
+	unsigned int nAvgBytesPerSec; // nSamplesPerSec*nChannels*(nBitsPerSample%8)
+	unsigned short nBlockAlign; /* 0x0001 */
+	unsigned short nBitsPerSample; /* 0x0008 */
+	char datastr[4];
+	unsigned int data_size;
+} wav_header_t;
+
+#pragma pack()
+
+typedef void(*CallBackFunctor)(void *);
+
 // Simple linked list class
 template<typename T>
 class LinkedList {
