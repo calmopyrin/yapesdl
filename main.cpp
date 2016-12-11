@@ -1180,7 +1180,7 @@ int main(int argc, char *argv[])
 	app_initialise();
 
 	/* ---------- Command line parameters ---------- */
-	if (argv[1]!='\0') {
+	if (argc > 1) {
 		printf("Parameter 1 :%s\n", argv[1]);
 #ifdef __EMSCRIPTEN__
 		printf("Parameter 2 :%s\n", argv[2]);
