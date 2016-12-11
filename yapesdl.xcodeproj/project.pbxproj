@@ -1,0 +1,422 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A5CA5C1A1DFDB047006AD19D /* 1541mem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAA1DFDAB1F006AD19D /* 1541mem.cpp */; };
+		A5CA5C1B1DFDB047006AD19D /* archdep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAB1DFDAB1F006AD19D /* archdep.cpp */; };
+		A5CA5C1C1DFDB047006AD19D /* cpu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAC1DFDAB1F006AD19D /* cpu.cpp */; };
+		A5CA5C1D1DFDB047006AD19D /* dis.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAD1DFDAB1F006AD19D /* dis.cpp */; };
+		A5CA5C1E1DFDB047006AD19D /* diskfs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAE1DFDAB1F006AD19D /* diskfs.cpp */; };
+		A5CA5C1F1DFDB047006AD19D /* dos.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAF1DFDAB1F006AD19D /* dos.cpp */; };
+		A5CA5C201DFDB047006AD19D /* drive.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB01DFDAB1F006AD19D /* drive.cpp */; };
+		A5CA5C211DFDB047006AD19D /* FdcGcr.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB11DFDAB1F006AD19D /* FdcGcr.cpp */; };
+		A5CA5C221DFDB047006AD19D /* iec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB21DFDAB1F006AD19D /* iec.cpp */; };
+		A5CA5C231DFDB047006AD19D /* interface.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB31DFDAB1F006AD19D /* interface.cpp */; };
+		A5CA5C241DFDB047006AD19D /* keyboard.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB41DFDAB1F006AD19D /* keyboard.cpp */; };
+		A5CA5C251DFDB047006AD19D /* keys64.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB51DFDAB1F006AD19D /* keys64.cpp */; };
+		A5CA5C261DFDB047006AD19D /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB61DFDAB1F006AD19D /* main.cpp */; };
+		A5CA5C271DFDB047006AD19D /* monitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB71DFDAB1F006AD19D /* monitor.cpp */; };
+		A5CA5C281DFDB047006AD19D /* prg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB81DFDAB1F006AD19D /* prg.cpp */; };
+		A5CA5C291DFDB047006AD19D /* SaveState.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB91DFDAB1F006AD19D /* SaveState.cpp */; };
+		A5CA5C2A1DFDB047006AD19D /* serial.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBA1DFDAB1F006AD19D /* serial.cpp */; };
+		A5CA5C2B1DFDB047006AD19D /* Sid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBB1DFDAB1F006AD19D /* Sid.cpp */; };
+		A5CA5C2C1DFDB047006AD19D /* sound.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBC1DFDAB1F006AD19D /* sound.cpp */; };
+		A5CA5C2D1DFDB047006AD19D /* tape.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBD1DFDAB1F006AD19D /* tape.cpp */; };
+		A5CA5C2E1DFDB047006AD19D /* tcbm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBE1DFDAB1F006AD19D /* tcbm.cpp */; };
+		A5CA5C2F1DFDB047006AD19D /* tedmem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBF1DFDAB1F006AD19D /* tedmem.cpp */; };
+		A5CA5C301DFDB047006AD19D /* tedsound.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BC01DFDAB1F006AD19D /* tedsound.cpp */; };
+		A5CA5C311DFDB047006AD19D /* vic2mem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BC11DFDAB1F006AD19D /* vic2mem.cpp */; };
+		A5CA5C321DFDB047006AD19D /* video.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BC21DFDAB1F006AD19D /* video.cpp */; };
+		A5E861951DFDE23100337DFF /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5CA5BDC1DFDAB99006AD19D /* SDL2.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A5CA5C111DFDB038006AD19D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		A5CA5B8B1DFDAB1F006AD19D /* 1541mem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = 1541mem.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B8C1DFDAB1F006AD19D /* 1541rom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = 1541rom.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B8D1DFDAB1F006AD19D /* archdep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = archdep.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B8E1DFDAB1F006AD19D /* c64rom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = c64rom.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B8F1DFDAB1F006AD19D /* Clockable.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Clockable.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B901DFDAB1F006AD19D /* cpu.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cpu.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B911DFDAB1F006AD19D /* device.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = device.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B921DFDAB1F006AD19D /* diskfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = diskfs.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B931DFDAB1F006AD19D /* drive.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = drive.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B941DFDAB1F006AD19D /* FdcGcr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FdcGcr.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B951DFDAB1F006AD19D /* icon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = icon.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B961DFDAB1F006AD19D /* iec.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = iec.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B971DFDAB1F006AD19D /* interface.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = interface.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B981DFDAB1F006AD19D /* keyboard.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keyboard.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B991DFDAB1F006AD19D /* keyoverlay.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keyoverlay.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B9A1DFDAB1F006AD19D /* keys64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keys64.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B9B1DFDAB1F006AD19D /* mem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mem.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B9C1DFDAB1F006AD19D /* mnemonic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mnemonic.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B9D1DFDAB1F006AD19D /* monitor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = monitor.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B9E1DFDAB1F006AD19D /* prg.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = prg.h; sourceTree = SOURCE_ROOT; };
+		A5CA5B9F1DFDAB1F006AD19D /* roms.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = roms.h; sourceTree = SOURCE_ROOT; };
+		A5CA5BA01DFDAB1F006AD19D /* SaveState.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SaveState.h; sourceTree = SOURCE_ROOT; };
+		A5CA5BA11DFDAB1F006AD19D /* serial.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = serial.h; sourceTree = SOURCE_ROOT; };
+		A5CA5BA21DFDAB1F006AD19D /* Sid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Sid.h; sourceTree = SOURCE_ROOT; };
+		A5CA5BA31DFDAB1F006AD19D /* sound.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sound.h; sourceTree = SOURCE_ROOT; };
+		A5CA5BA41DFDAB1F006AD19D /* tape.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tape.h; sourceTree = SOURCE_ROOT; };
+		A5CA5BA51DFDAB1F006AD19D /* tcbm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tcbm.h; sourceTree = SOURCE_ROOT; };
+		A5CA5BA61DFDAB1F006AD19D /* tedmem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tedmem.h; sourceTree = SOURCE_ROOT; };
+		A5CA5BA71DFDAB1F006AD19D /* types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = SOURCE_ROOT; };
+		A5CA5BA81DFDAB1F006AD19D /* vic2mem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vic2mem.h; sourceTree = SOURCE_ROOT; };
+		A5CA5BA91DFDAB1F006AD19D /* video.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = video.h; sourceTree = SOURCE_ROOT; };
+		A5CA5BAA1DFDAB1F006AD19D /* 1541mem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = 1541mem.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BAB1DFDAB1F006AD19D /* archdep.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = archdep.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BAC1DFDAB1F006AD19D /* cpu.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cpu.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BAD1DFDAB1F006AD19D /* dis.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dis.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BAE1DFDAB1F006AD19D /* diskfs.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = diskfs.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BAF1DFDAB1F006AD19D /* dos.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dos.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BB01DFDAB1F006AD19D /* drive.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = drive.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BB11DFDAB1F006AD19D /* FdcGcr.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FdcGcr.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BB21DFDAB1F006AD19D /* iec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = iec.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BB31DFDAB1F006AD19D /* interface.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = interface.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BB41DFDAB1F006AD19D /* keyboard.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = keyboard.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BB51DFDAB1F006AD19D /* keys64.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = keys64.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BB61DFDAB1F006AD19D /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BB71DFDAB1F006AD19D /* monitor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = monitor.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BB81DFDAB1F006AD19D /* prg.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = prg.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BB91DFDAB1F006AD19D /* SaveState.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SaveState.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BBA1DFDAB1F006AD19D /* serial.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = serial.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BBB1DFDAB1F006AD19D /* Sid.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Sid.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BBC1DFDAB1F006AD19D /* sound.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sound.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BBD1DFDAB1F006AD19D /* tape.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = tape.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BBE1DFDAB1F006AD19D /* tcbm.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = tcbm.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BBF1DFDAB1F006AD19D /* tedmem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = tedmem.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BC01DFDAB1F006AD19D /* tedsound.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = tedsound.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BC11DFDAB1F006AD19D /* vic2mem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vic2mem.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BC21DFDAB1F006AD19D /* video.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = video.cpp; sourceTree = SOURCE_ROOT; };
+		A5CA5BDC1DFDAB99006AD19D /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = ../../../../Library/Frameworks/SDL2.framework; sourceTree = "<group>"; };
+		A5CA5C131DFDB038006AD19D /* yapesdl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = yapesdl; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A5CA5C101DFDB038006AD19D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A5E861951DFDE23100337DFF /* SDL2.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A5CA5B781DFDAAC9006AD19D = {
+			isa = PBXGroup;
+			children = (
+				A5CA5BDC1DFDAB99006AD19D /* SDL2.framework */,
+				A5CA5B831DFDAAC9006AD19D /* yapesdl */,
+				A5CA5B821DFDAAC9006AD19D /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A5CA5B821DFDAAC9006AD19D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A5CA5C131DFDB038006AD19D /* yapesdl */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A5CA5B831DFDAAC9006AD19D /* yapesdl */ = {
+			isa = PBXGroup;
+			children = (
+				A5CA5B8B1DFDAB1F006AD19D /* 1541mem.h */,
+				A5CA5B8C1DFDAB1F006AD19D /* 1541rom.h */,
+				A5CA5B8D1DFDAB1F006AD19D /* archdep.h */,
+				A5CA5B8E1DFDAB1F006AD19D /* c64rom.h */,
+				A5CA5B8F1DFDAB1F006AD19D /* Clockable.h */,
+				A5CA5B901DFDAB1F006AD19D /* cpu.h */,
+				A5CA5B911DFDAB1F006AD19D /* device.h */,
+				A5CA5B921DFDAB1F006AD19D /* diskfs.h */,
+				A5CA5B931DFDAB1F006AD19D /* drive.h */,
+				A5CA5B941DFDAB1F006AD19D /* FdcGcr.h */,
+				A5CA5B951DFDAB1F006AD19D /* icon.h */,
+				A5CA5B961DFDAB1F006AD19D /* iec.h */,
+				A5CA5B971DFDAB1F006AD19D /* interface.h */,
+				A5CA5B981DFDAB1F006AD19D /* keyboard.h */,
+				A5CA5B991DFDAB1F006AD19D /* keyoverlay.h */,
+				A5CA5B9A1DFDAB1F006AD19D /* keys64.h */,
+				A5CA5B9B1DFDAB1F006AD19D /* mem.h */,
+				A5CA5B9C1DFDAB1F006AD19D /* mnemonic.h */,
+				A5CA5B9D1DFDAB1F006AD19D /* monitor.h */,
+				A5CA5B9E1DFDAB1F006AD19D /* prg.h */,
+				A5CA5B9F1DFDAB1F006AD19D /* roms.h */,
+				A5CA5BA01DFDAB1F006AD19D /* SaveState.h */,
+				A5CA5BA11DFDAB1F006AD19D /* serial.h */,
+				A5CA5BA21DFDAB1F006AD19D /* Sid.h */,
+				A5CA5BA31DFDAB1F006AD19D /* sound.h */,
+				A5CA5BA41DFDAB1F006AD19D /* tape.h */,
+				A5CA5BA51DFDAB1F006AD19D /* tcbm.h */,
+				A5CA5BA61DFDAB1F006AD19D /* tedmem.h */,
+				A5CA5BA71DFDAB1F006AD19D /* types.h */,
+				A5CA5BA81DFDAB1F006AD19D /* vic2mem.h */,
+				A5CA5BA91DFDAB1F006AD19D /* video.h */,
+				A5CA5BAA1DFDAB1F006AD19D /* 1541mem.cpp */,
+				A5CA5BAB1DFDAB1F006AD19D /* archdep.cpp */,
+				A5CA5BAC1DFDAB1F006AD19D /* cpu.cpp */,
+				A5CA5BAD1DFDAB1F006AD19D /* dis.cpp */,
+				A5CA5BAE1DFDAB1F006AD19D /* diskfs.cpp */,
+				A5CA5BAF1DFDAB1F006AD19D /* dos.cpp */,
+				A5CA5BB01DFDAB1F006AD19D /* drive.cpp */,
+				A5CA5BB11DFDAB1F006AD19D /* FdcGcr.cpp */,
+				A5CA5BB21DFDAB1F006AD19D /* iec.cpp */,
+				A5CA5BB31DFDAB1F006AD19D /* interface.cpp */,
+				A5CA5BB41DFDAB1F006AD19D /* keyboard.cpp */,
+				A5CA5BB51DFDAB1F006AD19D /* keys64.cpp */,
+				A5CA5BB61DFDAB1F006AD19D /* main.cpp */,
+				A5CA5BB71DFDAB1F006AD19D /* monitor.cpp */,
+				A5CA5BB81DFDAB1F006AD19D /* prg.cpp */,
+				A5CA5BB91DFDAB1F006AD19D /* SaveState.cpp */,
+				A5CA5BBA1DFDAB1F006AD19D /* serial.cpp */,
+				A5CA5BBB1DFDAB1F006AD19D /* Sid.cpp */,
+				A5CA5BBC1DFDAB1F006AD19D /* sound.cpp */,
+				A5CA5BBD1DFDAB1F006AD19D /* tape.cpp */,
+				A5CA5BBE1DFDAB1F006AD19D /* tcbm.cpp */,
+				A5CA5BBF1DFDAB1F006AD19D /* tedmem.cpp */,
+				A5CA5BC01DFDAB1F006AD19D /* tedsound.cpp */,
+				A5CA5BC11DFDAB1F006AD19D /* vic2mem.cpp */,
+				A5CA5BC21DFDAB1F006AD19D /* video.cpp */,
+			);
+			name = yapesdl;
+			path = yape;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A5CA5C121DFDB038006AD19D /* yapesdl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A5CA5C171DFDB038006AD19D /* Build configuration list for PBXNativeTarget "yapesdl" */;
+			buildPhases = (
+				A5CA5C0F1DFDB038006AD19D /* Sources */,
+				A5CA5C101DFDB038006AD19D /* Frameworks */,
+				A5CA5C111DFDB038006AD19D /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = yapesdl;
+			productName = yape;
+			productReference = A5CA5C131DFDB038006AD19D /* yapesdl */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A5CA5B791DFDAAC9006AD19D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0720;
+				ORGANIZATIONNAME = me;
+				TargetAttributes = {
+					A5CA5C121DFDB038006AD19D = {
+						CreatedOnToolsVersion = 7.2.1;
+					};
+				};
+			};
+			buildConfigurationList = A5CA5B7C1DFDAAC9006AD19D /* Build configuration list for PBXProject "yapesdl" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A5CA5B781DFDAAC9006AD19D;
+			productRefGroup = A5CA5B821DFDAAC9006AD19D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A5CA5C121DFDB038006AD19D /* yapesdl */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A5CA5C0F1DFDB038006AD19D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A5CA5C1D1DFDB047006AD19D /* dis.cpp in Sources */,
+				A5CA5C2F1DFDB047006AD19D /* tedmem.cpp in Sources */,
+				A5CA5C281DFDB047006AD19D /* prg.cpp in Sources */,
+				A5CA5C1F1DFDB047006AD19D /* dos.cpp in Sources */,
+				A5CA5C241DFDB047006AD19D /* keyboard.cpp in Sources */,
+				A5CA5C271DFDB047006AD19D /* monitor.cpp in Sources */,
+				A5CA5C231DFDB047006AD19D /* interface.cpp in Sources */,
+				A5CA5C261DFDB047006AD19D /* main.cpp in Sources */,
+				A5CA5C2C1DFDB047006AD19D /* sound.cpp in Sources */,
+				A5CA5C321DFDB047006AD19D /* video.cpp in Sources */,
+				A5CA5C311DFDB047006AD19D /* vic2mem.cpp in Sources */,
+				A5CA5C2B1DFDB047006AD19D /* Sid.cpp in Sources */,
+				A5CA5C291DFDB047006AD19D /* SaveState.cpp in Sources */,
+				A5CA5C301DFDB047006AD19D /* tedsound.cpp in Sources */,
+				A5CA5C1C1DFDB047006AD19D /* cpu.cpp in Sources */,
+				A5CA5C1A1DFDB047006AD19D /* 1541mem.cpp in Sources */,
+				A5CA5C211DFDB047006AD19D /* FdcGcr.cpp in Sources */,
+				A5CA5C2A1DFDB047006AD19D /* serial.cpp in Sources */,
+				A5CA5C251DFDB047006AD19D /* keys64.cpp in Sources */,
+				A5CA5C2E1DFDB047006AD19D /* tcbm.cpp in Sources */,
+				A5CA5C201DFDB047006AD19D /* drive.cpp in Sources */,
+				A5CA5C2D1DFDB047006AD19D /* tape.cpp in Sources */,
+				A5CA5C1B1DFDB047006AD19D /* archdep.cpp in Sources */,
+				A5CA5C1E1DFDB047006AD19D /* diskfs.cpp in Sources */,
+				A5CA5C221DFDB047006AD19D /* iec.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A5CA5B861DFDAAC9006AD19D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		A5CA5B871DFDAAC9006AD19D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = fast;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		A5CA5C181DFDB038006AD19D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				PRODUCT_NAME = yapesdl;
+			};
+			name = Debug;
+		};
+		A5CA5C191DFDB038006AD19D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				PRODUCT_NAME = yapesdl;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A5CA5B7C1DFDAAC9006AD19D /* Build configuration list for PBXProject "yapesdl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A5CA5B861DFDAAC9006AD19D /* Debug */,
+				A5CA5B871DFDAAC9006AD19D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A5CA5C171DFDB038006AD19D /* Build configuration list for PBXNativeTarget "yapesdl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A5CA5C181DFDB038006AD19D /* Debug */,
+				A5CA5C191DFDB038006AD19D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A5CA5B791DFDAAC9006AD19D /* Project object */;
+}

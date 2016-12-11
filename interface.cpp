@@ -710,7 +710,7 @@ int UI::wait_events()
 				//printf("joy: %u, button: %u was pressed!\n", event.jaxis.which, event.jaxis.axis);
 				break;
 
-			case SDL_CONTROLLERBUTTONDOWN:
+			case (Uint32)SDL_CONTROLLERBUTTONDOWN:
 			case SDL_JOYBUTTONDOWN:
 				//printf("joy: %u, button: %u was pressed!\n", event.jbutton.which, event.jbutton.button);
 				break;
