@@ -100,8 +100,7 @@ TED::TED() : sidCard(0), SaveState(), clockDivisor(10)
 	setId("TED0");
 	// clearing cartdridge ROMs
 	for (i=0;i<4;++i) {
-		memset(&(RomHi[i]),0,ROMSIZE);
-		memset(&(RomLo[i]),0,ROMSIZE);
+		memset(rom, 0, ROMSIZE * 2);
 		memset(romlopath,0,sizeof(romlopath));
 		memset(romhighpath,0,sizeof(romhighpath));
 	};
@@ -240,62 +239,42 @@ void TED::chrtoscreen(int x,int y, unsigned int scrchr)
 void TED::loadroms()
 {
 	for (int i=0;i<4;i++) {
-		loadhiromfromfile(i,romhighpath[i]);
-		loadloromfromfile(i,romlopath[i]);
+		loadromfromfile(i,romhighpath[i], 0x4000);
+		loadromfromfile(i,romlopath[i], 0);
 	}
-	mem_8000_bfff = actromlo = &(RomLo[0][0]);
-	mem_fc00_fcff = mem_c000_ffff = actromhi = &(RomHi[0][0]);
+	mem_8000_bfff = actromlo = rom[0];
+	mem_fc00_fcff = mem_c000_ffff = actromhi = rom[0] + 0x4000;
 }
 
-void TED::loadloromfromfile(int nr, char fname[256])
+void TED::loadromfromfile(int nr, char fname[512], unsigned int offset)
 {
 	FILE *img;
 
 	if ((fname[0]!='\0')) {
 		if ((img = fopen(fname, "rb"))) {
 			// load low ROM file
-			fread(&(RomLo[nr]),ROMSIZE,1,img);
-			fclose(img);
-			return;
-		}
-		switch (nr) {
-			case 0: memcpy(&(RomLo[0]),basic,ROMSIZE);
-				break;
-			case 1: if (!strncmp(fname,"3PLUS1LOW",9))
-						memcpy(&(RomLo[1]),plus4lo,ROMSIZE);
-					else
-						memset(&(RomLo[1]),0,ROMSIZE);
-				break;
-			default : memset(&(RomLo[nr]),0,ROMSIZE);
-		}
-	} else
-		memset(&(RomLo[nr]),0,ROMSIZE);
-}
-
-void TED::loadhiromfromfile(int nr, char fname[256])
-{
-	FILE *img;
-
-	if ((fname[0]!='\0')) {
-		if ((img = fopen(fname, "rb"))) {
-			// load high ROM file
-			fread(&(RomHi[nr]),ROMSIZE,1,img);
+			fread(rom[nr] + offset, ROMSIZE, 1, img);
 			fclose(img);
 			return;
 		}
 		switch (nr) {
 			case 0:
-				memcpy(&(RomHi[0]),kernal,ROMSIZE);
+				if (!strncmp(fname, "BASIC", 5))
+					memcpy(rom[0] + offset, basic, ROMSIZE);
+				else if (!strncmp(fname, "KERNAL", 6))
+					memcpy(rom[0] + offset, kernal, ROMSIZE);
 				break;
-			case 1: if (!strncmp(fname,"3PLUS1HIGH",10))
-						memcpy(&(RomHi[1]),plus4hi,ROMSIZE);
+			case 1: if (!strncmp(fname, "3PLUS1LOW",9))
+						memcpy(rom[1] + offset, plus4lo, ROMSIZE);
+					else if (!strncmp(fname, "3PLUS1HIGH", 10))
+						memcpy(rom[1] + offset, plus4hi, ROMSIZE); 
 					else
-						memset(&(RomHi[1]),0,ROMSIZE);
+						memset(rom[1] + offset, 0, ROMSIZE);
 				break;
-			default : memset(&(RomHi[nr]),0,ROMSIZE);
+			default : memset(rom[nr] + offset, 0, ROMSIZE);
 		}
 	} else
-		memset(&(RomHi[nr]),0,ROMSIZE);
+		memset(rom[nr] + offset, 0, ROMSIZE);
 }
 
 ClockCycle TED::GetClockCount()
@@ -311,7 +290,7 @@ void TED::ChangeMemBankSetup()
 	} else {
 		mem_8000_bfff = actromlo;
 		mem_c000_ffff = actromhi;
-		mem_fc00_fcff = &(RomHi[0][0]);
+		mem_fc00_fcff = rom[0] + 0x4000;
 	}
 }
 
@@ -478,8 +457,9 @@ void TED::changeCharsetBank()
 	} else {
 		tmp = 0xFC00 & RAMMask;
 	}
-	charrombank = &(RomHi[0][((Ram[0xFF13] & 0x3C)<<8) & tmp]);
-	charrambank = Ram + ((Ram[0xFF13]<<8)&tmp);
+	unsigned int offset = (Ram[0xFF13] << 8) & tmp;
+	charrombank = rom[0] + (offset & 0x7C00);
+	charrambank = Ram + offset;
 	cset = charrom ? charrombank : charrambank;
 }
 
@@ -711,11 +691,11 @@ void TED::Write(unsigned int addr, unsigned char value)
 							}
 							return;
 						case 0xFF12:
-							grbank=Ram+((value&0x38)<<10);
 							if ((value ^ Ram[0xFF12]) & 3)
 								writeSoundReg(CycleCounter, 4, value & 3);
 							// if the 2nd bit is set the chars are read from ROM
 							charrom=(value&0x04) != 0;
+							grbank = charrom ? rom[0] + (((value & 0x38) << 10) & 0x7000) : (Ram + ((value & 0x38) << 10));
 							if (charrom && Ram[0xFF13] < 0x80)
 								scrattr|=ILLEGAL;
 							else {
@@ -745,7 +725,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 							(ecmode || rvsmode) ? tmp=(0xF800)&RAMMask : tmp=(0xFC00)&RAMMask;
 							charbank = ((value)<<8)&tmp;
 							charrambank=Ram+charbank;
-							charrombank=&(RomHi[0][charbank & 0x3C00]);
+							charrombank=rom[0] + (charbank & 0x7C00);
 							if (charrom && value<0x80)
 								scrattr|=ILLEGAL;
 							else {
@@ -852,8 +832,8 @@ void TED::Write(unsigned int addr, unsigned char value)
 							}
 							return;
 						case 0xFDD:
-							actromlo=&(RomLo[addr&0x03][0]);
-							actromhi=&(RomHi[(addr&0x0c)>>2][0]);
+							actromlo = rom[addr&0x03];
+							actromhi = rom[(addr&0x0c)>>2] + 0x4000;
 							return;
 						case 0xFEC:
 						case 0xFED:
@@ -943,7 +923,7 @@ void TED::readState()
 	beamx=0;
 	scrptr=screen;
 	charrambank=Ram+charbank;
-	charrombank=&(RomHi[0][charbank & 0x3C00]);
+	charrombank = rom[0] + (charbank & 0x7C00);
 	(charrom) ? cset = charrombank : cset = charrambank;
 }
 

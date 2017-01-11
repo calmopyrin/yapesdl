@@ -163,8 +163,8 @@ void Vic2mem::Reset(bool clearmem)
 	vicReg[0x19] = 0;
 	prp = 7;
 	prddr = 0;
-	mem_8000_bfff = RomLo[0];
-	mem_c000_ffff = RomHi[0];
+	mem_8000_bfff = rom[0];
+	mem_c000_ffff = rom[0] + 0x4000;
 }
 
 void Vic2mem::dumpState()
@@ -234,10 +234,10 @@ void Vic2mem::readState()
 
 void Vic2mem::loadroms()
 {
-	memcpy(RomLo[0], basicRomC64, basicRomC64_size);
-	memcpy(RomHi[0], kernalRomC64, kernalRomC64_size);
-	mem_8000_bfff = RomLo[0];
-	mem_c000_ffff = RomHi[0];
+	memcpy(rom[0], basicRomC64, basicRomC64_size);
+	memcpy(rom[0] + 0x4000, kernalRomC64, kernalRomC64_size);
+	mem_8000_bfff = rom[0];
+	mem_c000_ffff = rom[0] + 0x4000;
 #if FAST_BOOT
 	// TODO: check ROM pattern
 	unsigned char patch[] = { 0xA0, 0xA0, 0xA2, 0x00, 0x84, 0xC1, 0x86, 0xC2 };
@@ -264,11 +264,26 @@ void Vic2mem::copyToKbBuffer(const char *text, unsigned int length)
 Color Vic2mem::getColor(unsigned int ix)
 {
 	const double bsat = 45.0;
-	Color color[16] = {
-		{ 0, 0, 0 }, { 0, 5.0, 0 }, { 112.5, 2.9375, bsat }, { 292.5, 3.875, bsat },
+	const Color color[16] = {
+		{ 0, 0, 0 }, { 0, 5.0, 0 }, 
+#ifndef MOS6569R1
+#if 0
+		{ 112.5, 2.9375, bsat }, { 292.5, 3.875, bsat },
 		{ 45, 3.125, bsat }, { 225, 3.5, bsat }, { 0, 2.75, bsat }, { 180, 4.25, bsat},
 		{ 135, 3.125, bsat }, { 157.5, 2.75, bsat }, { 112.5, 3.5, bsat }, { 0, 2.9375, 0 },
 		{ 0, 3.41, 0 }, { 225, 4.25, bsat }, { 0, 3.41, bsat }, { 0, 3.875, 0 }
+#else // ~TED hues
+		{ 96, 2.9375, bsat },{ 283, 3.875, bsat },
+		{ 53, 3.125, bsat },{ 241, 3.5, bsat },{ 347, 2.75, bsat },{ 167, 4.25, bsat },
+		{ 126, 3.125, bsat },{ 140, 2.75, bsat },{ 96, 3.5, bsat },{ 0, 2.9375, 0 },
+		{ 0, 3.41, 0 },{ 241, 4.25, bsat },{ 347, 3.41, bsat },{ 0, 3.875, 0 }
+#endif
+#else // 6569R1
+		{ 96, 3.0, bsat },{ 282, 4.5, bsat },
+		{ 55, 3.5, bsat },{ 245, 3.5, bsat },{ 350, 3.0, bsat },{ 167, 4.5, bsat },
+		{ 126, 3.5, bsat },{ 140, 3.0, bsat },{ 96, 3.5, bsat },{ 0, 3.0, 0 },
+		{ 0, 3.5, 0 },{ 245, 4.5, bsat },{ 350, 3.5, bsat },{ 0, 4.5, 0 }
+#endif
 	};
 	return color[ix & 0xF];
 }
@@ -903,8 +918,8 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 skip:
 						portState = (portState & ~prddr) | (prp & 0xC8 & prddr);
 						port = prp | ~prddr;
-						mem_8000_bfff = ((port & 3) == 3) ? RomLo[0] : Ram + 0xa000; // a000..bfff
-						mem_c000_ffff = ((port & 2) == 2) ? RomHi[0] : Ram + 0xe000; // e000..ffff
+						mem_8000_bfff = ((port & 3) == 3) ? rom[0] : Ram + 0xa000; // a000..bfff
+						mem_c000_ffff = ((port & 2) == 2) ? rom[0] + 0x4000 : Ram + 0xe000; // e000..ffff
 						charrom = (!(port & 4) && (port & 3));
 						return;
 				default:

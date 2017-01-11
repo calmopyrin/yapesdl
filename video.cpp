@@ -4,23 +4,14 @@
 //
 /* ---------- Inline functions ---------- */
 
-static double myMin(double a, double b)
+template<typename T> T myMin(T a, T b)
 {
     return a>b ? b : a;
 }
 
-static double myMax(double a, double b)
+template<typename T> T myMax(T a, T b)
 {
     return a>b ? a : b;
-}
-
-inline static void RGB82YCrCb(double R, double G, double B, double &Yc, double &Cb, double &Cr)
-{
-	// The equations for color conversion used here, probably aren't
-	// exact, but they seem to do an OK _fdc.
-	Yc = 16  + 1.0 / 256.0 * (   65.738  * R +  129.057  * G +  25.064  * B);
-	Cb = 0.0 + 1.0 / 256.0 * ( - 37.945  * R -   74.494  * G + 112.439  * B);
-	Cr = 0.0 + 1.0 / 256.0 * (  112.439  * R -   94.154  * G -  18.285  * B);
 }
 
 inline static void RGB2YUV(double R, double G, double B, Yuv &yuv)
@@ -48,9 +39,9 @@ void init_palette(TED *videoChip)
 		Vc = bsat * ((double) sin( c.hue * PI / 180.0 ));
 		Yc = c.luma ? (c.luma - 2.0) * 255.0 / (5.0 - 2.0) : 0;
 		// RED, GREEN and BLUE component
-		Uint8 Rc = (Uint8) myMax(myMin((Yc + Vc / 0.877283), 255.0), 0);
-		Uint8 Gc = (Uint8) myMax(myMin((Yc - 0.39465 * Uc - 0.58060 * Vc ), 255.0), 0);
-		Uint8 Bc = (Uint8) myMax(myMin((Yc + Uc / 0.492111), 255.0), 0);
+		Uint8 Rc = (Uint8) myMax<double>(myMin<double>((Yc + Vc / 0.877283), 255.0), 0);
+		Uint8 Gc = (Uint8) myMax<double>(myMin<double>((Yc - 0.39465 * Uc - 0.58060 * Vc ), 255.0), 0);
+		Uint8 Bc = (Uint8) myMax<double>(myMin<double>((Yc + Uc / 0.492111), 255.0), 0);
 
 		palette[ix + 128] = palette[ix] = Bc | (Gc << 8) | (Rc << 16);
 #if 1
