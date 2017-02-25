@@ -24,6 +24,11 @@ inline static void RGB2YUV(double R, double G, double B, Yuv &yuv)
 
 static unsigned int	palette[256];
 static Yuv          yuvPalette[256];
+static unsigned int doubleScan = 1;
+static unsigned int evenFrame = 0;
+static unsigned int interlacedShade = 85;
+static unsigned int videoSaturation = 100;
+static unsigned int videoBrightness = 100;
 
 void init_palette(TED *videoChip)
 {
@@ -34,10 +39,11 @@ void init_palette(TED *videoChip)
 	// calculate palette based on the HUE values
 	for (unsigned int ix = 0; ix < i; ix++) {
 		Color c = videoChip->getColor(ix);
-		double bsat = c.saturation;
+		double bsat = c.saturation * videoSaturation / 100;
+		double bf = (videoBrightness - 100.0) / 100.0;
 		Uc = bsat * ((double) cos( c.hue * PI / 180.0 ));
 		Vc = bsat * ((double) sin( c.hue * PI / 180.0 ));
-		Yc = c.luma ? (c.luma - 2.0) * 255.0 / (5.0 - 2.0) : 0;
+		Yc = c.luma ? (myMin<double>(c.luma + bf, 5.0) - 2.0) * 255.0 / (5.0 - 2.0) : 0;
 		// RED, GREEN and BLUE component
 		Uint8 Rc = (Uint8) myMax<double>(myMin<double>((Yc + Vc / 0.877283), 255.0), 0);
 		Uint8 Gc = (Uint8) myMax<double>(myMin<double>((Yc - 0.39465 * Uc - 0.58060 * Vc ), 255.0), 0);
@@ -60,21 +66,32 @@ unsigned int *palette_get_rgb()
 	return palette;
 }
 
-static unsigned int interlacedShade = 85;
-
 static void flipInterlacedShade(void *none)
 {
 	interlacedShade = interlacedShade + 15;
 	if (interlacedShade > 100) interlacedShade = 10;
 }
 
+static void flipVideoSaturation(void *none)
+{
+	videoSaturation = videoSaturation + 10;
+	if (videoSaturation > 200) videoSaturation = 0;
+	init_palette(theTed);
+}
+
+static void flipVideoBrightness(void *none)
+{
+	videoBrightness = videoBrightness + 15;
+	if (videoBrightness > 200) videoBrightness = 25;
+	init_palette(theTed);
+}
+
 rvar_t videoSettings[] = {
 	{ "Interlaced line shade", "InterlacedShade", flipInterlacedShade, &interlacedShade, RVAR_INT, NULL },
+	{ "Video saturation in percent", "VideoSaturation", flipVideoSaturation, &videoSaturation, RVAR_INT, NULL },
+	{ "Video brightness in percent", "VideoBrightness", flipVideoBrightness, &videoBrightness, RVAR_INT, NULL },
 	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };
-
-static unsigned int doubleScan = 1;
-static unsigned int evenFrame = 0;
 
 void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned char *screenptr)
 {
@@ -86,7 +103,6 @@ void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned 
 //	const int thisFrameInterlaced = !evenFrame && doubleScan ? 1 : 0;
 	unsigned char *fb = screenptr;
 	unsigned char *prevLine = fb;
-//	unsigned char *currLine = fb;
 
     i = SCREENY; /// 2;
 
@@ -107,34 +123,36 @@ void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned 
 
             do {
                 int Y0, Y1;
-                int filtX = j % 3;
+				const unsigned int dj = j << 1;
+                const unsigned int filtX = dj & 3;
+				const unsigned int filtNextX = (filtX + 1) & 3;
 
                 // current row
-                yuv = yuvBuffer[fb[j << 1]];
+                yuv = yuvBuffer[fb[dj]];
                 Y0 = (int)(yuv.y) * shade / 100;
                 Uc[filtX] = yuv.u;
                 Vc[filtX] = yuv.v ^ invertPhase;
                 // previous one
-                yuv = yuvBuffer[prevLine[j << 1]];
+                yuv = yuvBuffer[prevLine[dj]];
                 Up[filtX] = yuv.u;
                 Vp[filtX] = yuv.v ^ invertPhaseNext;
 
                 // move one pixel
-                yuv = yuvBuffer[fb[(j << 1) + 1]];
+                yuv = yuvBuffer[fb[dj + 1]];
                 Y1 = (int)(yuv.y) * shade / 100;
-                Uc[(filtX + 1) % 3] = yuv.u;
-                Vc[(filtX + 1) % 3] = yuv.v ^ invertPhase;
+                Uc[filtNextX] = yuv.u;
+                Vc[filtNextX] = yuv.v ^ invertPhase;
                 // previous row
-                yuv = yuvBuffer[prevLine[(j << 1) + 1]];
-                Up[(filtX + 1) % 3] = yuv.u;
-                Vp[(filtX + 1) % 3] = yuv.v ^ invertPhaseNext;
+                yuv = yuvBuffer[prevLine[dj + 1]];
+                Up[filtNextX] = yuv.u;
+                Vp[filtNextX] = yuv.v ^ invertPhaseNext;
 
                 // average color signal
                 // approximately a 13 -> 1.3 MHz Butterworth filter
-                const unsigned char U = (Uc[0] + Uc[1] + Uc[2] +
-                    Up[0] + Up[1] + Up[2]) / 6; // U
-                const unsigned char V = (Uc[0] + Vc[1] + Vc[2] +
-                    Vp[0] + Vp[1] + Vp[2]) / 6; // V
+                const unsigned char U = (Uc[0] + Uc[1] + Uc[2] + Uc[3] +
+                    Up[0] + Up[1] + Up[2] + Up[3]) / 8; // U
+                const unsigned char V = (Vc[0] + Vc[1] + Vc[2] + Vc[3] +
+                    Vp[0] + Vp[1] + Vp[2] + Vp[3]) / 8; // V
 
                 // store result
                 *(pImage + j) =
