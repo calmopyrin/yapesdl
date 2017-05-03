@@ -40,14 +40,17 @@ void init_palette(TED *videoChip)
 	for (unsigned int ix = 0; ix < i; ix++) {
 		Color c = videoChip->getColor(ix);
 		double bsat = c.saturation * videoSaturation / 100;
-		double bf = (videoBrightness - 100.0) / 100.0;
+		double brf = (videoBrightness - 100.0) / 100.0;
 		Uc = bsat * ((double) cos( c.hue * PI / 180.0 ));
 		Vc = bsat * ((double) sin( c.hue * PI / 180.0 ));
-		Yc = c.luma ? (myMin<double>(c.luma + bf, 5.0) - 2.0) * 255.0 / (5.0 - 2.0) : 0;
+		Yc = c.luma ? (myMin<double>(c.luma + brf, 5.0) - 2.0) * 255.0 / (5.0 - 2.0) : 0;
 		// RED, GREEN and BLUE component
-		Uint8 Rc = (Uint8) myMax<double>(myMin<double>((Yc + Vc / 0.877283), 255.0), 0);
-		Uint8 Gc = (Uint8) myMax<double>(myMin<double>((Yc - 0.39465 * Uc - 0.58060 * Vc ), 255.0), 0);
-		Uint8 Bc = (Uint8) myMax<double>(myMin<double>((Yc + Uc / 0.492111), 255.0), 0);
+		double rf = (Yc + Vc / 0.877283);
+		double gf = (Yc - 0.39465 * Uc - 0.58060 * Vc);
+		double bf = (Yc + Uc / 0.492111);
+		Uint8 Rc = (Uint8) myMax<double>(myMin<double>(rf, 255.0), 0);
+		Uint8 Gc = (Uint8) myMax<double>(myMin<double>(gf, 255.0), 0);
+		Uint8 Bc = (Uint8) myMax<double>(myMin<double>(bf, 255.0), 0);
 
 		palette[ix + 128] = palette[ix] = Bc | (Gc << 8) | (Rc << 16);
 #if 1

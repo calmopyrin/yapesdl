@@ -82,7 +82,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	// screen rendering
 	// raster co-ordinates and boundaries
 	unsigned int beamx, beamy;
-	unsigned char screen[512*(SCR_VSIZE*2)];
+	unsigned char *screen;
 	bool render_ok;
 	void texttoscreen(int x, int y, const char *scrtxt);
 	void chrtoscreen(int x, int y, unsigned int scrchr);

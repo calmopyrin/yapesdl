@@ -69,6 +69,11 @@ typedef void(*CallBackFunctor)(void *);
 // Simple linked list class
 template<typename T>
 class LinkedList {
+private:
+	T *next;
+	static T *root;
+	static T *last;
+	static unsigned int count;
 public:
 	LinkedList() {
 		count++;
@@ -115,11 +120,6 @@ public:
 		} while (node);
 	}
    // void cascadeCall()
-private:
-	T *next;
-	static T *root;
-	static T *last;
-	static unsigned int count;
 };
 
 class Resettable : public LinkedList<Resettable> {

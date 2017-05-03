@@ -64,9 +64,9 @@ struct element_t {
 };
 
 struct menu_t {
-	char title[512];
-	char subtitle[512];
-	struct element_t element[1000];
+	char title[MAX_PATH];
+	char subtitle[MAX_PATH];
+	struct element_t element[256];
 	menu_t *parent;
 	int nr_of_elements;
 	int curr_sel;
@@ -100,8 +100,7 @@ class UI {
 		bool handle_menu_command(struct element_t *element);
 		menu_t *curr_menu;
 		TED *ted8360;
-		void menuMoveUp();
-		void menuMoveDown();
+		void menuMove(int direction);
 		int menuEnter(bool forceAutoRun);
 		void openD64Item(const char *name);
 

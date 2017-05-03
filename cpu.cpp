@@ -36,7 +36,7 @@ unsigned int CPU::getcins()
 	// currins is set to 0x00 when in IRQ so we have to re-fetch the opcode
 	// this is only used for debugging & co.
 	return (currins==0) ?  mem->Read((PC-1)&0xFFFF) : currins&0xFF;
-};
+}
 
 void CPU::dumpState()
 {
@@ -196,12 +196,12 @@ void CPU::process()
 				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
 							PC+=(signed char) nextins;
 							cycle=0;
-						};
+						}
 						break;
 				case 3: PC+=(signed char) nextins;
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x30 : // BMI
@@ -213,12 +213,12 @@ void CPU::process()
 				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
 							PC+=(signed char) nextins;
 							cycle=0;
-						};
+						}
 						break;
 				case 3: PC+=(signed char) nextins;
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x50 : // BVC
@@ -232,12 +232,12 @@ void CPU::process()
 				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
 							PC+=(signed char) nextins;
 							cycle=0;
-						};
+						}
 						break;
 				case 3: PC+=(signed char) nextins;
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x70 : // BVS
@@ -251,12 +251,12 @@ void CPU::process()
 				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
 							PC+=(signed char) nextins;
 							cycle=0;
-						};
+						}
 						break;
 				case 3: PC+=(signed char) nextins;
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x90 : // BCC
@@ -268,12 +268,12 @@ void CPU::process()
 				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
 							PC+=(signed char) nextins;
 							cycle=0;
-						};
+						}
 						break;
 				case 3: PC+=(signed char) nextins;
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xB0 : // BCS
@@ -285,12 +285,12 @@ void CPU::process()
 				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
 							PC+=(signed char) nextins;
 							cycle=0;
-						};
+						}
 						break;
 				case 3: PC+=(signed char) nextins;
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xD0 : // BNE
@@ -302,12 +302,12 @@ void CPU::process()
 				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
 							PC+=(signed char) nextins;
 							cycle=0;
-						};
+						}
 						break;
 				case 3: PC+=(signed char) nextins;
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xF0 : // BEQ
@@ -319,12 +319,12 @@ void CPU::process()
 				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
 							PC+=(signed char) nextins;
 							cycle=0;
-						};
+						}
 						break;
 				case 3: PC+=(signed char) nextins;
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		// manipulating index registers
@@ -377,7 +377,7 @@ void CPU::process()
 						irq_sequence = 0x0;
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		/*case 0x00 : // BRK
@@ -399,7 +399,7 @@ void CPU::process()
 				case 6: PC=mem->Read(0xFFFE)|(mem->Read(0xFFFF)<<8);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x100 : // IRQ - pseudo opcode
@@ -418,7 +418,7 @@ void CPU::process()
 						//irq_sequence = 0x0;
 						cycle=0;
 						break;
-			};
+			}
 			break;*/
 
 		case 0x40 : // RTI
@@ -439,7 +439,7 @@ void CPU::process()
 						//ST&=0xFB;
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x60 : // RTS
@@ -457,7 +457,7 @@ void CPU::process()
 				case 5: PC++;
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		// stack operations
@@ -468,7 +468,7 @@ void CPU::process()
 				//ST = (ST&0xBF)|CheckVFlag();
 				push(ST|0x30);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x28 : // PLP
@@ -476,14 +476,14 @@ void CPU::process()
 				SP++;
 				ST=(pull() /*&0xEF*/);//|(0x20);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x48 : // PHA
 			if (cycle++==2) {
 				push(AC);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x68 : // PLA
@@ -492,7 +492,7 @@ void CPU::process()
 				AC=pull();
 				SETFLAGS_ZN(AC);
 				cycle=0;
-			};
+			}
 			break;
 
 		// inter-register operations
@@ -547,14 +547,14 @@ void CPU::process()
 				case 5: PC=ptr=nextins|(mem->Read(PC)<<8);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x4C : // JMP $0000
 			if (cycle++==2) {
 				PC=nextins|(mem->Read(PC+1)<<8);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x6C : // JMP ($0000)
@@ -563,7 +563,7 @@ void CPU::process()
 				// instruction does not handle page crossing
 				PC = mem->Read(ptr)|(mem->Read( (ptr & 0xFF00) | ((ptr+1)&0xFF) ) << 8);
 				cycle=0;
-			};
+			}
 			break;
 
  		// Accumulator operations with immediate addressing
@@ -690,7 +690,7 @@ void CPU::process()
 							ClearVFlag();*/
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x2C : // BIT $0000
@@ -708,7 +708,7 @@ void CPU::process()
 							ClearVFlag();*/
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		// Read instructions with absolute addressing
@@ -724,7 +724,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x2D : // AND $0000
@@ -737,7 +737,7 @@ void CPU::process()
 				case 3: AC&=mem->Read(ptr);
 						SETFLAGS_ZN(AC);
 						cycle=0;
-			};
+			}
 			break;
 
 		case 0x4D : // EOR $0000
@@ -751,7 +751,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x6D : // ADC $0000
@@ -764,7 +764,7 @@ void CPU::process()
 				case 3:	ADC(mem->Read(ptr));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x99 : // STA $0000,Y
@@ -778,7 +778,7 @@ void CPU::process()
 				case 4: mem->Write(ptr+Y,AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xAC : // LDY $0000
@@ -792,7 +792,7 @@ void CPU::process()
 						SETFLAGS_ZN(Y);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xCC : // CPY $0000
@@ -805,7 +805,7 @@ void CPU::process()
 				case 3: DoCompare(Y,mem->Read(ptr));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xEC : // CPX $0000
@@ -818,7 +818,7 @@ void CPU::process()
 				case 3: DoCompare(X,mem->Read(ptr));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xAD : // LDA $0000
@@ -832,7 +832,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xCD : // CMP $0000
@@ -845,7 +845,7 @@ void CPU::process()
 				case 3: DoCompare(AC,mem->Read(ptr));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xED : // SBC $0000
@@ -858,7 +858,7 @@ void CPU::process()
 				case 3: SBC(mem->Read(ptr));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x0E : // ASL $0000
@@ -878,7 +878,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x1E : // ASL $0000,X
@@ -900,7 +900,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x2E : // ROL $0000
@@ -920,7 +920,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x3E : // ROL $0000,X
@@ -942,7 +942,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x4E : // LSR $0000
@@ -962,7 +962,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x5E : // LSR $0000,X
@@ -984,7 +984,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x6E : // ROR $0000
@@ -1004,7 +1004,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x7E : // ROR $0000,X
@@ -1026,7 +1026,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xAE : // LDX $0000
@@ -1040,7 +1040,7 @@ void CPU::process()
 						SETFLAGS_ZN(X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xCE : // DEC $0000
@@ -1059,7 +1059,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xDE : // DEC $0000,X
@@ -1080,7 +1080,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xEE : // INC $0000
@@ -1099,7 +1099,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xFE : // INC $0000,X
@@ -1120,7 +1120,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		// zero page indexed with X or Y
@@ -1134,7 +1134,7 @@ void CPU::process()
 				case 3: mem->Write(nextins,Y);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x95 : // STA $00,X
@@ -1146,7 +1146,7 @@ void CPU::process()
 				case 3: mem->Write(nextins,AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x96 : // STX $00,Y
@@ -1158,7 +1158,7 @@ void CPU::process()
 				case 3: mem->Write(nextins,X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xB4 : // LDY $00,X
@@ -1171,7 +1171,7 @@ void CPU::process()
 						SETFLAGS_ZN(Y);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xB5 : // LDA $00,X
@@ -1184,7 +1184,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xB6 : // LDX $00,Y
@@ -1197,7 +1197,7 @@ void CPU::process()
 						SETFLAGS_ZN(X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xD5 : // CMP $00,X
@@ -1209,7 +1209,7 @@ void CPU::process()
 				case 3: DoCompare(AC,mem->Read(nextins));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x15 : // ORA $00,X
@@ -1222,7 +1222,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x35 : // AND $00,X
@@ -1235,7 +1235,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x16 : // ASL $00,X
@@ -1254,7 +1254,7 @@ void CPU::process()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x36 : // ROL $00,X
@@ -1274,7 +1274,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		// absolute addressing indexed with X or Y
@@ -1297,7 +1297,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x39 : // AND $0000,Y
@@ -1318,7 +1318,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x59 : // EOR $0000,Y
@@ -1339,7 +1339,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x79 : // ADC $0000,Y
@@ -1358,7 +1358,7 @@ void CPU::process()
 				case 4: ADC(mem->Read(ptr));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xB9 : // LDA $0000,Y
@@ -1379,7 +1379,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x1D : // ORA $0000,X
@@ -1394,13 +1394,13 @@ void CPU::process()
 							AC|=mem->Read(ptr);
 							SETFLAGS_ZN(AC);
 							cycle=0;
-						};
+						}
 						break;
 				case 4: AC|=mem->Read(ptr);
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x3D : // AND $0000,X
@@ -1415,13 +1415,13 @@ void CPU::process()
 							AC&=mem->Read(ptr);
 							SETFLAGS_ZN(AC);
 							cycle=0;
-						};
+						}
 						break;
 				case 4: AC&=mem->Read(ptr);
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x5D : // EOR $0000,X
@@ -1436,13 +1436,13 @@ void CPU::process()
 							AC^=mem->Read(ptr);
 							SETFLAGS_ZN(AC);
 							cycle=0;
-						};
+						}
 						break;
 				case 4: AC^=mem->Read(ptr);
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x7D : // ADC $0000,X
@@ -1456,12 +1456,12 @@ void CPU::process()
 				case 3: if (nextins+X<0x100) {
 							ADC(mem->Read(ptr));
 							cycle=0;
-						};
+						}
 						break;
 				case 4: ADC(mem->Read(ptr));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xBC : // LDY $0000,X
@@ -1476,13 +1476,13 @@ void CPU::process()
 							Y=mem->Read(ptr);
 							SETFLAGS_ZN(Y);
 							cycle=0;
-						};
+						}
 						break;
 				case 4: Y=mem->Read(ptr);
 						SETFLAGS_ZN(Y);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xBD : // LDA $0000,X
@@ -1497,13 +1497,13 @@ void CPU::process()
 							AC=mem->Read(ptr);
 							SETFLAGS_ZN(AC);
 							cycle=0;
-						};
+						}
 						break;
 				case 4: AC=mem->Read(ptr);
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xBE : // LDX $0000,Y
@@ -1518,13 +1518,13 @@ void CPU::process()
 							X=mem->Read(ptr);
 							SETFLAGS_ZN(X);
 							cycle=0;
-						};
+						}
 						break;
 				case 4: X=mem->Read(ptr);
 						SETFLAGS_ZN(X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xD9 : // CMP $0000,Y
@@ -1537,12 +1537,12 @@ void CPU::process()
 				case 3: if (nextins+Y<0x100){
 							DoCompare(AC,mem->Read(ptr+Y));
 							cycle=0;
-						};
+						}
 						break;
 				case 4: DoCompare(AC,mem->Read(ptr+Y));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xF9 : // SBC $0000,Y
@@ -1556,12 +1556,12 @@ void CPU::process()
 				case 3: if (nextins+Y<0x100){
 							SBC(mem->Read(ptr));
 							cycle=0;
-						};
+						}
 						break;
 				case 4: SBC(mem->Read(ptr));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xDD : // CMP $0000,X
@@ -1574,12 +1574,12 @@ void CPU::process()
 				case 3: if (nextins+X<0x100) {
 							DoCompare(AC,mem->Read(ptr+X));
 							cycle=0;
-						};
+						}
 						break;
 				case 4: DoCompare(AC,mem->Read(ptr+X));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xFD : // SBC $0000,X
@@ -1593,12 +1593,12 @@ void CPU::process()
 				case 3: if (nextins+X<0x100) {
 							SBC(mem->Read(ptr));
 							cycle=0;
-						};
+						}
 						break;
 				case 4: SBC(mem->Read(ptr));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		// zero page operations
@@ -1611,7 +1611,7 @@ void CPU::process()
 						SETFLAGS_ZN(Y);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xC4 : // CPY $00
@@ -1621,7 +1621,7 @@ void CPU::process()
 				case 2: DoCompare(Y,mem->Read(nextins));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x05 : // ORA $00
@@ -1632,7 +1632,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x55 : // EOR $00,X
@@ -1645,7 +1645,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x65 : // ADC $00
@@ -1655,7 +1655,7 @@ void CPU::process()
 				case 2: ADC(mem->Read(nextins));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x75 : // ADC $00,X
@@ -1667,7 +1667,7 @@ void CPU::process()
 				case 3: ADC(mem->Read(nextins));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xA5 : // LDA $00
@@ -1678,7 +1678,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xC5 : // CMP $00
@@ -1688,7 +1688,7 @@ void CPU::process()
 				case 2: DoCompare(AC,mem->Read(nextins));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xE5 : // SBC $00
@@ -1698,7 +1698,7 @@ void CPU::process()
 				case 2: SBC(mem->Read(nextins));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xF5 : // SBC $00,X
@@ -1710,7 +1710,7 @@ void CPU::process()
 				case 3: SBC(mem->Read(nextins));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x06 : // ASL $00
@@ -1727,7 +1727,7 @@ void CPU::process()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x26 : // ROL $00
@@ -1745,7 +1745,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x25 : // AND $00
@@ -1756,7 +1756,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x45 : // EOR $00
@@ -1767,7 +1767,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x46 : // LSR $00
@@ -1784,7 +1784,7 @@ void CPU::process()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x56 : // LSR $00,X
@@ -1803,7 +1803,7 @@ void CPU::process()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x66 : // ROR $00
@@ -1821,7 +1821,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x76 : // ROR $00,X
@@ -1841,7 +1841,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xA6 : // LDX $00
@@ -1852,7 +1852,7 @@ void CPU::process()
 						SETFLAGS_ZN(X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xC6 : // DEC $00
@@ -1868,7 +1868,7 @@ void CPU::process()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xE4 : // CPX $00
@@ -1878,7 +1878,7 @@ void CPU::process()
 				case 2: DoCompare(X,mem->Read(nextins));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xE6 : // INC $00
@@ -1894,7 +1894,7 @@ void CPU::process()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xD6 : // DEC $00,X
@@ -1912,7 +1912,7 @@ void CPU::process()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xF6 : // INC $00,X
@@ -1930,7 +1930,7 @@ void CPU::process()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		// indexed indirect
@@ -1949,7 +1949,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x21 : // AND ($00,X)
@@ -1966,7 +1966,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x41 : // EOR ($00,X)
@@ -1983,7 +1983,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x61 : // ADC ($00,X)
@@ -1999,7 +1999,7 @@ void CPU::process()
 				case 5: ADC(mem->Read(ptr));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x81 : // STA ($00,X)
@@ -2015,7 +2015,7 @@ void CPU::process()
 				case 5: mem->Write(ptr,AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xA1 : // LDA ($00,X)
@@ -2032,7 +2032,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xC1 : // CMP ($00,X)
@@ -2048,7 +2048,7 @@ void CPU::process()
 				case 5: DoCompare(AC,mem->Read(ptr));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xE1 : // SBC ($00,X)
@@ -2064,7 +2064,7 @@ void CPU::process()
 				case 5: SBC(mem->Read(ptr));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		// indirect indexed
@@ -2088,7 +2088,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x31 : // AND ($00),Y
@@ -2110,7 +2110,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x51 : // EOR ($00),Y
@@ -2132,7 +2132,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x71 : // ADC ($00),Y
@@ -2147,12 +2147,12 @@ void CPU::process()
 				case 4: if ((ptr&0x00FF)+Y<0x100) {
 							ADC(mem->Read(ptr+Y));
 							cycle=0;
-						};
+						}
 						break;
 				case 5: ADC(mem->Read(ptr+Y));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x91 : // STA ($00),Y
@@ -2168,7 +2168,7 @@ void CPU::process()
 				case 5: mem->Write(ptr+Y,AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xB1 : // LDA ($00),Y
@@ -2190,7 +2190,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xD1 : // CMP ($00),Y
@@ -2210,7 +2210,7 @@ void CPU::process()
 				case 5: DoCompare(AC,mem->Read(ptr+Y));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xF1 : // SBC ($00),Y
@@ -2225,12 +2225,12 @@ void CPU::process()
 				case 4: if ((ptr&0x00FF)+Y<0x100) {
 							SBC(mem->Read(ptr+Y));
 							cycle=0;
-						};
+						}
 						break;
 				case 5: SBC(mem->Read(ptr+Y));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		// storage functions
@@ -2242,7 +2242,7 @@ void CPU::process()
 				case 2: mem->Write(nextins,Y);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x85 : // STA $00
@@ -2252,7 +2252,7 @@ void CPU::process()
 				case 2: mem->Write(nextins,AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x86 : // STX $00
@@ -2262,7 +2262,7 @@ void CPU::process()
 				case 2: mem->Write(nextins,X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x8C : // STY $0000
@@ -2275,7 +2275,7 @@ void CPU::process()
 				case 3: mem->Write(ptr,Y);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x8D : // STA $0000
@@ -2288,7 +2288,7 @@ void CPU::process()
 				case 3: mem->Write(ptr,AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x8E : // STX $0000
@@ -2301,7 +2301,7 @@ void CPU::process()
 				case 3: mem->Write(ptr,X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x9D : // STA $0000,X
@@ -2315,7 +2315,7 @@ void CPU::process()
 				case 4: mem->Write(ptr+X,AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		//----------------
@@ -2344,7 +2344,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x07 : // ASO/SLO $00		: A <- (M << 1) \/ A
@@ -2363,7 +2363,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x0B : // ANN/ANC #$00
@@ -2384,7 +2384,7 @@ void CPU::process()
 						break;
 				case 3: cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x0F : // ASO/SLO $0000		: A <- (M << 1) \/ A
@@ -2405,7 +2405,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x13 : // ASO/SLO ($00),Y		: A <- (M << 1) \/ A
@@ -2429,7 +2429,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x14 : // NOP $00,X
@@ -2439,7 +2439,7 @@ void CPU::process()
 				case 2: break;
 				case 3: cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x17 : // ASO/SLO $00,X		: A <- (M << 1) \/ A
@@ -2459,7 +2459,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x80 : // NOP #$00
@@ -2497,7 +2497,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x1C : // NOP $0000,X
@@ -2517,7 +2517,7 @@ void CPU::process()
 						break;
 				case 4: cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x1F : // ASO/SLO $0000,X
@@ -2540,7 +2540,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x23 : // RAN/RLA ($00,X) - ROL memory, AND accu, result into acc
@@ -2564,7 +2564,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x27 : // RAN/RLA $00 -		A <- (M << 1) /\ (A)
@@ -2583,7 +2583,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x2F : // RAN/RLA $0000
@@ -2604,7 +2604,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x33 : // RAN/RLA ($00),Y -	A <- (M << 1) /\ (A) - not 100%
@@ -2628,7 +2628,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x34 : // NOP $00,X
@@ -2638,7 +2638,7 @@ void CPU::process()
 				case 2: break;
 				case 3: cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x37 : // RAN/RLA $00,X -			A <- (M << 1) /\ (A)
@@ -2659,7 +2659,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x3B : // RAN/RLA $0000,Y -	A <- (M << 1) /\ (A)
@@ -2681,7 +2681,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x3F : // RAN/RLA $0000,X
@@ -2704,7 +2704,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x43 : // LSE/SRE ($00,X) -	A <- (M >> 1) ^ A
@@ -2728,7 +2728,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x47 : // LSE/SRE $00 -		A <- (M >> 1) \-/ A
@@ -2747,7 +2747,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x4B : // ANL/ASR #$00
@@ -2777,7 +2777,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x53 : // LSE/SRE ($00),Y -	A <- (M >> 1) \-/ A	 - not 100%
@@ -2801,7 +2801,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x54 : // NOP $00,X
@@ -2811,7 +2811,7 @@ void CPU::process()
 						break;
 				case 3: cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x57 : // LSE/SRE $00,X -			A <- (M >> 1) \-/ A	 - not 100%
@@ -2832,7 +2832,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x5B : // LSE/SRE $0000,Y -	A <- (M >> 1) \-/ A
@@ -2878,7 +2878,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x63 : // RAD/RRA ($00,X) - ROR memory, ADC accu, result into accu
@@ -2901,7 +2901,7 @@ void CPU::process()
 						ADC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x04 : // NOP $00
@@ -2910,7 +2910,7 @@ void CPU::process()
 			if (cycle++==2) {
 				PC++;
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x67 : // RAD/RRA $00
@@ -2928,7 +2928,7 @@ void CPU::process()
 						ADC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x6B : // ARR #$00
@@ -2981,7 +2981,7 @@ void CPU::process()
 						ADC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x73 : // RAD/RRA ($00),Y -	A <- (M >> 1) + (A) + C
@@ -3004,7 +3004,7 @@ void CPU::process()
 						ADC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x74 : // NOP $00,X
@@ -3014,7 +3014,7 @@ void CPU::process()
 				case 2: break;
 				case 3: cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x77 : // RAD/RRA $00,X -	A <- (M >> 1) + (A) + C  - not good yet!!!!!!
@@ -3033,7 +3033,7 @@ void CPU::process()
 						ADC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x7B : // RAD/RRA $0000,Y -	A <- (M >> 1) + (A) + C   - not good yet!!!!!!
@@ -3094,7 +3094,7 @@ void CPU::process()
 				case 5: mem->Write(ptr,AC&X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x87 : // AAX/AXR/SAX $00 - M <- (A) /\ (X)
@@ -3104,7 +3104,7 @@ void CPU::process()
 				case 2: mem->Write(nextins,AC&X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x8B : // TAN/ANE/XAA $00 -	M <-[(A)/\$EE] \/ (X)/\(M)
@@ -3127,7 +3127,7 @@ void CPU::process()
 				case 3: mem->Write(ptr,AC&X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 /*
         SHA $93,$9F     Store (A & X & (ADDR_HI + 1))
@@ -3151,7 +3151,7 @@ void CPU::process()
 				case 5: mem->Write(ptr+Y,AC&X&((ptr >> 8)+1));//check this!
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x97 : // AXY/SAX $00,Y
@@ -3163,7 +3163,7 @@ void CPU::process()
 				case 3: mem->Write(nextins,AC&X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x9B : // AXS/SHS $0000,Y	- X <- (A) /\ (X), S <- (X) _plus_  M <- (X) /\ (PCH+1)
@@ -3179,7 +3179,7 @@ void CPU::process()
 				case 4: mem->Write(ptr,SP&((ptr >> 8)+1));
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x9C : // AYI/SHY $0000,X
@@ -3198,7 +3198,7 @@ void CPU::process()
 						}
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x9E : // SXI/SHX $0000,Y		(X) /\ (((PC+Y)>>8)+1) vagy mi???
@@ -3217,7 +3217,7 @@ void CPU::process()
 						}
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		// huh...????
@@ -3237,7 +3237,7 @@ void CPU::process()
 						}
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xA3 : // LDT/LAX ($00,X)
@@ -3255,7 +3255,7 @@ void CPU::process()
 						SETFLAGS_ZN(X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xA7 : // LDT/LAX $00
@@ -3267,7 +3267,7 @@ void CPU::process()
 						SETFLAGS_ZN(X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xAB : // ANX/LXA #$00
@@ -3277,7 +3277,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xAF : // LDT/LAX $0000
@@ -3291,7 +3291,7 @@ void CPU::process()
 						SETFLAGS_ZN(X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xB3 : // LDT/LAX ($00),Y
@@ -3313,7 +3313,7 @@ void CPU::process()
 						SETFLAGS_ZN(X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xB7 : // LDT/LAX $00,Y
@@ -3326,7 +3326,7 @@ void CPU::process()
 						SETFLAGS_ZN(X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xBB : // LAE/TSA Stack-Pointer AND with memory, TSX, TXA
@@ -3350,7 +3350,7 @@ void CPU::process()
 						SETFLAGS_ZN(X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xBF : // LDT/LAX $0000,Y
@@ -3371,7 +3371,7 @@ void CPU::process()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xC3 : // DEM/DCP ($00,X)
@@ -3394,7 +3394,7 @@ void CPU::process()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xC7 : // DEM/DCP $00
@@ -3413,7 +3413,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xCB : // AXS/XAS/SBX -	X <- (X)/\(A) - M
@@ -3442,7 +3442,7 @@ void CPU::process()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xD3 : // DEM/DCP ($00),Y - DEC memory, CMP memory
@@ -3464,7 +3464,7 @@ void CPU::process()
 						DoCompare(AC,farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xD4 : // NOP $0000,X
@@ -3475,7 +3475,7 @@ void CPU::process()
 				case 2: break;
 				case 3: cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xD7 : // DEM/DCP $00,X -	M <- (M)-1, (A-M) -> NZC
@@ -3496,7 +3496,7 @@ void CPU::process()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xDB : // DEM/DCP $0000,Y : M <- (M)-1, (A-M) -> NZC
@@ -3519,7 +3519,7 @@ void CPU::process()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xDF : // DEM/DCP $0000,X : M <- (M)-1, (A-M) -> NZC
@@ -3542,7 +3542,7 @@ void CPU::process()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xE3 : // INB/ISB ($00,X) -	M <- (M) + 1, A <- (A) - M - C
@@ -3565,7 +3565,7 @@ void CPU::process()
 						SBC(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xE7 : // INB/ISB $00 -	M <- (M) + 1, A <- (A) - M - C
@@ -3582,7 +3582,7 @@ void CPU::process()
 						SBC(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xEB : // SBC #$00 - illegal version
@@ -3607,7 +3607,7 @@ void CPU::process()
 						SBC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xF3 : // INB/ISB ($00),Y - increase and subtract from AC
@@ -3629,7 +3629,7 @@ void CPU::process()
 						SBC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xF4 : // NOP $60,X
@@ -3639,7 +3639,7 @@ void CPU::process()
 				case 2: break;
 				case 3: cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xF7 : // INB/ISB $00,X -	M <- (M) + 1, A <- (A) - M - C
@@ -3657,7 +3657,7 @@ void CPU::process()
 						SBC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xFB : // INB/ISB $0000,Y - increase and subtract from AC
@@ -3678,7 +3678,7 @@ void CPU::process()
 						SBC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xFF : // INB/ISB $0000,X - increase and subtract from AC
@@ -3699,7 +3699,7 @@ void CPU::process()
 						SBC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x02 : // ABS, JAM, KIL or whatever - jams the machine
@@ -3720,10 +3720,10 @@ void CPU::process()
 			break;
 
 		default : cycle=1; // can't happen!
-	};
+	}
 	/*if ((*irq_register)&0x80 && cycle && !irq_sequence)
 		IRQcount = 1;*/
-};
+}
 
 // in these cycles, only write operations are allowed for the CPU
 void CPU::stopcycle()
@@ -3748,7 +3748,7 @@ void CPU::stopcycle()
 						ST|=0x04;
 						cycle++;
 						break;
-			};
+			}
 			break;
 
 		/*case 0x100 : // IRQ
@@ -3782,7 +3782,7 @@ void CPU::stopcycle()
 						ST|=0x04;
 						cycle++;
 						break;
-			};
+			}
 			break;*/
 
 		case 0x08 : // PHP
@@ -3790,14 +3790,14 @@ void CPU::stopcycle()
 				// the PHP always pushes the status with the B flag set...
 				push(ST|0x30);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x48 : // PHA
 			if (cycle==2) {
 				push(AC);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x20 : // JSR
@@ -3808,7 +3808,7 @@ void CPU::stopcycle()
 				case 4: push(PC&0xFF);
 					cycle++;
 					break;
-			};
+			}
 			break;
 
 		case 0x06 : // ASL $00
@@ -3821,7 +3821,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x07 : // ASO/SLO $00		: A <- (M << 1) \/ A
@@ -3836,7 +3836,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x0E : // ASL $0000
@@ -3850,7 +3850,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x0F : // ASO/SLO $0000		: A <- (M << 1) \/ A
@@ -3865,7 +3865,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x16 : // ASL $00,X
@@ -3879,7 +3879,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x17 : // ASO/SLO $00,X		: A <- (M << 1) \/ A
@@ -3894,7 +3894,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x1E : // ASL $0000,X
@@ -3908,7 +3908,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x26 : // ROL $00
@@ -3921,7 +3921,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x27 : // RAN/RLA $00 -		A <- (M << 1) /\ (A)
@@ -3936,7 +3936,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x2E : // ROL $0000
@@ -3949,7 +3949,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x2F : // RAN/RLA $0000
@@ -3964,7 +3964,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x36 : // ROL $00,X
@@ -3978,7 +3978,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x37 : // RAN/RLA $00,X -			A <- (M << 1) /\ (A)
@@ -3992,7 +3992,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x3E : // ROL $0000,X
@@ -4004,7 +4004,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x46 : // LSR $00
@@ -4017,7 +4017,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x47 : // LSE/SRE $00 -		A <- (M >> 1) \-/ A
@@ -4032,7 +4032,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x4E : // LSR $0000
@@ -4045,7 +4045,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x4F : // LSE/SRE $0000 - A <- (M >> 1) \-/ A
@@ -4060,7 +4060,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x56 : // LSR $00,X
@@ -4073,7 +4073,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x5E : // LSR $0000,X
@@ -4086,7 +4086,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x66 : // ROR $00
@@ -4099,7 +4099,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x67 : // RAD/RRA $00
@@ -4113,7 +4113,7 @@ void CPU::stopcycle()
 						ADC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x6E : // ROR $0000
@@ -4127,7 +4127,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x6F : // RAD/RRA $0000
@@ -4141,7 +4141,7 @@ void CPU::stopcycle()
 						ADC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x73 : // RAD/RRA ($00),Y -	A <- (M >> 1) + (A) + C
@@ -4155,7 +4155,7 @@ void CPU::stopcycle()
 						ADC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x76 : // ROR $00,X
@@ -4167,7 +4167,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x7E : // ROR $0000,X
@@ -4179,7 +4179,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		// indexed indirect
@@ -4188,70 +4188,70 @@ void CPU::stopcycle()
 			if (cycle==5) {
 				mem->Write(ptr,AC);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x83 : // AXX/SAX ($00,X) -	M <- (A) /\ (X)
 			if (cycle==5) {
 				mem->Write(ptr,AC&X);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x84 : // STY $00
 			if (cycle==2) {
 				mem->Write(nextins,Y);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x85 : // STA $00
 			if (cycle==2) {
 				mem->Write(nextins,AC);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x86 : // STX $00
 			if (cycle==2) {
 				mem->Write(nextins,X);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x87 : // AAX/AXR/SAX $00 - M <- (A) /\ (X)
 			if (cycle==2) {
 				mem->Write(nextins,AC&X);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x8C : // STY $0000
 			if (cycle==3) {
 				mem->Write(ptr,Y);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x8D : // STA $0000
 			if (cycle==3) {
 				mem->Write(ptr,AC);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x8E : // STX $0000
 			if (cycle==3) {
 				mem->Write(ptr,X);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x8F : // AAX/SAX $0000
 			if (cycle==3) {
 				mem->Write(ptr,AC&X);
 				cycle=0;
-			};
+			}
 			break;
 
 		// indirect indexed
@@ -4260,7 +4260,7 @@ void CPU::stopcycle()
 			if (cycle==5) {
 				mem->Write(ptr+Y,AC);
 				cycle=0;
-			};
+			}
 			break;
 
 		// zero page indexed with X or Y
@@ -4270,7 +4270,7 @@ void CPU::stopcycle()
 				case 3: mem->Write(nextins,Y);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x95 : // STA $00,X
@@ -4278,7 +4278,7 @@ void CPU::stopcycle()
 				case 3: mem->Write(nextins,AC);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x96 : // STX $00,Y
@@ -4286,21 +4286,21 @@ void CPU::stopcycle()
 				case 3: mem->Write(nextins,X);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0x97 : // AXY/SAX $00,Y
 			if (cycle==3) {
 				mem->Write(nextins,AC&X);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x99 : // STA $0000,Y
 			if (cycle==4) {
 				mem->Write(ptr+Y,AC);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x9C : // AYI/SHY $0000,X
@@ -4308,14 +4308,14 @@ void CPU::stopcycle()
 				if (nextins+X<256)
 					mem->Write(ptr+X,Y&(nextins+1));
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0x9D : // STA $0000,X
 			if (cycle==4) {
 				mem->Write(ptr+X,AC);
 				cycle=0;
-			};
+			}
 			break;
 
 		case 0xC6 : // DEC $00
@@ -4328,7 +4328,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xC7 : // DEM/DCP $00
@@ -4343,7 +4343,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xCE : // DEC $0000
@@ -4356,7 +4356,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xCF : // DEM/DCP $0000
@@ -4371,7 +4371,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xD6 : // DEC $00,X
@@ -4384,7 +4384,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xD7 : // DEM/DCP $00,X -	M <- (M)-1, (A-M) -> NZC
@@ -4399,7 +4399,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xDE : // DEC $0000,X
@@ -4412,7 +4412,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xE6 : // INC $00
@@ -4425,7 +4425,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xE7 : // INB/ISB $00 -	M <- (M) + 1, A <- (A) - M - C
@@ -4438,7 +4438,7 @@ void CPU::stopcycle()
 						SBC(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xEE : // INC $0000
@@ -4451,7 +4451,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xEF : // INB/ISB $0000 - should be here but BAG protector won't work!
@@ -4464,7 +4464,7 @@ void CPU::stopcycle()
 						SBC(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xF6 : // INC $00,X
@@ -4477,7 +4477,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(farins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xFE : // INC $0000,X
@@ -4490,7 +4490,7 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
-			};
+			}
 			break;
 
 		case 0xFF : // INB/ISB $0000,X - increase and subtract from AC
@@ -4505,7 +4505,7 @@ void CPU::stopcycle()
 						break;
 				default:
 					return;
-			};
+			}
 			break;
 	}
 }

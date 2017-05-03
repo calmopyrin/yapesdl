@@ -98,6 +98,8 @@ TED::TED() : sidCard(0), SaveState(), clockDivisor(10)
 	instance_ = this;
 	masterClock = TED_REAL_CLOCK_M10;
 	setId("TED0");
+
+	screen = new unsigned char[512 * (SCR_VSIZE*2)];
 	// clearing cartdridge ROMs
 	for (i=0;i<4;++i) {
 		memset(rom, 0, ROMSIZE * 2);
@@ -563,7 +565,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 							if (attribFetch) {
 								if (vshift == (ff1d_latch & 7)) {
 									// Delayed DMA?
-									if (beamx>=3 && beamx<89) {
+									if (beamx>=3 && beamx<86) {
 										unsigned char idleread = Read((cpuptr->getPC()+1)&0xFFFF);
 										unsigned int delay = (BadLine & 2) ? 0 : (beamx - 1) >> 1;
 										unsigned int invalidcount = (delay > 3) ? 3 : delay;
@@ -580,7 +582,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 										delayedDMA = true;
 										if (!(BadLine & 2))
 											clockingState = TDMADELAY;
-									} else if (beamx<111 && beamx>=89) {
+									} else if (beamx<111 && beamx>=86) {
 										// FIXME this breaks on FF1E writes
 										BadLine |= 1;
 									}
@@ -1200,12 +1202,21 @@ void TED::doVRetrace()
 
 void TED::doHRetrace()
 {
+	if (!retraceScanLine) {
+		if (TVScanLineCounter >= RETRACESCANLINEMAX)
+			retraceScanLine = 1;
+	} else {
+		retraceScanLine += 1;
+		if ((Ram[0xFF07] & 0x40 ? 20U : 22U) <= retraceScanLine) {
+			if (TVScanLineCounter > RETRACESCANLINEMIN) {
+				doVRetrace();
+				retraceScanLine = 0;
+				return;
+			}
+		}
+	}
 	// the beam reached a new line
 	TVScanLineCounter += 1;
-	if ( TVScanLineCounter >= RETRACESCANLINEMAX || TVScanLineCounter >= retraceScanLine) {
-		if (TVScanLineCounter > RETRACESCANLINEMIN)
-			doVRetrace();
-	}
 	scrptr = screen + TVScanLineCounter * SCR_HSIZE;
 	endptr = scrptr + SCR_HSIZE;
 }
@@ -1288,8 +1299,8 @@ inline void TED::newLine()
 			break;
 
 		case 229: // NTSC
-			if ((Ram[0xFF07] & 0x40))
-				retraceScanLine = TVScanLineCounter + 20;
+			if ((Ram[0xFF07] & 0x40) && VBlanking && !retraceScanLine)
+				retraceScanLine = 1;
 			break;
 
 		case 247: // NTSC
@@ -1303,8 +1314,8 @@ inline void TED::newLine()
 
 		case 254:
 			// Schedule vertical retrace @ 274
-			if (!(Ram[0xFF07] & 0x40))
-				retraceScanLine = TVScanLineCounter + 20;
+			if (!(Ram[0xFF07] & 0x40) && !retraceScanLine)
+				retraceScanLine = 1;
 			break;
 
 		case 261:
@@ -1612,6 +1623,7 @@ Color TED::getColor(unsigned int ix)
 
 TED::~TED()
 {
+	delete [] screen;
     if (keys) {
         delete keys;
         keys = NULL;

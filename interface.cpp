@@ -123,7 +123,7 @@ static menu_t file_menu;
 static menu_t tap_list;
 static menu_t d64_list;
 static menu_t fre_list;
-static unsigned int pixels[512 * 312 * 2];
+static unsigned int *pixels;
 extern void frameUpdate(unsigned char *src, unsigned int *target);
 
 static rvar_t *findRVar(char *name)
@@ -143,6 +143,7 @@ static rvar_t *findRVar(char *name)
 UI::UI(class TED *ted) :
 	display(ted->screen), charset(kernal + 0x1400), ted8360(ted)
 {
+	pixels = new unsigned int[512 * 312 * 2];
 	// Link menu structure
 	main_menu.element[0].child = &file_menu;
 	main_menu.element[1].child = &d64_list;
@@ -631,44 +632,26 @@ int UI::enterMenu()
 	return retval;
 }
 
-void UI::menuMoveUp()
+void UI::menuMove(int direction)
 {
-	if (curr_menu->curr_sel > 0) {
+	if ((direction == -1 && curr_menu->curr_sel > 0) ||
+		(direction == +1 && curr_menu->curr_sel < curr_menu->nr_of_elements - 1))
+	{
 		int step = 0;
+		const int limit = direction == -1 ? 0 : MAX_LINES;
 		hide_sel_bar( curr_menu);
 		// Step and skip menu separators
 		do {
 			step++;
-		} while (curr_menu->element[curr_menu->curr_sel - step].menufunction
+		} while (curr_menu->element[curr_menu->curr_sel + step * direction].menufunction
 			== UI_MENUITEM_SEPARATOR);
-		if (curr_menu->curr_line == 0) {
-			curr_menu->uppermost -= 1;
+		if (curr_menu->curr_line == limit) {
+			curr_menu->uppermost += direction;
 			clear (1, 5);
 			show_menu( curr_menu );
 		} else
-			curr_menu->curr_line -= step;
-		curr_menu->curr_sel -= step;
-		show_sel_bar( curr_menu);
-	}
-}
-
-void UI::menuMoveDown()
-{
-	if (curr_menu->curr_sel < curr_menu->nr_of_elements - 1) {
-		int step = 0;
-		hide_sel_bar( curr_menu);
-		// Step and skip menu separators
-		do {
-			step++;
-		} while (curr_menu->element[curr_menu->curr_sel + step].menufunction
-			== UI_MENUITEM_SEPARATOR);
-		if (curr_menu->curr_line==MAX_LINES) {
-			curr_menu->uppermost += 1;
-			clear (1, 5);
-			show_menu( curr_menu );
-		} else
-			curr_menu->curr_line += step;
-		curr_menu->curr_sel += step;
+			curr_menu->curr_line += step * direction;
+		curr_menu->curr_sel += step * direction;
 		show_sel_bar( curr_menu);
 	}
 }
@@ -734,10 +717,10 @@ int UI::wait_events()
 					case 5:
 						return 0;
 					case 0:
-						menuMoveUp();
+						menuMove(+1);
 						break;
 					case 1:
-						menuMoveDown();
+						menuMove(-1);
 						break;
 					default:
 						//printf("joy: %u, button: %u was pressed!\n", event.jbutton.which, event.jbutton.button);
@@ -765,10 +748,10 @@ int UI::wait_events()
 					case SDLK_END:
 						break;
 					case SDLK_UP:
-						menuMoveUp();
+						menuMove(-1);
 						break;
 					case SDLK_DOWN:
-						menuMoveDown();
+						menuMove(+1);
 						break;
 					case SDLK_PAGEUP:
 						hide_sel_bar( curr_menu);
@@ -868,6 +851,7 @@ unsigned char UI::asc2pet(char c)
 
 UI::~UI()
 {
+	delete []pixels;
 }
 
 void interfaceLoop(void *arg)

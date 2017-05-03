@@ -159,20 +159,15 @@ unsigned char KEYS::keyReadMatrixRow(unsigned int r)
 
 		case 5:
 			tmp = ~
-				//((kbstate[joyset_dinp[2 - (joy_setup_code[0] == 2)][2]]<<0)
 				((kbstate[SDL_SCANCODE_P]<<1)
 				|(kbstate[SDL_SCANCODE_L]<<2)
-				//|(kbstate[joyset_dinp[2 - (joy_setup_code[0] == 2)][0]]<<3)
 				|(kbstate[SDL_SCANCODE_PERIOD]<<4)
 				|(kbstate[SDL_SCANCODE_KP_PERIOD]<<4) /* numeric . */
 				|(kbstate[SDL_SCANCODE_SEMICOLON]<<5)
 				|(kbstate[SDL_SCANCODE_EQUALS]<<6)
 				|(kbstate[SDL_SCANCODE_KP_MINUS]<<6) /* numeric - */
 				|(kbstate[SDL_SCANCODE_COMMA]<<7));
-			//if (!activejoy)
 				tmp &= ~((kbstate[SDL_SCANCODE_DOWN]<<0)|(kbstate[SDL_SCANCODE_UP]<<3));
-			//else
-			//	tmp &= ~((kbstate[SDL_SCANCODE_KP_2]<<0)|(kbstate[SDL_SCANCODE_KP_8]<<3));
 			break;
 
 		case 6:
@@ -186,10 +181,7 @@ unsigned char KEYS::keyReadMatrixRow(unsigned int r)
 				|(kbstate[SDL_SCANCODE_KP_PLUS]<<6) /* numeric + */
 				|(kbstate[SDL_SCANCODE_SLASH]<<7)
 				|(kbstate[SDL_SCANCODE_KP_DIVIDE]<<7));  /* numeric / */
-			//if (!activejoy)
 				tmp &= ~((kbstate[SDL_SCANCODE_LEFT]<<0)|(kbstate[SDL_SCANCODE_RIGHT]<<3));
-			//else
-			//	tmp &= ~((kbstate[SDL_SCANCODE_KP_4]<<0)|(kbstate[SDL_SCANCODE_KP_6]<<3));
 			break;
 
 		case 7:

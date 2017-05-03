@@ -162,7 +162,7 @@ void TAP::rewind()
 
 void TAP::changewave(bool wholewave)
 {
-	mtap_header_default[MTAP_VERSION] = 1 + wholewave ? 0 : 1;
+	mtap_header_default[MTAP_VERSION] = wholewave ? 1 : 2;
 }
 
 inline void TAP::readMtapData(unsigned int elapsed)
