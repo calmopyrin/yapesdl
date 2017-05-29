@@ -163,14 +163,17 @@ static inline unsigned int getNrOfSamplesToGenerate(ClockCycle clock, unsigned i
 	// 'clock' might have been reset but 'lastSamplePos' not!
 	if (lastSamplePos > samplePos)
 		samplesToDo = 0;
-	lastSamplePos = samplePos;
 	return samplesToDo;
 }
 
 void flushBuffer(ClockCycle cycle, unsigned int frq)
 {
-	updateAudio(getNrOfSamplesToGenerate(cycle, frq));
-	lastUpdateCycle = cycle;
+	unsigned int samplesToDo = getNrOfSamplesToGenerate(cycle, frq);
+	if (samplesToDo) {
+		updateAudio(samplesToDo);
+		lastUpdateCycle = cycle;
+		lastSamplePos += samplesToDo;
+	}
 }
 
 static unsigned int calibrateAudioBufferSize(unsigned int msec, unsigned int sampleRate)

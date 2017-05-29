@@ -27,6 +27,7 @@ static struct {
 	{ "m [<address>]", MON_CMD_MEM, "Memory dump (from [<address>])." },
 	{ "s <filename> [<address1>] [<address2>]", MON_CMD_SAVEPRG, "Save memory as PRG (from <address1> to <address2>" },
 	{ "t <src_from> <src_to> <target>", MON_CMD_TRANSFER, "Memory copy transfer (from start address)." },
+	{ "w", MON_CMD_SELECTCPU, "Cycle CPU context." },
 	{ "x", MON_CMD_EXIT, "Exit monitor." },
 	{ "z", MON_CMD_STEP, "Debug" },
 	//{ "attach <filename>", MON_CMD_ATTACHIMAGE, "Attach image." },
@@ -49,6 +50,7 @@ static struct {
 static CPU *cpuptr;
 static int disAssPc, memDumpPc;
 static unsigned int command;
+static Debuggable *debugContext = 0;
 
 inline static char** new2d(int rows, int cols)
 {
@@ -68,8 +70,8 @@ inline static void free2d(char** rowpointers)
 {
 	if (rowpointers == NULL)
 		return;
-	delete rowpointers[0];
-	delete rowpointers;
+	delete [] rowpointers[0];
+	delete [] rowpointers;
 	rowpointers = NULL;
 }
 
@@ -177,7 +179,7 @@ static void memShow(int pc, int dumpwidth)
 	char temp[256];
 	char line[256];
 	char **linebuffer;
-	MemoryHandler &mem = cpuptr->getMem();
+	MemoryHandler &mem = debugContext->getMem();
 
 	//con->getDimensions(cols, rows);
 	cols = COLS;
@@ -217,9 +219,9 @@ static void dumpRegs()
 {
 	char line[256];
 
-	cpuptr->regDump(line,0);
+	debugContext->regDump(line,0);
 	printf("%s", line);
-	cpuptr->regDump(line,1);
+	debugContext->regDump(line,1);
 	printf("%s", line);
 }
 
@@ -240,18 +242,18 @@ static void memChange(vector<string> args)
 	}
 	while (argCount--) {
 		unsigned char a = xtoi(args[argCount + 1].c_str()) & 0xff;
-		cpuptr->getMem().Write(memDumpPc + argCount, a);
+		debugContext->getMem().Write(memDumpPc + argCount, a);
 	}
 }
 
 static void step()
 {
 	char line[256];
-	unsigned short current_pc = cpuptr->getPC();
+	unsigned short current_pc = debugContext->getProgramCounter();
 
-	disAssPc = cpuptr->disassemble(current_pc, line);
+	disAssPc = debugContext->disassemble(current_pc, line);
 	printf("%s", line);
-	cpuptr->step();
+	debugContext->step();
 	dumpRegs();
 }
 
@@ -275,7 +277,7 @@ static void dumpDisAss(int pc)
 	current_pc = disAssPc;
 	rowcount = 2;
 	while ( rowcount < rows ) {
-		current_pc = cpuptr->disassemble(current_pc, linebuffer[rowcount]);
+		current_pc = debugContext->disassemble(current_pc, linebuffer[rowcount]);
 		//con->outDisassString(rowcount,linebuffer[rowcount++]);
 		printf("%s", linebuffer[rowcount++]);
 	}
@@ -287,7 +289,7 @@ static void dumpDisAss(int pc)
 static void disAss(int dir)
 {
 	if (dir == 0) {
-		dumpDisAss(cpuptr->getPC());
+		dumpDisAss(debugContext->getProgramCounter());
 	} else {
 		dumpDisAss(disAssPc);
 	}
@@ -324,7 +326,7 @@ void executeCmd(unsigned int cmd, vector<string> &args, char *wholeLine)
 		case MON_CMD_FILLMEM:
 			if (argCount == 3) {
 				while (argval[0] <= argval[1]) {
-					cpuptr->getMem().Write(argval[0]++, argval[2]);
+					debugContext->getMem().Write(argval[0]++, argval[2]);
 				}
 			}
 			break;
@@ -332,8 +334,8 @@ void executeCmd(unsigned int cmd, vector<string> &args, char *wholeLine)
 		case MON_CMD_TRANSFER:
 			if (argCount == 3) {
 				while (argval[0] <= argval[1]) {
-					int readval = cpuptr->getMem().Read(argval[0]++);
-					cpuptr->getMem().Write(argval[2]++, readval);
+					int readval = debugContext->getMem().Read(argval[0]++);
+					debugContext->getMem().Write(argval[2]++, readval);
 				}
 			}
 			break;
@@ -411,6 +413,18 @@ void executeCmd(unsigned int cmd, vector<string> &args, char *wholeLine)
 			}
 			break;
 
+		case MON_CMD_SELECTCPU:
+			{
+				Debuggable *newCx = debugContext->cycleToNext(debugContext);
+				if (debugContext == newCx) {
+					printf("No more debug contexts funds other than main CPU.\n");
+				} else {
+					printf("Switching from debug context '%s' to '%s'\n", debugContext->getName(), newCx->getName());
+					debugContext = newCx;
+				}
+			}
+			break;
+
 		case MON_CMD_HELP:
 			showHelp();
 			break;
@@ -449,7 +463,9 @@ void monitorEnter(CPU *cpu)
 	char buffer[256];
 
 	cpuptr = cpu;
-	disAssPc = memDumpPc = cpuptr->getPC();
+	if (!debugContext)
+		debugContext = debugContext->cycleToNext(0);
+	disAssPc = memDumpPc = debugContext->getProgramCounter();
 
 	printf("Welcome to the monitor!\n");
 	printf("Type ? for help!\n");

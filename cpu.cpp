@@ -11,6 +11,9 @@ bool CPU::bp_active = false;
 bool CPU::bp_reached = false;
 const unsigned int CPU::nr_of_bps = 11;
 static unsigned int stats[255];
+template<> unsigned int LinkedList<Debuggable>::count = 0;
+template<> Debuggable* LinkedList<Debuggable>::root = 0;
+template<> Debuggable* LinkedList<Debuggable>::last = 0;
 
 CPU::CPU( MemoryHandler *memhandler, unsigned char *irqreg, unsigned char *cpustack) 
 	: mem(memhandler), irq_register(irqreg), stack(cpustack)

@@ -40,7 +40,7 @@ extern void setMainLoop(int looptype);
 #define COLOR(COL, SHADE) ((SHADE<<4)|COL|0x80)
 #define MAX_LINES 25
 #define MAX_INDEX (MAX_LINES - 1)
-#define LISTOFFSET (ted8360->getCyclesPerRow() == 456 ? 52 : 112)
+#define LISTOFFSET (ted8360->getCyclesPerRow() == 456 ? 52 : 114)
 
 // TODO this is ugly and kludgy like hell but I don't have time for better
 static menu_t main_menu = {
@@ -394,7 +394,7 @@ bool UI::handle_menu_command( struct element_t *element)
 							if (rv->callback)
 								(rv->callback)(NULL);
 							else {
-								unsigned int *value = ((unsigned int*)(rv->value));
+								int *value = ((int*)(rv->value));
 								*value = !*value;
 							}
 							break;
@@ -524,7 +524,7 @@ bool UI::handle_menu_command( struct element_t *element)
 
 void UI::show_title(menu_t * menu)
 {
-	const unsigned int CPR = ted8360->getCyclesPerRow() == 504 ? 576 : 456;
+	const unsigned int CPR = ted8360->getCyclesPerRow() == 504 ? 580 : 456;
 
 	size_t titlen = strlen( menu->title ) << 3;
 	set_color( COLOR(8,7), COLOR(7,0) );
@@ -560,6 +560,14 @@ void UI::show_menu(menu_t * menu)
 		if (shown > MAX_LINES)
 			shown = MAX_LINES + 1;
 
+		for (i = 2; i < 16; i++) {
+			const char c = ' ';
+			const unsigned int offset = LISTOFFSET + 32 + i * 16;
+			bgcol = COLOR(i, 3);
+			chrtoscreen(offset, 312 - 24, c);
+			chrtoscreen(offset + 8, 312 - 24, c);
+		}
+
 		set_color( COLOR(0,0), COLOR(1,5) );
 		for (i = 0; i < shown; ++i) {
 			unsigned int ix = menu->uppermost + i;
@@ -586,7 +594,7 @@ void UI::show_menu(menu_t * menu)
 						break;
 
 					case RVAR_INT:
-						sprintf(valuetxt, "%u", *((unsigned int*)(rv->value)));
+						sprintf(valuetxt, "%i", *((int*)(rv->value)));
 						break;
 
 					case RVAR_HEX:

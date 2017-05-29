@@ -140,6 +140,35 @@ public:
 	virtual void reset(bool hard) = 0;
 };
 
+class MemoryHandler;
+
+class Debuggable : public LinkedList<Debuggable> {
+public:
+	Debuggable() {
+		add(this);
+	}
+	~Debuggable() {
+		remove(this);
+	}
+	Debuggable *cycleToNext(Debuggable *d) {
+		if (d) {
+			Debuggable *n = d->getNext();
+			if (!n)
+				n = getRoot();
+			return n;
+		} 
+		else
+			return getRoot();
+	}
+	virtual int disassemble(int pc, char *line) = 0;
+	virtual void step() = 0;
+	virtual unsigned int getProgramCounter() = 0;
+	virtual MemoryHandler &getMem() = 0;
+	virtual unsigned int getcycle() = 0;
+	virtual void regDump(char *line, int rowcount) = 0;
+	virtual char *getName() = 0;
+};
+
 //template<> unsigned int LinkedList<Resettable>::count = 0;
 //template<> Resettable* LinkedList<Resettable>::root = 0;
 //template<> Resettable* LinkedList<Resettable>::last = 0;

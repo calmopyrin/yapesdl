@@ -9,12 +9,13 @@
 #define REG_ST	ST
 #define SETFLAGS_ZN(VALUE) ST = (ST&0x7D)|(((VALUE)==0)<<1)|((VALUE)&0x80)
 
+#include "types.h"
 #include "mem.h"
 #include "SaveState.h"
 
 class TED;
 
-class CPU : public SaveState {
+class CPU : public SaveState , public Debuggable {
 	protected:
 		unsigned char currins;
 		unsigned char nextins;
@@ -56,7 +57,7 @@ class CPU : public SaveState {
 		void process();
 		void process(unsigned int clks);
 		void stopcycle();
-		void step();
+		virtual void step();
 
 		unsigned int getPC() { return PC; };
 		unsigned int getSP() { return SP; };
@@ -66,7 +67,7 @@ class CPU : public SaveState {
 		unsigned int getY() { return Y; };
 		unsigned int getnextins() { return nextins; };
 		unsigned int getptr() { return ptr; };
-		unsigned int getcycle() { return cycle; };
+		virtual unsigned int getcycle() { return cycle; };
 		unsigned int getcins();
 		unsigned int getRemainingCycles();
 		void setST(unsigned int v) { ST = v; };
@@ -84,9 +85,12 @@ class CPU : public SaveState {
 		unsigned int nr_activebps;
 		bool cpu_jammed;
 		static const unsigned int nr_of_bps;
-		int disassemble(int pc, char *line);
-		void regDump(char *line, int rowcount);
-		MemoryHandler &getMem() { return *mem; };
+		virtual int disassemble(int pc, char *line);
+		virtual unsigned int getProgramCounter() {
+			return PC;
+		}
+		virtual void regDump(char *line, int rowcount);
+		virtual MemoryHandler &getMem() { return *mem; };
 		void setMem(MemoryHandler *_mem, unsigned char *_i, unsigned char *_s) {
 			mem = _mem;
 			irq_register = _i;
@@ -103,6 +107,9 @@ class CPU : public SaveState {
         void clearNmi() {
             nmiLevel = 0;
         }
+		virtual char *getName() {
+			return "Main";
+		}
 };
 
 inline void CPU::ADC(const unsigned char value)
@@ -182,6 +189,9 @@ class DRIVECPU : public CPU {
 		DRIVECPU(MemoryHandler *memhandler, unsigned char *irqreg, unsigned char *cpustack,
 			unsigned char *vpin, unsigned char *so_enable, unsigned int id);
 		virtual ~DRIVECPU() { };
+		virtual char *getName() {
+			return getId();
+		}
 };
 
 #endif // _CPU_H

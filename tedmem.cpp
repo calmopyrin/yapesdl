@@ -1883,7 +1883,7 @@ void TEDFAST::process_debug(unsigned int continuous)
 	TED::ted_process(continuous);
 }
 
-unsigned char TEDFAST::getHorizontalCount()
+unsigned int TEDFAST::getHorizontalCount()
 {
 	unsigned int cyclesPerLine = clocksPerLine[clockingState + fastmode ? 0 : 3];
 	return ((98 + ((cyclesPerLine - cpuptr->getRemainingCycles()) * 114

@@ -29,11 +29,22 @@ static unsigned int evenFrame = 0;
 static unsigned int interlacedShade = 85;
 static unsigned int videoSaturation = 100;
 static unsigned int videoBrightness = 100;
+static int videoHueOffset = 0;
+static unsigned int videoGammaCorrection = 0;
+
+static double gammaCorr(double in)
+{
+	const double palCrtGamma = 2.8;
+	const double targetGamma = 2.2;
+	double out = pow(255.0, 1 - palCrtGamma) * pow(in, palCrtGamma);
+	out = pow(255.0, 1 - 1 / targetGamma) * pow(out, 1 / targetGamma);
+	return out;
+}
 
 void init_palette(TED *videoChip)
 {
     unsigned int i;
-	double	Uc, Vc, Yc,  PI = 3.14159265;
+	double	Uc, Vc, Yc,  PI = 4.0 * atan(1.0);
 
 	i = videoChip->getColorCount();
 	// calculate palette based on the HUE values
@@ -41,13 +52,19 @@ void init_palette(TED *videoChip)
 		Color c = videoChip->getColor(ix);
 		double bsat = c.saturation * videoSaturation / 100;
 		double brf = (videoBrightness - 100.0) / 100.0;
-		Uc = bsat * ((double) cos( c.hue * PI / 180.0 ));
-		Vc = bsat * ((double) sin( c.hue * PI / 180.0 ));
+		double hue = fmod(c.hue + double(videoHueOffset), 360.0);
+		Uc = bsat * ((double) cos( hue * PI / 180.0 ));
+		Vc = bsat * ((double) sin( hue * PI / 180.0 ));
 		Yc = c.luma ? (myMin<double>(c.luma + brf, 5.0) - 2.0) * 255.0 / (5.0 - 2.0) : 0;
 		// RED, GREEN and BLUE component
 		double rf = (Yc + Vc / 0.877283);
 		double gf = (Yc - 0.39465 * Uc - 0.58060 * Vc);
 		double bf = (Yc + Uc / 0.492111);
+		if (videoGammaCorrection) {
+			rf = gammaCorr(rf);
+			gf = gammaCorr(gf);
+			bf = gammaCorr(bf);
+		}
 		Uint8 Rc = (Uint8) myMax<double>(myMin<double>(rf, 255.0), 0);
 		Uint8 Gc = (Uint8) myMax<double>(myMin<double>(gf, 255.0), 0);
 		Uint8 Bc = (Uint8) myMax<double>(myMin<double>(bf, 255.0), 0);
@@ -89,10 +106,25 @@ static void flipVideoBrightness(void *none)
 	init_palette(theTed);
 }
 
+static void flipVideoHueOffset(void *none)
+{
+	videoHueOffset = videoHueOffset + 5;
+	if (videoHueOffset > 30) videoHueOffset = -30;
+	init_palette(theTed);
+}
+
+static void toggleVideoGammaCorrection(void *none)
+{
+	videoGammaCorrection = 1 - videoGammaCorrection;
+	init_palette(theTed);
+}
+
 rvar_t videoSettings[] = {
 	{ "Interlaced line shade", "InterlacedShade", flipInterlacedShade, &interlacedShade, RVAR_INT, NULL },
 	{ "Video saturation in percent", "VideoSaturation", flipVideoSaturation, &videoSaturation, RVAR_INT, NULL },
 	{ "Video brightness in percent", "VideoBrightness", flipVideoBrightness, &videoBrightness, RVAR_INT, NULL },
+	{ "Video hue offset in degrees", "VideoHueOffset", flipVideoHueOffset, &videoHueOffset, RVAR_INT, NULL },
+	{ "Video CRT gamma correction", "VideoCrtGammaCorrection", toggleVideoGammaCorrection, &videoGammaCorrection, RVAR_TOGGLE, NULL },
 	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };
 

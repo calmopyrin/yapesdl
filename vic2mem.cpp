@@ -92,6 +92,7 @@ Vic2mem::Vic2mem()
 	sidCard->setFrequency(VIC_SOUND_CLOCK);
 	sidCard->setModel(SID6581);
 	masterClock = VIC_REAL_CLOCK_M10;
+	colorRAM = new unsigned char[0x0400];
 	actram = Ram;
 	loadroms();
 	chrbuf = DMAbuf;
@@ -131,6 +132,7 @@ Vic2mem::Vic2mem()
 
 Vic2mem::~Vic2mem()
 {
+	delete[] colorRAM;
 	delete keys64;
 }
 
@@ -267,16 +269,23 @@ Color Vic2mem::getColor(unsigned int ix)
 	const Color color[16] = {
 		{ 0, 0, 0 }, { 0, 5.0, 0 }, 
 #ifndef MOS6569R1
-#if 0
+#if 0 // speculative
 		{ 112.5, 2.9375, bsat }, { 292.5, 3.875, bsat },
 		{ 45, 3.125, bsat }, { 225, 3.5, bsat }, { 0, 2.75, bsat }, { 180, 4.25, bsat},
 		{ 135, 3.125, bsat }, { 157.5, 2.75, bsat }, { 112.5, 3.5, bsat }, { 0, 2.9375, 0 },
 		{ 0, 3.41, 0 }, { 225, 4.25, bsat }, { 0, 3.41, bsat }, { 0, 3.875, 0 }
-#else // ~TED hues
+#else // measured
+#if 0 // my TV card  ~TED hues
 		{ 96, 2.9375, bsat },{ 283, 3.875, bsat },
-		{ 53, 3.125, bsat },{ 241, 3.5, bsat },{ 347, 2.75, bsat },{ 167, 4.25, bsat },
-		{ 126, 3.125, bsat },{ 140, 2.75, bsat },{ 96, 3.5, bsat },{ 0, 2.9375, 0 },
-		{ 0, 3.41, 0 },{ 241, 4.25, bsat },{ 347, 3.41, bsat },{ 0, 3.875, 0 }
+		{ 56, 3.125, bsat },{ 245, 3.5, bsat },{ 350, 2.75, bsat },{ 167, 4.25, bsat },
+		{ 126, 3.125, bsat },{ 147, 2.75, bsat },{ 96, 3.5, bsat },{ 0, 2.9375, 0 },
+		{ 0, 3.41, 0 },{ 245, 4.25, bsat },{ 350, 3.41, bsat },{ 0, 3.875, 0 }
+#else // screenshot
+	{ 96, 2.9375, bsat },{ 283, 3.875, bsat },
+	{ 55, 3.125, bsat },{ 241, 3.5, bsat },{ 347, 2.75, bsat },{ 167, 4.25, bsat },
+	{ 129, 3.125, bsat },{ 148, 2.75, bsat },{ 96, 3.5, bsat },{ 0, 2.9375, 0 },
+	{ 0, 3.41, 0 },{ 241, 4.25, bsat },{ 347, 3.41, bsat },{ 0, 3.875, 0 }
+#endif
 #endif
 #else // 6569R1
 		{ 96, 3.0, bsat },{ 282, 4.5, bsat },
@@ -741,6 +750,22 @@ void Vic2mem::doDelayedDMA()
 	}
 }
 
+void Vic2mem::UpdateSerialState(unsigned char newPort)
+{
+	static unsigned char prevPort = 0x01;
+	if (prevPort ^ newPort) {
+		serialPort[0] = ((newPort << 2) & 0x80)	// DATA OUT -> DATA IN
+			| ((newPort << 2) & 0x40)				// CLK OUT -> CLK IN
+			| ((newPort << 1) & 0x10);			// ATN OUT -> ATN IN (drive)
+		updateSerialDevices(serialPort[0]);
+		prevPort = newPort;
+#if LOG_SERIAL
+		fprintf(stderr, "$DD00 write : %02X @ PC=%04X in cycle:%llu\n", value, cpuptr->getPC(), CycleCounter);
+		fprintf(stderr, "  serial port written: %02X.\n", serialPort[0]);
+#endif
+	}
+}
+
 // read memory through memory decoder
 unsigned char Vic2mem::Read(unsigned int addr)
 {
@@ -1158,27 +1183,14 @@ skip:
 						switch (addr & 0x0F) {
 							case 2:
 								cia[1].write(2, value);
+								UpdateSerialState(~cia[1].pra & cia[1].ddra);
 								return;
 							case 0:
 								cia[1].write(0, value & 0x3F);
 								// VIC base
 								changeCharsetBank();
 								// serial IEC
-								{
-									static unsigned char prevPort = 0x01;
-									if ((prevPort ^ cia[1].pra) & 0x38) {
-										unsigned char port = ~cia[1].pra & 0x38;
-										serialPort[0] = ((port << 2) & 0x80)	// DATA OUT -> DATA IN
-											| ((port << 2) & 0x40)				// CLK OUT -> CLK IN
-											| ((port << 1) & 0x10);			// ATN OUT -> ATN IN (drive)
-										updateSerialDevices(serialPort[0]);
-										prevPort = cia[1].pra;
-#if LOG_SERIAL
-		fprintf(stderr, "$DD00 write : %02X @ PC=%04X\n", value, cpuptr->getPC());
-		fprintf(stderr, "$DD00 written: %02X.\n", serialPort[0]);
-#endif
-									}
-								}
+								UpdateSerialState(~cia[1].pra & cia[1].ddra);
 								return;
 							default:
 								break;
@@ -1538,6 +1550,18 @@ inline void Vic2mem::doXscrollChange(unsigned int oldXscr, unsigned int newXscr)
 			break;
 		}
 		memset(scrptr + oldXscr, a, newXscr - oldXscr);
+	}
+}
+
+inline unsigned char Vic2mem::readFloatingBus(unsigned int adr)
+{
+	unsigned int prevcycle = (124 + beamx) % 126;
+	unsigned char c = cycleLookup[BadLine][prevcycle];
+	switch (c) {
+	default:
+	case 'p':
+		return cpuptr->getcins();
+		break;
 	}
 }
 
@@ -1974,11 +1998,11 @@ inline void Vic2mem::checkSpriteEnable()
 #if NEWSDMA
 	unsigned int i = 7;
 	do {
-		if (mob[i].enabled && mob[i].y == beamy && !mob[i].dmaState) {
+		if (mob[i].enabled && mob[i].y == beamy /*&& !mob[i].dmaState*/) {
 			mob[i].dmaState = true;
 			mob[i].dataCountReload = 0;
 			mob[i].dataCount = 0;
-			mob[i].reloadFlipFlop = mob[i].expandY;
+			mob[i].reloadFlipFlop = mob[i].expandY ^ 1;
 		}
 	} while (i--);
 #endif
@@ -2010,11 +2034,10 @@ inline void Vic2mem::stopSpriteDMA()
 
 	do {
 		unsigned int &dc = mob[i].dataCount;
-		unsigned int &dcReload = mob[i].dataCountReload;
 		// check end of sprite DMA
-		if (dc == 0x3F) {
-			mob[i].dmaState = false;
-			dcReload = dc;
+		if (mob[i].dataCountReload == 0x3F) {
+			mob[i].dmaState = mob[i].rendering = false;
+			mob[i].dataCountReload = dc;
 		}
 	} while (i--);
 #endif
@@ -2028,12 +2051,11 @@ inline void Vic2mem::spriteReloadCounters()
 	do {
 		if (mob[i].dmaState) {
 			unsigned int &dc = mob[i].dataCount;
-			unsigned int &dcReload = mob[i].dataCountReload;
 			unsigned int &flipFlop = mob[i].reloadFlipFlop;
 
 			flipFlop ^= 1;
 			if (flipFlop) {
-				dcReload = dc;
+				mob[i].dataCountReload = dc;
 				// set flipflop to Y expension bit
 				flipFlop = mob[i].expandY;
 			}
@@ -2070,13 +2092,16 @@ inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
 				dcReload = dc;
 			}
 #else
-		if (mob[i].rendering && mob[i].x < VIC_PIXELS_PER_ROW) {
-			const unsigned int tvX = RASTERX2TVCOL(mob[i].x);
-			unsigned char *d = mob[i].sdb[1].shiftRegBuf;
-			unsigned char *p = lineBuf + tvX;
-			renderSprite(d, p, mob[i], tvX, 1 << i);
-			if (!mob[i].dmaState)
+		if (mob[i].rendering) {
+			if (mob[i].x < VIC_PIXELS_PER_ROW) {
+				const unsigned int tvX = RASTERX2TVCOL(mob[i].x);
+				unsigned char *d = mob[i].sdb[1].shiftRegBuf;
+				unsigned char *p = lineBuf + tvX;
+				renderSprite(d, p, mob[i], tvX, 1 << i);
+			}
+			if (!mob[i].dmaState) {
 				mob[i].rendering = false;
+			}
 		} else if (mob[i].dmaState) {
 			mob[i].rendering = true;
 #endif

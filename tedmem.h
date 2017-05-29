@@ -111,7 +111,6 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	bool enableSidCard(bool enable, unsigned int disableMask);
 	static void toggleSidCard(void *v) {
 		sidCardEnabled = !sidCardEnabled;
-		//enableSidCard(!!sidCardEnabled, 0);
 	}
 	SIDsound *getSidCard();
 	static void writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value);
@@ -126,9 +125,11 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual unsigned int getCyclesPerRow() const { return SCR_HSIZE; }
 	virtual unsigned char *getIrqReg() { return &irqFlag; }
 	virtual unsigned int getSoundClock() { return TED_SOUND_CLOCK; }
-	virtual unsigned int getRealSlowClock() { return TED_REAL_CLOCK_M10 / clockDivisor / 2; }
+	virtual unsigned int getRealSlowClock() { return TED_REAL_CLOCK_M10 / clockDivisor; }
 	virtual unsigned int getEmulationLevel() { return 0; }
 	virtual unsigned int getAutostartDelay() { return 70; }
+	virtual unsigned int getHorizontalCount() { return ((98 + beamx) << 1) % 228; }
+	virtual unsigned int getVerticalCount() { return beamy; }
 	virtual unsigned short getEndLoadAddressPtr() { return 0x9D; };
 	virtual void calcSamples(short *buffer, unsigned int nrsamples);
 	virtual void setFrequency(unsigned int sid_frequency);
@@ -243,7 +244,7 @@ protected:
 		/*
             Luminance Voltages
 		*/
-		const double luma[9] = { 2.00, 2.4, 2.55, 2.7, 2.9, 3.3, 3.6, 4.1, 4.8 };
+		const double luma[9] = { 2.00, 2.4, 2.55, 2.7, 2.9, 3.3, 3.6, 4.1, 4.95 };
 		return luma[i + 1];
 	}
 };
@@ -256,7 +257,7 @@ public:
 	virtual void process_debug(unsigned int continuous);
 	virtual unsigned int getEmulationLevel() { return 1; }
 protected:
-	virtual unsigned char getHorizontalCount();
+	virtual unsigned int getHorizontalCount();
 private:
 	bool endOfDMA;
 	inline void countTimers(unsigned int clocks);

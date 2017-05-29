@@ -33,7 +33,7 @@ class Vic2mem : public TED
 		void latchCounters();
 		virtual void copyToKbBuffer(const char *text, unsigned int length = 0);
 		virtual unsigned int getSoundClock() { return VIC_SOUND_CLOCK; }
-		virtual unsigned int getRealSlowClock() { return VIC_REAL_CLOCK_M10 / 10 / 2; }
+		virtual unsigned int getRealSlowClock() { return VIC_REAL_CLOCK_M10 / 10; }
 		virtual unsigned int getEmulationLevel() { return 2; }
 #if !FAST_BOOT
 		virtual unsigned int getAutostartDelay() { return 175; }
@@ -41,7 +41,8 @@ class Vic2mem : public TED
 		virtual unsigned int getAutostartDelay() { return 50; }
 #endif
 		virtual unsigned short getEndLoadAddressPtr() { return 0xAE; };
-		// this is for the FRE support
+		virtual unsigned int getHorizontalCount() { return beamx; }
+		// this is for the savestate support
 		virtual void dumpState();
 		virtual void readState();
 
@@ -51,6 +52,7 @@ class Vic2mem : public TED
 		void changeCharsetBank();
 		void checkIRQflag();
 		void doDelayedDMA();
+		void UpdateSerialState(unsigned char newPort);
 		unsigned char vicReg[0x40];
 		//
 		struct Mob {
@@ -68,6 +70,7 @@ class Vic2mem : public TED
 			unsigned int reloadFlipFlop;
 			bool dmaState;
 			bool rendering;
+			bool finished;
 			union SpriteDma {
 				unsigned char shiftRegBuf[4];
 				unsigned int dwSrDmaBuf;
@@ -148,7 +151,7 @@ class Vic2mem : public TED
 		void	hi_bitmap();
 		void	mc_bitmap();
 		void render();
-		unsigned char colorRAM[0x0400];
+		unsigned char *colorRAM;
 		KEYS64 *keys64;
     private:
 		unsigned char portState;
@@ -156,6 +159,7 @@ class Vic2mem : public TED
 		ClockCycle vicBusAccessCycleStart;
 		unsigned int spriteDMAmask;
 		void doXscrollChange(unsigned int oldXscr, unsigned int newXscr);
+		unsigned char readFloatingBus(unsigned int adr);
 		void checkSpriteEnable();
 		void stopSpriteDMA();
 		void spriteReloadCounters();

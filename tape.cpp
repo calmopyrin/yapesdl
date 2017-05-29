@@ -250,10 +250,10 @@ inline unsigned int TAP::readNextTapDelay()
 		delay += tapeBuffer[tapeSoFar++] << 16;
 		/*fprintf( stderr, "Pilot byte %i.\n", delay);
 		fprintf( stderr, "Pilot offset: %i.\n", TapeSoFar);*/
-	} else {
+	} else { 
 		delay <<= 3;
 	}
-	unsigned int tapClockFreq = mem->getRealSlowClock() >> 3;
+	unsigned int tapClockFreq = mem->getRealSlowClock() >> 4;
 	// machine clock frequency different from MTAP one? then adjust...
 	if (tapeImageSampleRate != tapClockFreq) {
 		const double frqMult = double(tapClockFreq) / double(tapeImageSampleRate);

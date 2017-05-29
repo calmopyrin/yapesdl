@@ -56,6 +56,7 @@ void setMainLoop(int looptype);
 static void toggleShowSpeed(void *none);
 static void toggleFullThrottle(void *none);
 static void toggleCrtEmulation(void *none);
+static void toggleVsync(void *none);
 static void flipMachineTypeFwd(void *name);
 static const char *machineTypeLabel();
 static void flipWindowScale(void *none);
@@ -97,6 +98,7 @@ static unsigned int     g_bUseOverlay = 0;
 static unsigned int		g_iWindowMultiplier = 2;
 static unsigned int		g_iEmulationLevel = 0;
 static unsigned int		g_bTrueDriveEmulation = 0;
+static unsigned int		g_bVideoVsync = 0;
 static char				lastSnapshotName[512] = "";
 static rvar_t mainSettings[] = {
 	{ "Show framerate", "DisplayFrameRate", toggleShowSpeed, &g_FrameRate, RVAR_TOGGLE, NULL },
@@ -105,6 +107,7 @@ static rvar_t mainSettings[] = {
 	{ "Window scale", "WindowMultiplier", flipWindowScale, &g_iWindowMultiplier, RVAR_INT, NULL },
 	{ "Machine type", "EmulationLevel", flipMachineTypeFwd, &g_iEmulationLevel, RVAR_STRING_FLIPLIST, &machineTypeLabel },
 	{ "CRT emulation", "CRTEmulation", toggleCrtEmulation, &g_bUseOverlay, RVAR_TOGGLE, NULL },
+	{ "Video vertical sync", "VideoVsync", toggleVsync, &g_bVideoVsync, RVAR_TOGGLE, NULL },
 	{ "True drive emulation", "TrueDriveEmulation", toggleTrueDriveEmulation, &g_bTrueDriveEmulation, RVAR_TOGGLE, NULL },
 	{ "Save settings on exit", "SaveSettingsOnExit", NULL, &g_bSaveSettings, RVAR_TOGGLE, NULL },
 	{ "", "", NULL, NULL, RVAR_NULL, NULL }
@@ -721,6 +724,15 @@ static void toggleShowSpeed(void *none)
 	g_FrameRate = !g_FrameRate;
 }
 
+static void toggleVsync(void *none)
+{
+	char value[2];
+	g_bVideoVsync = 1 - g_bVideoVsync;
+	value[0] = 0x30 + g_bVideoVsync;
+	value[1] = 0;
+	SDL_SetHint(SDL_HINT_RENDER_VSYNC, value);
+}
+
 static void toggleCrtEmulation(void *none)
 {
     g_bUseOverlay = !g_bUseOverlay;
@@ -960,7 +972,8 @@ inline static void poll_events(void)
 				{
 					const Uint8 *keystate = SDL_GetKeyboardState(NULL);
 					bool autostart = (!keystate[SDL_SCANCODE_LSHIFT] && !keystate[SDL_SCANCODE_RSHIFT]);
-					autostart_file(event.drop.file, autostart);
+					if (!autostart_file(event.drop.file, autostart))
+						SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "File failed to load properly.", sdlWindow);
 				}
 				break;
 
@@ -1089,11 +1102,14 @@ static void app_initialise()
         printf("Unable to create window: %s\n", SDL_GetError());
         return;
     }
+	setSDLIcon(sdlWindow);
+	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+	//
 	printf("On-screen keyboard");
 	if (!SDL_HasScreenKeyboardSupport()) 
 		printf(" not");
 	printf(" supported.\n");
-	setSDLIcon(sdlWindow);
+	//
     sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
     SDL_RenderSetLogicalSize(sdlRenderer, SCREENX * 2, SCREENY * 2);
@@ -1152,6 +1168,7 @@ int main(int argc, char *argv[])
 	machineInit();
 	uinterface = new UI(ted8360);
 
+	fprintf(stderr, "%s\n", NAME);
 #ifndef __EMSCRIPTEN__
 	inipath = SDL_GetPrefPath("Gaia", "yapeSDL");
 	if (inipath) {
