@@ -98,6 +98,10 @@ inline void setFreq(unsigned int channel, int freq)
 {
 	if (freq == 0x3FE) {
 		FlipFlop |= 0x10 << channel;
+		if (!channel)
+			cachedSoundSample[0] = volumeTable[Volume | (channelStatus[0])];
+		else
+			cachedSoundSample[1] = volumeTable[Volume | (channelStatus[1] | (SndNoiseStatus >> 1))];
 	}
 	OscReload[channel] = ((freq + 1) & 0x3FF) << PRECISION;
 }
