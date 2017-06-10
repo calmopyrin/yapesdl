@@ -32,12 +32,10 @@
 		</Build>
 		<Compiler>
 			<Add option="-DAUDIO_CALLBACK" />
-			<Add directory="D:/Program Files (x86)/CodeBlocks/MinGW/include" />
 		</Compiler>
 		<Linker>
 			<Add library="SDL2main" />
 			<Add library="SDL2" />
-			<Add directory="D:/Program Files (x86)/CodeBlocks/MinGW/lib" />
 		</Linker>
 		<Unit filename="1541mem.cpp" />
 		<Unit filename="1541mem.h" />
