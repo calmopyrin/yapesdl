@@ -217,12 +217,7 @@ inline void FdcGcr::SpinMotor()
 			byteReady = 0x80;
 		}
 	}
-	else {
-		unsigned int shiftReg = gcrCurrentBitcount * 100 / gcrCurrentBitRate;
-		if ( shiftReg <= 75 )
-			clearByteReady();
-	}
-};
+}
 
 /*
 	Select new speed zone (shift register frequency)
@@ -231,6 +226,6 @@ inline void FdcGcr::SetDensity( unsigned int ds)
 {
 	gcrCurrentBitRate = (16 - ((ds>>5)&0x03)) * spinFactor;
 	gcrCurrentBitcount = gcrCurrentBitRate;
-};
+}
 
 #endif // _FDCGCR_H

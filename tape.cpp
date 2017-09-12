@@ -250,7 +250,7 @@ inline unsigned int TAP::readNextTapDelay()
 		delay += tapeBuffer[tapeSoFar++] << 16;
 		/*fprintf( stderr, "Pilot byte %i.\n", delay);
 		fprintf( stderr, "Pilot offset: %i.\n", TapeSoFar);*/
-	} else { 
+	} else {
 		delay <<= 3;
 	}
 	unsigned int tapClockFreq = mem->getRealSlowClock() >> 4;

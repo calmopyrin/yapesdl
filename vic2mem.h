@@ -45,6 +45,7 @@ class Vic2mem : public TED
 		// this is for the savestate support
 		virtual void dumpState();
 		virtual void readState();
+		virtual void loadromfromfile(int nr, char fname[512], unsigned int offset);
 
     protected:
 		void doHRetrace();
@@ -91,6 +92,7 @@ class Vic2mem : public TED
 			~CIA() { refCount--; }
 			unsigned char pra;
 			unsigned char prb;
+			unsigned char prbTimerMode;
 			unsigned char prbTimerToggle;
 			unsigned char prbTimerOut;
 			unsigned char ddra;
@@ -101,6 +103,8 @@ class Vic2mem : public TED
 			int latchb;
 			int taFeed;
 			int tbFeed;
+			int taReload;
+			int tbReload;
 			unsigned char cra;
 			unsigned char crb;
 			unsigned char sdr;
@@ -121,9 +125,12 @@ class Vic2mem : public TED
 			void reset();
 			void write(unsigned int addr, unsigned char value);
 			unsigned char read(unsigned int addr);
+			void checkTimerAUnderflow();
+			void checkTimerBUnderflow(int cascaded);
 			void setIRQflag(unsigned int mask);
 			void countTimers();
-			void countTimerB(bool cascaded);
+			void countTimerB(const int cascaded);
+			void setTimerMode(const unsigned int flag, const unsigned int tv, unsigned int cr);
 			void todUpdate();
 			static unsigned int bcd2hex(unsigned int bcd);
 			static unsigned int hex2bcd(unsigned int hex);
@@ -165,6 +172,10 @@ class Vic2mem : public TED
 		void spriteReloadCounters();
 		unsigned int lpLatchX, lpLatchY;
 		bool lpLatched;
+		unsigned int gamepin, exrom;
+		void changeMemoryBank(unsigned int port, unsigned int ex, unsigned int game);
+		unsigned char *mem_8000_9fff;
+		unsigned char *mem_1000_3fff; // for Ultimax mode
 };
 
 #endif // VIC2MEM_H

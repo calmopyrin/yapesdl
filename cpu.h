@@ -107,7 +107,7 @@ class CPU : public SaveState , public Debuggable {
         void clearNmi() {
             nmiLevel = 0;
         }
-		virtual char *getName() {
+		virtual const char *getName() {
 			return "Main";
 		}
 };
@@ -189,7 +189,7 @@ class DRIVECPU : public CPU {
 		DRIVECPU(MemoryHandler *memhandler, unsigned char *irqreg, unsigned char *cpustack,
 			unsigned char *vpin, unsigned char *so_enable, unsigned int id);
 		virtual ~DRIVECPU() { };
-		virtual char *getName() {
+		virtual const char *getName() {
 			return getId();
 		}
 };

@@ -73,7 +73,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	static unsigned int bigram, bramsm;
 	// /ram/rom path/load variables
 	virtual void loadroms(void);
-	void loadromfromfile(int nr, char fname[512], unsigned int offset);
+	virtual void loadromfromfile(int nr, char fname[512], unsigned int offset);
 	static char romlopath[4][260];
 	static char romhighpath[4][260];
 	// this is for the FRE support
@@ -147,9 +147,7 @@ protected:
     CTCBM *tcbmbus;
 	unsigned int loop_continuous;
 	// memory variables
-  	//unsigned char RomLo[4][ROMSIZE];
-	//unsigned char RomHi[4][ROMSIZE];
-	unsigned char rom[4][ROMSIZE * 2];
+  	unsigned char rom[4][ROMSIZE * 2];
 	unsigned char *actromlo, *actromhi;
 	unsigned char *mem_8000_bfff, *mem_c000_ffff, *mem_fc00_fcff;
   	static unsigned int RAMMask;

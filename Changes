@@ -1,8 +1,12 @@
 Changes in v0.70.2
 ==================
 
-- TED sound fixes & optimizations
 - tape loading in WAV format and MTAP support in C64 mode added
+- preliminary CRT support for C64 mode
+- hunt command and repeating the last command on ENTER implemented in monitor
+- CIA fixes
+- VIC2 sprite fixes
+- TED sound fixes & optimizations
 
 Changes in v0.70.1
 ==================

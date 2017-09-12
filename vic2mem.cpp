@@ -25,7 +25,7 @@
         if (!(out[X] & 0x80)) { \
             if (!(out[X] & 0x40)) { \
 				if (!spriteBckgCollReg) { \
-					vicReg[0x19] |= (vicReg[0x1A] & 2) ? 0x82 : 0x02; \
+					vicReg[0x19] |= ((vicReg[0x1A] & 2) << 6) | 2; \
 					checkIRQflag(); \
 				} \
 				spriteBckgCollReg |= six; \
@@ -83,7 +83,7 @@ static unsigned char prevY;
 
 unsigned int Vic2mem::CIA::refCount = 0;
 
-Vic2mem::Vic2mem()
+Vic2mem::Vic2mem() : gamepin(1), exrom(1)
 {
     instance_ = this;
 	setId("VIC2");
@@ -141,6 +141,8 @@ void Vic2mem::Reset(bool clearmem)
 	if (clearmem) {
 		for (int i=0;i<RAMSIZE;Ram[i] = (i>>1)<<1==i ? 0 : 0xFF, i++);
 		loadroms();
+		mem_8000_bfff = rom[0];
+		mem_c000_ffff = rom[0] + 0x4000;
 	}
 	// empty collision buffers
 	memset(spriteCollisions, 0, sizeof(spriteCollisions));
@@ -165,8 +167,6 @@ void Vic2mem::Reset(bool clearmem)
 	vicReg[0x19] = 0;
 	prp = 7;
 	prddr = 0;
-	mem_8000_bfff = rom[0];
-	mem_c000_ffff = rom[0] + 0x4000;
 }
 
 void Vic2mem::dumpState()
@@ -234,11 +234,62 @@ void Vic2mem::readState()
 	Write(1, prp);
 }
 
+void Vic2mem::loadromfromfile(int nr, char fname[512], unsigned int offset)
+{
+	FILE *img;
+
+	if (img = fopen(fname, "rb")) {
+		// note: this is only the minimum!
+		const unsigned int crthdrsize = 64;
+		unsigned char crtheader[crthdrsize];
+
+		size_t r = fread(crtheader, 1, crthdrsize, img);
+		if (!strncmp((char*)crtheader, "C64 CARTRIDGE", 13)) {
+			const unsigned int chiphdrsize = 16;
+			unsigned char chipheader[chiphdrsize];
+			unsigned int size, loadaddress;
+			const unsigned int crtversionMain = crtheader[0x14];
+			const unsigned int crtversionSub = crtheader[0x15];
+			const unsigned int crtType = crtheader[0x17] | (crtheader[0x16] << 8);
+
+			fprintf(stderr, "CRT image version: %u.%u, type: %u\n", crtversionMain, crtversionSub, crtType);
+
+			r = fread(chipheader, 1, chiphdrsize, img);
+			if (!strncmp((char*)chipheader, "CHIP", 4)) {
+				loadaddress = chipheader[0x0D] | (chipheader[0x0C] << 8);
+				size = chipheader[0x0F] | (chipheader[0x0E] << 8);
+				exrom = crtheader[0x18];
+				gamepin = crtheader[0x19];
+				if (size <= 0x2000)
+					offset = loadaddress & 0x3000;
+				// load ROM/CRT file
+				r = fread(rom[nr] + offset, size, 1, img);
+				fprintf(stderr, "  CHIP data loaded: %04X-%04X EXROM:%u GAME:%u\n", loadaddress, loadaddress + size - 1, exrom, gamepin);
+				fclose(img);
+				//
+				changeMemoryBank(prp | ~prddr, exrom, gamepin);
+				Reset(0);
+				cpuptr->Reset();
+				return;
+			}
+		}
+	}
+	memset(rom[nr] + offset, 0, ROMSIZE);
+	bool restart = !(exrom & gamepin);
+	exrom = gamepin = 1;
+	changeMemoryBank(prp | ~prddr, exrom, gamepin);
+	if (restart) {
+		Reset(1);
+		cpuptr->Reset();
+	}
+}
+
 void Vic2mem::loadroms()
 {
 	memcpy(rom[0], basicRomC64, basicRomC64_size);
 	memcpy(rom[0] + 0x4000, kernalRomC64, kernalRomC64_size);
 	mem_8000_bfff = rom[0];
+	mem_8000_9fff = Ram + 0x8000;
 	mem_c000_ffff = rom[0] + 0x4000;
 #if FAST_BOOT
 	// TODO: check ROM pattern
@@ -311,8 +362,11 @@ void Vic2mem::CIA::reset()
 	irq_mask = 0;
 	ta = tb = taFeed = tbFeed = 0;
 	latcha = latchb = 0xFFFF;
+	tbReload = 0;
 	cra = crb = 0;
-	prbTimerOut = prbTimerToggle = 0;
+	prbTimerOut = 0;
+	prbTimerMode = 0;
+	prbTimerToggle = 0x80;
 	sdrShiftCnt = 0;
 	// ToD
 	todCount = 60 * 60 * 50; // set to 1hr at reset
@@ -324,12 +378,16 @@ void Vic2mem::CIA::reset()
 	pendingIrq = false;
 }
 
-void Vic2mem::CIA::setIRQflag(unsigned int mask)
+inline void Vic2mem::CIA::setIRQflag(unsigned int mask)
 {
-	if (mask & 0x1F) {
+	if (mask) {
 		if (!(icr & 0x80)) {
+#if 1
 			pendingIrq = true;
+#else
 			icr |= 0x80;
+			irqCallback(callBackParam);
+#endif
 		}
 	}
 }
@@ -393,6 +451,24 @@ void Vic2mem::CIA::frames2tod(unsigned int frames, TOD &todout, unsigned int frq
 	todout.tenths = hex2bcd(tenths);
 }
 
+inline void Vic2mem::CIA::setTimerMode(const unsigned int flag, const unsigned int tv, unsigned int cr)
+{
+	if (cr & 2) {
+		prbTimerMode |= flag; // PB6 shows timer underflow state
+		if (cr & 4) { // On a timer overflow, PBx is inverted?
+			prbTimerOut = (prbTimerOut & ~flag) | (prbTimerToggle & flag);
+		} else {
+			if (!tv) {
+				prbTimerOut |= flag;
+			} else {
+				prbTimerOut &= ~flag;
+			}
+		}
+	}
+	else
+		prbTimerMode &= ~flag;
+}
+
 void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 {
 	//fprintf(stderr, "$(%04X) CIA%i write : %02X @ PC=%04X\n", addr, refCount, value, theTed->cpuptr->getPC());
@@ -420,10 +496,9 @@ void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 
 		case 0x05:
 			latcha = (latcha & 0xFF) | (value << 8);
-			// Reload timer A if stopped
+			// Reload timer A only if stopped
 			if (!(cra & 1)) {
-				ta = latcha;
-				taFeed &= ~1;
+				taReload = 1;
 			}
 			break;
 
@@ -433,10 +508,9 @@ void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 
 		case 0x07:
 			latchb = (latchb & 0xFF) | (value << 8);
-			// Reload timer B if stopped
+			// Reload timer B only if stopped
 			if (!(crb & 1)) {
-				tb = latchb;
-				tbFeed &= ~1;
+				tbReload = 1;
 			}
 			break;
 
@@ -446,9 +520,11 @@ void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 				alm.tenths = value & 0x0F;
 				alarmCount = tod2frames(alm);
 			} else {
-				frames2tod(todCount, tod, todIn);
+				if (!tod.halt)
+					frames2tod(todCount, tod, todIn);
 				tod.tenths = value & 0x0F;
-				todCount = tod2frames(tod);
+				if (!tod.halt)
+					todCount = tod2frames(tod);
 			}
 			tod.halt = false;
 			break;
@@ -459,9 +535,11 @@ void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 				alm.sec = value & 0x7F;
 				alarmCount = tod2frames(alm);
 			} else {
-				frames2tod(todCount, tod, todIn);
+				if (!tod.halt)
+					frames2tod(todCount, tod, todIn);
 				tod.sec = value & 0x7F;
-				todCount = tod2frames(tod);
+				if (!tod.halt)
+					todCount = tod2frames(tod);
 			}
 			break;
 
@@ -471,9 +549,11 @@ void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 				alm.min = value & 0x7F;
 				alarmCount = tod2frames(alm);
 			} else {
-				frames2tod(todCount, tod, todIn);
+				if (!tod.halt)
+					frames2tod(todCount, tod, todIn);
 				tod.min = value & 0x7F;
-				todCount = tod2frames(tod);
+				if (!tod.halt)
+					todCount = tod2frames(tod);
 			}
 			break;
 
@@ -483,9 +563,10 @@ void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 				alm.hr = value & 0x9F;
 				alarmCount = tod2frames(alm);
 			} else {
-				frames2tod(todCount, tod, todIn);
+				if (!tod.halt)
+					frames2tod(todCount, tod, todIn);
 				tod.hr = value & 0x9F;
-				todCount = tod2frames(tod);
+				//todCount = tod2frames(tod);
 			}
 			tod.halt = true;
 			break;
@@ -504,21 +585,35 @@ void Vic2mem::CIA::write(unsigned int addr, unsigned char value)
 			break;
 
 		case 0x0E:
+			// rising edge of CRA0 sets PB6 toggle
+			if (!(cra & 1) && (value & 1))
+				prbTimerToggle |= 0x40;
 			cra = value & 0xEF;
-			prbTimerToggle = (prbTimerToggle & ~0x40) | ((value & 2) << 5);
+			if (!(value & 1))
+				taFeed = 0;
+			// Forced reload
+			if (value & 0x10) {
+				taReload = 1;
+			}
+			// set Timer A mode
+			setTimerMode(0x40, ta, cra);
 			// ToD clock rate
 			todIn = value & 0x80 ? 50 : 60;
-			if (value & 0x10) { // Forced reload
-				ta = latcha;
-			}
 			break;
 
 		case 0x0F:
+			// rising edge of CRB0 sets PB7 toggle
+			if (!(crb & 1) && (value & 1))
+				prbTimerToggle |= 0x80;
 			crb = value & 0xEF;
-			prbTimerToggle = (prbTimerToggle & ~0x80) | ((value & 2) << 6);
-			if (value & 0x10) {// Forced reload
-				tb = latchb;
+			if (!(crb & 1))
+				tbFeed = 0;
+			// Forced reload
+			if (value & 0x10) {
+				tbReload = 1;
 			}
+			// set Timer B mode
+			setTimerMode(0x80, tb, crb);
 			break;
 	}
 	reg[addr] = value;
@@ -533,7 +628,7 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 		case 0x01:
 			{
 				unsigned char retval;
-				retval = ((prb | ~ddrb) & ~prbTimerToggle) | (prbTimerOut & prbTimerToggle);
+				retval = ((prb | ~ddrb) & ~prbTimerMode) | (prbTimerOut & prbTimerMode);
 				return retval;
 			}
 		case 0x02:
@@ -571,7 +666,9 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 				return tod.min;
 			}
 		case 0x0B:
-			frames2tod(todCount, tod, todIn);
+			if (!tod.halt) {
+				frames2tod(todCount, tod, todIn);
+			}
 			tod.latched = true;
 			todLatch = tod;
 			return todLatch.hr | tod.ampm;
@@ -581,6 +678,7 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 			{
 				unsigned char retval = icr & 0x9F;
 				icr = 0;
+				pendingIrq = false;
 				return retval;
 			}
 		case 0x0E:
@@ -591,37 +689,80 @@ unsigned char Vic2mem::CIA::read(unsigned int addr)
 	return reg[addr];
 }
 
-void Vic2mem::CIA::countTimerB(bool cascaded)
+void Vic2mem::CIA::checkTimerAUnderflow()
 {
-    tb -= (tbFeed & 1);
-	tbFeed = (tbFeed >> 1) | ((crb & 1) << 2);
-    if (!tb) {
-	    //if (!cascaded)
-			tbFeed &= ~1;
-		icr |= 0x02; // Set timer B IRQ flag
+	if (!ta && (taFeed & 1)) {
+		icr |= 0x01; // Set timer A IRQ flag
 		setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay
-		//prbTimerToggle ^= 0x80; // PRB7 underflow count toggle
-		// timer A output to PRB6?
+		if (crb & 0x40) { // cascaded timer? CNT pin is high by default
+			tbFeed |= 1;
+			countTimerB(-1);
+		}
+		prbTimerToggle ^= 0x40; // PRA7 underflow count toggle
+		// timer A output to PB6?
+		if (cra & 2) {
+			// set PRA6 high for one clock cycle
+			if (cra & 4) {
+				prbTimerOut ^= 0x40; // toggle PRB6 between 1 and 0
+			}
+			else {
+				prbTimerOut |= 0x40; // set high for one clock
+			}
+		}
+		//prbTimerOut = (prbTimerOut & ~0x40) | (prbTimerToggle & 0x40);
+		if (cra & 8) { // One-shot?
+			cra &= 0xFE; // Stop timer
+			taFeed = 0;
+		}
+		taReload = 1;
+	}
+}
+
+void Vic2mem::CIA::checkTimerBUnderflow(const int cascaded)
+{
+	if (tb == cascaded && (tbFeed & 1)) {
+		icr |= 0x02; // Set timer B IRQ flag
+		setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay on later CIA's
+		prbTimerToggle ^= 0x80; // PRB7 underflow count toggle
+		// timer A output to PB6?
 		if (crb & 2) {
 			// set PRB7 high for one clock cycle
 			if (crb & 4) {
 				prbTimerOut ^= 0x80; // toggle PRB7 between 1 and 0
-			} else {
+			}
+			else {
 				prbTimerOut |= 0x80; // set high for one clock
 			}
 		}
+		//prbTimerOut = (prbTimerOut & ~0x80) | (prbTimerToggle & 0x80);
 		if (crb & 8) {// One-shot?
 			crb &= 0xFE; // Stop timer
 			tbFeed = 0;
 		}
+		// Reload from latch if not cascading
+		tbReload = 1;
+	}
+}
+
+void Vic2mem::CIA::countTimerB(int cascaded)
+{
+	tb -= (tbFeed & 1);
+	tbFeed = (tbFeed >> 1) | ((crb & 1) << 1);
+	// Underflow?
+	checkTimerBUnderflow(cascaded);
+	if (tbReload) {
+		tbReload = 0;
 		// Reload from latch
 		tb = latchb;
+		// skip decrement in next cycle
+		tbFeed &= ~1;
 	}
 }
 
 void Vic2mem::CIA::countTimers()
 {
 	if (pendingIrq) {
+		icr |= 0x80;
 		irqCallback(callBackParam);
 		pendingIrq = false;
 	}
@@ -632,43 +773,34 @@ void Vic2mem::CIA::countTimers()
 			setIRQflag(icr & irq_mask);
 		}
 	}
+	if (!(cra & 4)) {
+		prbTimerOut &= ~0x40; // reset PRB6
+	}
 	if ((cra & 0x20) == 0x00) {
         ta -= (taFeed & 1);
-		taFeed = (taFeed >> 1) | ((cra & 1) << 2);
-        if (!ta) {
-		    icr |= 0x01; // Set timer A IRQ flag
-			setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay
-			if ((crb & 0x40) == 0x40) { // cascaded timer? CNT pin is high by default
-                tbFeed |= 1;
-				countTimerB(true);
-			}
-			//prbTimerToggle ^= 0x40; // PRA7 underflow count toggle
-			// timer A output to PB6?
-			if (cra & 2) {
-				// set PRA6 high for one clock cycle
-				if (cra & 4) {
-					prbTimerOut ^= 0x40; // toggle PRB6 between 1 and 0
-				} else {
-					prbTimerOut |= 0x40; // set high for one clock
-				}
-			}
-			if (cra & 8) {// One-shot?
-				cra &= 0xFE; // Stop timer
-				taFeed = 0;
-			}
+		taFeed = (taFeed >> 1) | ((cra & 1) << 1);
+		// Underflow?
+		checkTimerAUnderflow();
+		if (taReload) {
+			taReload = 0;
 			// Reload from latch
-			taFeed &= ~1;
 			ta = latcha;
+			// skip decrement in next cycle
+			taFeed &= ~1;
 		}
 	}
+	if (!(crb & 4)) {
+		prbTimerOut &= ~0x80; // reset PRB7
+	}
 	if (!(crb & 0x40)) { // TimerB counting phi clock cycles?
-		countTimerB(false);
+		countTimerB(0);
 	}
 }
 
 void Vic2mem::changeCharsetBank()
 {
 	const unsigned int vicBank = (((cia[1].pra | ~cia[1].ddra) ^ 0xFF) & 3) << 14;
+
 	vicBase = Ram + vicBank;
 	// video matrix base address
 	const unsigned int vmOffset = ((vicReg[0x18] & 0xF0) << 6);
@@ -681,9 +813,35 @@ void Vic2mem::changeCharsetBank()
 		? charrombank + (cSetOffset & 0x0800) : charrambank;
 	grbank = vicBase + ((vicReg[0x18] & 8) << 10);
 #if 0
-	fprintf(stderr, "VIC bank: %04X, matrix:%04X(%u) in line:%03i pra:%02X ddra:%02X vic18:%02X\n",
-		vicBank, cSetOffset, cset != charrambank, beamy, cia[1].pra, cia[1].ddra, vicReg[0x18]);
+	fprintf(stderr, "VIC bank: %04X, matrix:%04X cset:%04X(%u) in line:%03i pra:%02X ddra:%02X vic18:%02X\n",
+		vicBank, vmOffset, cSetOffset, cset != charrambank, beamy, cia[1].pra, cia[1].ddra, vicReg[0x18]);
 #endif
+}
+
+void Vic2mem::changeMemoryBank(unsigned int port, unsigned int ex, unsigned int game)
+{
+	// TODO: make it a table
+	mem_8000_bfff = ((port & 3) == 3) ? rom[0] : Ram + 0xa000; // a000..bfff
+	mem_c000_ffff = ((port & 2) == 2) ? rom[0] + 0x4000 : Ram + 0xe000; // e000..ffff
+	charrom = (!(port & 4) && (port & 3));
+	mem_8000_9fff = Ram + 0x8000;
+	mem_1000_3fff = Ram;
+	// Ultimax mode?
+	if (exrom && !gamepin) {
+		mem_8000_9fff = rom[1];
+		mem_c000_ffff = rom[1] + 0x2000;
+		mem_1000_3fff = rom[1];
+		// HACK! Cart ROM is mirrored at lowest VIC bank in Ultimax mode
+		memcpy(Ram + 0x1000, rom[1] + 0x1000, 0x3000);
+		changeCharsetBank();
+	} else if (!exrom) {
+		if ((port & 3) == 3) {
+			mem_8000_9fff = rom[1];
+		}
+		if (!gamepin && (port & 2)) {
+			mem_8000_bfff = rom[1] + 0x2000;
+		}
+	}
 }
 
 void Vic2mem::setCiaIrq(void *param)
@@ -781,6 +939,9 @@ unsigned char Vic2mem::Read(unsigned int addr)
 			}
 		default:
 			return actram[addr & 0xFFFF];
+		case 0x8000:
+		case 0x9000:
+			return mem_8000_9fff[addr & 0x1FFF];
 		case 0xA000:
 		case 0xB000:
 			return mem_8000_bfff[addr & 0x1FFF];
@@ -788,9 +949,9 @@ unsigned char Vic2mem::Read(unsigned int addr)
 		case 0xF000:
 			return mem_c000_ffff[addr & 0x1FFF];
 		case 0xD000:
-			if (!((prp | ~prddr) & 3))
+			if (!((prp | ~prddr) & 3) && !(exrom & ~gamepin))
 				return actram[addr & 0xFFFF];
-			else if (charrom) {
+			else if (charrom && !(exrom & ~gamepin)) {
 				return charRomC64[addr & 0x0FFF];
 			} else {
 				switch ( addr >> 8 ) {
@@ -878,9 +1039,9 @@ unsigned char Vic2mem::Read(unsigned int addr)
 #if 1
 									{
 										static unsigned char oldRetval = 0xFF;
-										retval = (keys64->feedkey((cia[0].pra | ~cia[0].ddra) & keys64->getJoyState(1))
+										retval = ((keys64->feedkey((cia[0].pra | ~cia[0].ddra) & keys64->getJoyState(1)) ) //  | (cia[0].read(1) & 0xC0)
 											& ~cia[0].ddrb)
-											| (cia[0].prb & cia[0].ddrb);
+											| (cia[0].read(1) & cia[0].ddrb);
 										if ((oldRetval & 0x10) && !(retval & 0x10))
 											latchCounters();
 										oldRetval = retval;
@@ -910,12 +1071,14 @@ unsigned char Vic2mem::Read(unsigned int addr)
 								{
 									unsigned char retval = cia[1].read(0xD);
 									cpuptr->clearNmi();
+									/*fprintf(stderr, "CIA2(%02X) read:%02X @ PC=%04X @ cycle=%lli\n", addr & 0x1f, retval,
+										cpuptr->getPC(), CycleCounter);*/
 									return retval;
 								}
 							default:
 								;
 						}
-						/*fprintf(stderr, "CIA2(%02X) read:%02X @ PC=%04X @ cycle=%i\n", addr & 0x1f, cia[1].read(addr & 0xf),
+						/*fprintf(stderr, "CIA2(%02X) read:%02X @ PC=%04X @ cycle=%lli\n", addr & 0x1f, cia[1].read(addr & 0xf),
 								cpuptr->getPC(), CycleCounter);*/
 						return cia[1].read(addr);
 					default: // open address space
@@ -943,9 +1106,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 skip:
 						portState = (portState & ~prddr) | (prp & 0xC8 & prddr);
 						port = prp | ~prddr;
-						mem_8000_bfff = ((port & 3) == 3) ? rom[0] : Ram + 0xa000; // a000..bfff
-						mem_c000_ffff = ((port & 2) == 2) ? rom[0] + 0x4000 : Ram + 0xe000; // e000..ffff
-						charrom = (!(port & 4) && (port & 3));
+						changeMemoryBank(port, exrom, gamepin);
 						return;
 				default:
 						actram[addr & 0xFFFF] = value;
@@ -956,9 +1117,9 @@ skip:
 			actram[addr & 0xFFFF] = value;
 			return;
 		case 0xD000:
-			if (!((prp | ~prddr) & 3)) { // should be read(1)
+			if (!((prp | ~prddr) & 3) && !(exrom & ~gamepin)) { // should be read(1)
 				actram[addr & 0xFFFF] = value;
-			} else if (!charrom) {
+			} else if (!charrom || (exrom & ~gamepin)) {
 				//unsigned int i;
 				switch ( addr >> 8 ) {
 					case 0xD0: // VIC2
@@ -974,7 +1135,7 @@ skip:
 										irqline, value, cpuptr->getPC(), CycleCounter);	*/
 									irqline = (irqline & 0x100) | value;
 									if (beamy == irqline) {
-										vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
+										vicReg[0x19] |= ((vicReg[0x1A] & 1) << 7) | 1;
 										checkIRQflag();
 									}
 								}
@@ -985,7 +1146,7 @@ skip:
 								{
 									irqline = (irqline & 0xFF) | ((value & 0x80) << 1);
 									if (beamy == irqline) {
-										vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
+										vicReg[0x19] |= ((vicReg[0x1A] & 1) << 7) | 1;
 										checkIRQflag();
 									}
 								}
@@ -1216,7 +1377,7 @@ void Vic2mem::latchCounters()
 		lpLatched = true;
 		lpLatchX = beamx << 1;
 		lpLatchY = beamy;
-		vicReg[0x19] |= (vicReg[0x1A] & 8) ? 0x88 : 0x08;
+		vicReg[0x19] |= ((vicReg[0x1A] & 8) << 4) | 8;
 		checkIRQflag();
 	}
 }
@@ -1285,7 +1446,7 @@ inline void Vic2mem::newLine()
 	}
 	// is there raster interrupt?
 	if (beamy == irqline) {
-		vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
+		vicReg[0x19] |= ((vicReg[0x1A] & 1) << 7) | 1;
 		checkIRQflag();
 	}
 }
@@ -1320,7 +1481,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				if (endOfScreen) {
 					// is there raster interrupt? line 0 IRQ is delayed by 0 cycle
 					if (0 == irqline) {
-						vicReg[0x19] |= (vicReg[0x1A] & 1) ? 0x81 : 0x01;
+						vicReg[0x19] |= ((vicReg[0x1A] & 1) << 7) | 1;
 						checkIRQflag();
 					}
 					lpLatched = false;
@@ -2112,7 +2273,7 @@ inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
 		if (spriteCollisions[i]) {
             const unsigned char newReg = spriteCollisionReg | collisionLookup[spriteCollisions[i]];
             if (!spriteCollisionReg && newReg) {
-                vicReg[0x19] |= (vicReg[0x1A] & 4) ? 0x84 : 0x04;
+                vicReg[0x19] |= ((vicReg[0x1A] & 4) << 5) | 4;
                 checkIRQflag();
             }
 			spriteCollisionReg = newReg;

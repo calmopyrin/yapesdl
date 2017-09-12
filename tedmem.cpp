@@ -1339,7 +1339,7 @@ inline void TED::newLine()
 	}
 	// is there raster interrupt?
 	if (beamy == irqline) {
-		Ram[0xFF09] |= Ram[0xFF0A]&0x02 ? 0x82 : 0x02;
+		Ram[0xFF09] |= ((Ram[0xFF0A]&0x02) << 6) | 0x02;
 		irqFlag |= Ram[0xFF09] & 0x80;
 	}
 }
@@ -1485,12 +1485,12 @@ void TED::ted_process(const unsigned int continuous)
 		if (beamx&1) {	// perform these only in every second cycle
 			if (t2on && !((timer2--)&0xFFFF)) {// Timer2 permitted
 				timer2=0xFFFF;
-				Ram[0xFF09] |= Ram[0xFF0A]&0x10 ? 0x90 : 0x10; // interrupt
+				Ram[0xFF09] |= ((Ram[0xFF0A]&0x10) << 3) | 0x10; // interrupt
 				irqFlag |= Ram[0xFF09] & 0x80;
 			}
 			if (t3on && !((timer3--)&0xFFFF)) {// Timer3 permitted
 				timer3=0xFFFF;
-				Ram[0xFF09] |= Ram[0xFF0A]&0x40 ? 0xC0 : 0x40; // interrupt
+				Ram[0xFF09] |= ((Ram[0xFF0A]&0x40) << 1) | 0x40; // interrupt
 				irqFlag |= Ram[0xFF09] & 0x80;
 			}
 			if (!CharacterWindow && !HBlanking && !VBlanking) {
@@ -1504,7 +1504,7 @@ void TED::ted_process(const unsigned int continuous)
 		} else {
 			if (t1on && !timer1--) { // Timer1 permitted decreased and zero
 				timer1=(t1start-1)&0xFFFF;
-				Ram[0xFF09] |= Ram[0xFF0A]&0x08 ? 0x88 : 0x08; // interrupt
+				Ram[0xFF09] |= ((Ram[0xFF0A]&0x08) << 4) | 8; // interrupt
 				irqFlag |= Ram[0xFF09] & 0x80;
 			}
 			if (!(HBlanking||VBlanking)) {
@@ -1736,7 +1736,7 @@ inline void TEDFAST::countTimers(unsigned int clocks)
 		if (newTimerValue <= 0) {
 			if (t1start >= clocks)
 				timer1 = (t1start + newTimerValue - 1)&0xFFFF;
-			Ram[0xFF09] |= Ram[0xFF0A]&0x08 ? 0x88 : 0x08; // interrupt
+			Ram[0xFF09] |= ((Ram[0xFF0A]&0x08) << 4) | 8; // interrupt
 			irqFlag |= Ram[0xFF09] & 0x80;
 		} else {
 			timer1 = newTimerValue;
@@ -1745,7 +1745,7 @@ inline void TEDFAST::countTimers(unsigned int clocks)
 	if (t2on) {
 		newTimerValue = (int) timer2 - (int) clocks;
 		if (newTimerValue <= 0) { // Timer2 permitted
-			Ram[0xFF09] |= Ram[0xFF0A]&0x10 ? 0x90 : 0x10; // interrupt
+			Ram[0xFF09] |= ((Ram[0xFF0A]&0x10) << 3) | 0x10; // interrupt
 			irqFlag |= Ram[0xFF09] & 0x80;
 		}
 		timer2 = newTimerValue & 0xFFFF;
@@ -1753,7 +1753,7 @@ inline void TEDFAST::countTimers(unsigned int clocks)
 	if (t3on) {
 		newTimerValue = (int) timer3 - (int) clocks;
 		if (newTimerValue <= 0) {// Timer3 permitted
-			Ram[0xFF09] |= Ram[0xFF0A]&0x40 ? 0xC0 : 0x40; // interrupt
+			Ram[0xFF09] |= ((Ram[0xFF0A]&0x40) << 1) | 0x40; // interrupt
 			irqFlag |= Ram[0xFF09] & 0x80;
 		}
 		timer3 = newTimerValue & 0xFFFF;
