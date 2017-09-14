@@ -270,10 +270,6 @@ bool start_file(const char *szFile, bool autostart = true)
 
 	if (pFileExt) {
 		char *fileext = pFileExt;
-		do {
-			*pFileExt = tolower(*pFileExt);
-			pFileExt++;
-		} while (*pFileExt);
 		if (!strcmp(fileext,".d64") || !strcmp(fileext,".D64")) {
 			startd64(szFile, autostart);
 			return true;
@@ -879,7 +875,7 @@ inline static void poll_events(void)
 								}
 								break;
 						};
-						if (g_50Hz) 
+						if (g_50Hz)
 							sound_resume();
 						return;
 				}
@@ -1107,7 +1103,7 @@ static void app_initialise()
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 	//
 	printf("On-screen keyboard");
-	if (!SDL_HasScreenKeyboardSupport()) 
+	if (!SDL_HasScreenKeyboardSupport())
 		printf(" not");
 	printf(" supported.\n");
 	//
@@ -1122,7 +1118,7 @@ static void app_initialise()
 	// Make target texture to render to
 	SDL_SetRenderTarget(sdlRenderer, sdlTexture);
 	init_audio();
-	if (!g_50Hz) 
+	if (!g_50Hz)
 		sound_pause();
 	KEYS::initPcJoys();
 }
@@ -1214,7 +1210,7 @@ int main(int argc, char *argv[])
 #ifdef __EMSCRIPTEN__
 	printf("%s - Javascript build using Emscripten.\n", NAME);
 	printf("Type DIRECTORY (or LOAD\"$\",8 and then LIST) and press ENTER to see disk contents. Type LOAD\"filename*\",8 to load a specific file!\n");
-	printf("Or enter the menu by pressing ESC and shift+ENTER to autostart games from there.\n"); 
+	printf("Or enter the menu by pressing ESC and shift+ENTER to autostart games from there.\n");
 	printf("Commodore +4 games start with uppercase, C64 ones with lowercase.\n");
 	printf("Usage:\n");
 	printf("LALT + 1-3   : set window size\n");
