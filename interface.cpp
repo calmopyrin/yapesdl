@@ -50,13 +50,17 @@ static menu_t main_menu = {
 		{"Load PRG file...", 0, UI_FILE_LOAD_PRG },
 		{"Attach disk image...", 0, UI_DRIVE_ATTACH_IMAGE },
 		{"Detach disk image", 0, UI_DRIVE_DETACH_IMAGE },
+		{ "             ", 0, UI_MENUITEM_SEPARATOR },
 		{"Emulator snapshot...", 0, UI_FILE_LOAD_FRE },
+		{ "             ", 0, UI_MENUITEM_SEPARATOR },
+		{ "Attach rom...", 0, UI_CRT_ATTACH },
+		{ "Detach rom...", 0, UI_CRT_DETACH },
 		{ "             ", 0, UI_MENUITEM_SEPARATOR },
 		{"Tape controls...", 0, UI_MENUITEM_MENULINK },
 		{"             ", 0, UI_MENUITEM_SEPARATOR },
 		{"Options..."	, 0, UI_MENUITEM_MENULINK },
 		{"             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Enter monitor"	, 0, UI_EMULATOR_MONITOR },
+		{"Enter monitor", 0, UI_EMULATOR_MONITOR },
 		{"Resume emulation"	, 0, UI_EMULATOR_RESUME },
 		{ "             ", 0, UI_MENUITEM_SEPARATOR },
 		{"Reset emulator", 0, UI_EMULATOR_RESET },
@@ -123,6 +127,7 @@ static menu_t file_menu;
 static menu_t tap_list;
 static menu_t d64_list;
 static menu_t fre_list;
+static menu_t crt_list;
 static unsigned int *pixels;
 extern void frameUpdate(unsigned char *src, unsigned int *target);
 
@@ -147,17 +152,19 @@ UI::UI(class TED *ted) :
 	// Link menu structure
 	main_menu.element[0].child = &file_menu;
 	main_menu.element[1].child = &d64_list;
-	main_menu.element[3].child = &fre_list;// snapshot_menu;
-	main_menu.element[5].child = &tape_menu;
-	main_menu.element[7].child = &options_menu;
+	main_menu.element[4].child = &fre_list;// snapshot_menu;
+	main_menu.element[6].child = &crt_list;
+	main_menu.element[9].child = &tape_menu;
+	main_menu.element[11].child = &options_menu;
 	tape_menu.element[0].child = &tap_list;
 
 	curr_menu = &main_menu;
-	strcpy( file_menu.title, "PRG file selection menu");
-	strcpy( tape_menu.title, "Tape controls menu");
-	strcpy( tap_list.title, "TAP image selection menu");
-	strcpy( d64_list.title, "Disk image selection menu");
+	strcpy(file_menu.title, "PRG file selection menu");
+	strcpy(tape_menu.title, "Tape controls menu");
+	strcpy(tap_list.title, "TAP image selection menu");
+	strcpy(d64_list.title, "Disk image selection menu");
 	strcpy(fre_list.title, "Emulator savestate selection menu");
+	strcpy(crt_list.title, "Cartridge/ROM selection menu");
 	file_menu.parent = curr_menu;
 	options_menu.parent = curr_menu;
 	tape_menu.parent = curr_menu;
@@ -165,6 +172,7 @@ UI::UI(class TED *ted) :
 	d64_list.parent = curr_menu;
 	//snapshot_menu.parent = curr_menu;
 	fre_list.parent = curr_menu;
+	crt_list.parent = curr_menu;
 
 	// initialize settings menu
 	unsigned int i = 0, j = 0;
@@ -330,6 +338,13 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 				strcpy(ftypes[0].name, "*.yss");
 				ftypes[0].menufunction = UI_FRE_ITEM;
 				break;
+			case UI_CRT_ITEM:
+				strcpy(ftypes[0].name, "*.crt");
+				strcpy(ftypes[1].name, "*.rom");
+				ftypes[0].menufunction = 
+				ftypes[1].menufunction = UI_CRT_ITEM;
+				nrOfExts = 2;
+				break;
 			case UI_DRIVE_SET_DIR:
 				menu->nr_of_elements = nf;
 			default:
@@ -431,6 +446,8 @@ bool UI::handle_menu_command( struct element_t *element)
 					show_file_list( &d64_list, UI_D64_ITEM );
 				else if (ptype == UI_FILE_LOAD_FRE)
 					show_file_list(&fre_list, UI_FRE_ITEM);
+				else if (ptype == UI_CRT_ATTACH)
+					show_file_list(&crt_list, UI_CRT_ITEM);
 				curr_menu->curr_sel = 0;
 				curr_menu->curr_line = 0;
 				curr_menu->uppermost = 0;
@@ -470,6 +487,9 @@ bool UI::handle_menu_command( struct element_t *element)
 		case UI_ZIP_ITEM:
 			start_file(element->name, true);
 			break;
+		case UI_CRT_ITEM:
+			ted8360->loadromfromfile(1, element->name, 0);
+			break;
 		case UI_FRE_ITEM:
 			SaveState::openSnapshot(element->name, false);
 			//clear(0, 0);
@@ -487,6 +507,12 @@ bool UI::handle_menu_command( struct element_t *element)
 		case UI_TAPE_ATTACH_TAP:
 			show_file_list( &tap_list, UI_TAP_ITEM );
 			return false;
+		case UI_CRT_ATTACH:
+			show_file_list(&crt_list, UI_CRT_ITEM);
+			return false;
+		case UI_CRT_DETACH:
+			ted8360->loadromfromfile(1, "", 0);
+			break;
 		case UI_FILE_LOAD_FRE:
 			show_file_list(&fre_list, UI_FRE_ITEM);
 			return false;
@@ -623,6 +649,7 @@ void UI::drawMenu()
 	ad_get_curr_dir(file_menu.subtitle);
 	ad_get_curr_dir(d64_list.subtitle);
 	ad_get_curr_dir(fre_list.subtitle);
+	ad_get_curr_dir(crt_list.subtitle);
 
 	clear (1, 5);
 	show_menu( curr_menu);
@@ -741,6 +768,7 @@ int UI::wait_events()
 				switch (event.key.keysym.sym) {
 					case SDLK_ESCAPE :
 					case SDLK_F8:
+					case SDLK_DELETE:
 						clear (0, 0);
 						return 1;
 

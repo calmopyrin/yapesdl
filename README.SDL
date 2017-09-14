@@ -8,7 +8,7 @@ LEGAL
 =====
 
   Yape for SDL is 
-  (C) 2000,2001,2004,2007,2008,2015,2016 Attila Grósz (gyros@freemail.hu)
+  (C) 2000,2001,2004,2007,2008,2015-2017 Attila Grósz (gyros@freemail.hu)
   http://yape.plus4.net
 
   This program is free software; you can redistribute it and/or
@@ -29,6 +29,9 @@ LEGAL
 
 COMPILE
 =======
+
+  The source code is hosted on GitHub.
+  https://github.com/calmopyrin/yapesdl
 
   Define AUDIO_CALLBACK if you want to use the older audio API using
   callbacks (pre-2.0.4 versions of SDL2 only support this one).
@@ -65,16 +68,26 @@ COMPILE
   
   to start the emulator, where [] means optional arguments.
 
+  Mac OS X
+  --------
+
+  Other than downloading the relevant SDL development libraries, you also 
+  need to copy the SDL2.framework file to the /Library/Frameworks folder. 
+  From then on, just use the provided Xcode workspace.
+
   Windows
   -------
 
   Make sure you install either the Visual Studio or the Mingw version
   of the SDL development library. You can use either compiler
   targeting 32 as well as 64-bit binary builds.
+
+  It is recommended that you use the provided Microsoft Visual Studio 14 
+  solution file. The Community 2015 and 2017 Editions are terrific and free 
+  IDE's with an excellent debugger.
   
-  Note that the 2.0.4 version of the Windows SDL runtime library has a
-  serious crash in its DX9 driver. The one included in the Windows 
-  yapesdl binary package is a bugfixed build.
+  Note that the 2.0.4 version of the Windows SDL runtime library had a
+  serious crash in its DX9 driver. Upgrade to 2.0.5+ to avoid it.
 
   Emscripten
   ----------
@@ -133,7 +146,7 @@ USAGE
   This means that an exact filename match will load
   the requested program, similarly can you save a file.
   
-  Full ROM banking is supported, currently only via the yape configuration
+  Full ROM banking is supported on the plus/4, currently only via the yape configuration
   file. You must fill in the path for the relevant ROM image you intend to use.
   However, Yape supports some internal ROMs already. These are:
   
@@ -168,20 +181,18 @@ FEATURES
   - somewhat incomplete CIA 6526 aka 'CIA' emulation
   - real 1541 drive emulation (Read/Write)
   - full ROM banking on +4
-  - almost full tape emulation (+4 for now)
+  - almost full tape emulation
   - joystick emulation via cursor keys and gamepads
   - PRG, P00, T64, D64 and TAP file format support
   - partial CRT emulation
-  - disk LOAD/SAVE to the file system on +4
+  - serial IEC disk LOAD/SAVE to the file system
   - snapshots / savestates
 
 LINKS
 =====
 
-  http://yapesdl.codeplex.com           : source repository for yape/SDL
+  https://github.com/calmopyrin/yapesdl : source repository for yape/SDL
   http://yape.plus4.net                 : Yape homepage
   http://plus4world.powweb.com          : Commodore +4 World (games, tape images, scans etc.)
   http://c64.rulez.org	                : Commodore plus/4 FTP archive
   http://gaia.atilia.eu                 : My emulator page
-  
-

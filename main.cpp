@@ -910,6 +910,7 @@ inline static void poll_events(void)
 						break;
 					case SDLK_ESCAPE:
 					case SDLK_F8:
+					case SDLK_DELETE:
 						enterMenu();
 						break;
 					case SDLK_F9 :

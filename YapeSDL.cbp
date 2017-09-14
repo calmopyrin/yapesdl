@@ -37,18 +37,24 @@
 				<Option object_output="obj/Release/" />
 				<Option type="0" />
 				<Option compiler="cb64-bit_gnu_gcc_compiler" />
+				<Option projectIncludeDirsRelation="1" />
+				<Option projectLibDirsRelation="0" />
 				<Compiler>
 					<Add option="-O2" />
-					<Add option="-std=c++11" />
+					<Add option="-m64" />
+					<Add option="-D_WIN64" />
+					<Add directory="D:/Program Files (x86)/CodeBlocks/Mingw64/x86_64-w64-mingw32/include" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
+					<Add option="-m64" />
+					<Add option="-mconsole" />
+					<Add directory="D:/Program Files (x86)/CodeBlocks/Mingw64/x86_64-w64-mingw32/lib" />
 				</Linker>
 			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
-			<Add option="-std=c++11" />
 			<Add directory="D:/Program Files (x86)/CodeBlocks/MinGW/include" />
 		</Compiler>
 		<Linker>

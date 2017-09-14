@@ -156,7 +156,7 @@ public:
 			if (!n)
 				n = getRoot();
 			return n;
-		} 
+		}
 		else
 			return getRoot();
 	}
@@ -166,7 +166,7 @@ public:
 	virtual MemoryHandler &getMem() = 0;
 	virtual unsigned int getcycle() = 0;
 	virtual void regDump(char *line, int rowcount) = 0;
-	virtual char *getName() = 0;
+	virtual const char *getName() = 0;
 };
 
 //template<> unsigned int LinkedList<Resettable>::count = 0;

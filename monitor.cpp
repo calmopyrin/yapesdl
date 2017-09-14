@@ -24,6 +24,7 @@ static struct {
 	{ "d [<address>]", MON_CMD_DISASS, "Disassemble (from <address>)." },
 	{ "f <src_from> <src_to> <value>", MON_CMD_FILLMEM, "Fill memory range with <value>." },
 	{ "g [<address>]", MON_CMD_GO, "Set PC (to [<address>])." },
+	{ "h <from> <to> <a1> [<a2..an]", MON_CMD_HUNT, "Hunt memory for a1..an." },
 	{ "m [<address>]", MON_CMD_MEM, "Memory dump (from [<address>])." },
 	{ "s <filename> [<address1>] [<address2>]", MON_CMD_SAVEPRG, "Save memory as PRG (from <address1> to <address2>" },
 	{ "t <src_from> <src_to> <target>", MON_CMD_TRANSFER, "Memory copy transfer (from start address)." },
@@ -138,11 +139,15 @@ static void parseCommand(char *line, unsigned int &cmdCode)
 		line++;
 
 	char commandString[256];
+	static char lastCommand[256] = "";
+
 	memset(commandString, 0, sizeof(commandString));
 	getFirstString(line, commandString);
 	cmdCode = MON_CMD_NONE;
-	if (0 == strlen(commandString))
-		return;
+	if (0 == strlen(commandString)) {
+		strcpy(commandString, lastCommand);
+	} else
+		strcpy(lastCommand, commandString);
 
 	for(i=1; i<NR_OF_MON_CMDS; i++) {
 		if ( !strncmp(commandString, monCmds[i].Str, strlen(commandString)) ) { // CompareString
@@ -337,6 +342,30 @@ void executeCmd(unsigned int cmd, vector<string> &args, char *wholeLine)
 					int readval = debugContext->getMem().Read(argval[0]++);
 					debugContext->getMem().Write(argval[2]++, readval);
 				}
+			}
+			break;
+
+		case MON_CMD_HUNT:
+			if (argCount >= 3) {
+				unsigned int matches = 0;
+				for (unsigned int i = argval[0]; i < argval[1]; i++) {
+					unsigned int hargs = argCount - 2;
+					bool found = true;
+					for (unsigned int j = 0; j < hargs; j++) {
+						if (debugContext->getMem().Read(i + j) != argval[j + 2]) {
+							found = false;
+							continue;
+						}
+					}
+					if (found) {
+						matches++;
+						printf("%04X ", i);
+					}
+				}
+				if (matches) 
+					printf("\n%u matches found.\n", matches);
+				else
+					printf("No matches found.\n");
 			}
 			break;
 
