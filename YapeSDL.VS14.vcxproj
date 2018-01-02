@@ -334,6 +334,7 @@
     <ClInclude Include="1541mem.h" />
     <ClInclude Include="1541rom.h" />
     <ClInclude Include="archdep.h" />
+    <ClInclude Include="Cia.h" />
     <ClInclude Include="cpu.h" />
     <ClInclude Include="device.h" />
     <ClInclude Include="diskfs.h" />
@@ -363,6 +364,7 @@
   <ItemGroup>
     <ClCompile Include="1541mem.cpp" />
     <ClCompile Include="archdep.cpp" />
+    <ClCompile Include="Cia.cpp" />
     <ClCompile Include="cpu.cpp" />
     <ClCompile Include="dis.cpp" />
     <ClCompile Include="diskfs.cpp" />

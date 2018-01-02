@@ -26,6 +26,7 @@
     <ClCompile Include="vic2mem.cpp" />
     <ClCompile Include="video.cpp" />
     <ClCompile Include="SaveState.cpp" />
+    <ClCompile Include="Cia.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="1541mem.h">
@@ -119,6 +120,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="keyoverlay.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Cia.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>
