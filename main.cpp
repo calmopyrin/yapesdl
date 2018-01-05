@@ -268,6 +268,11 @@ bool start_file(const char *szFile, bool autostart = true)
 {
 	char *pFileExt = (char *) strrchr(szFile, '.');
 
+	// to work around a few buggy defenders...
+	if (!ted8360->getEmulationLevel())
+		while (ted8360->beamy != 240)
+			ted8360->ted_process(0);
+
 	if (pFileExt) {
 		char *fileext = pFileExt;
 		if (!strcmp(fileext,".d64") || !strcmp(fileext,".D64")) {
@@ -852,9 +857,8 @@ inline static void poll_events(void)
 								break;
 							case SDLK_RETURN:
 								{
-									static bool fs = false;
-									fs = !fs;
-									SDL_SetWindowFullscreen(sdlWindow, fs ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+									Uint32 isFS = SDL_GetWindowFlags(sdlWindow) & SDL_WINDOW_FULLSCREEN_DESKTOP;
+									SDL_SetWindowFullscreen(sdlWindow, isFS ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
 								}
 								break;
 							case SDLK_F5:

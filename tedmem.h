@@ -73,7 +73,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	static unsigned int bigram, bramsm;
 	// /ram/rom path/load variables
 	virtual void loadroms(void);
-	virtual void loadromfromfile(int nr, char fname[512], unsigned int offset);
+	virtual void loadromfromfile(int nr, const char fname[512], unsigned int offset);
 	static char romlopath[4][260];
 	static char romhighpath[4][260];
 	// this is for the FRE support
@@ -106,6 +106,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual void setCpuPtr(CPU *cpu) { cpuptr = cpu; };
 	void HookTCBM(CTCBM *pTcbmbus) { tcbmbus = pTcbmbus; };
 	ClockCycle GetClockCount();
+	void log(unsigned int addr, unsigned int value);
 	static TED *instance() { return instance_; };
 	unsigned char *getScreenData() { return screen; };
 	bool enableSidCard(bool enable, unsigned int disableMask);
@@ -195,11 +196,11 @@ protected:
 
 	static unsigned int masterClock;
 	static ClockCycle CycleCounter;
-	static bool ScreenOn, attribFetch;
+	static bool ScreenOn, attribFetch, dmaAllowed, externalFetchWindow;
 	static bool SideBorderFlipFlop, CharacterWindow;
 	static unsigned int BadLine;
 	static unsigned int	clockingState;
-	static unsigned int	CharacterCount;
+	static unsigned int	CharacterCount, CharacterCountReload, dmaFetchCountStart;
 	static bool VertSubActive;
 	static unsigned int	CharacterPosition;
 	static unsigned int	CharacterPositionReload;

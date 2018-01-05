@@ -34,16 +34,15 @@ unsigned char	*TED::VideoBase;
 
 unsigned int TED::masterClock;
 ClockCycle TED::CycleCounter;
-bool TED::ScreenOn, TED::attribFetch;
+bool TED::ScreenOn, TED::attribFetch, TED::dmaAllowed, TED::externalFetchWindow;
 bool TED::displayEnable;
 bool TED::SideBorderFlipFlop, TED::CharacterWindow;
 unsigned int TED::BadLine;
 unsigned int	TED::clockingState;
-unsigned int	TED::CharacterCount = 0;
+unsigned int	TED::CharacterCount = 0, TED::CharacterCountReload;
 bool TED::VertSubActive;
 unsigned int	TED::CharacterPosition;
 unsigned int	TED::CharacterPositionReload;
-//unsigned int	TED::CharacterPositionCount;
 unsigned int	TED::TVScanLineCounter;
 bool TED::HBlanking;
 bool TED::VBlanking;
@@ -62,6 +61,7 @@ unsigned int TED::bigram, TED::bramsm;
 // 64 kbytes of memory allocated by default
 unsigned int TED::RAMMask = 0xFFFF;
 unsigned int TED::sidCardEnabled;
+unsigned int TED::dmaFetchCountStart = 0;
 
 rvar_t TED::tedSettings[] = {
 	//{ "Sid card", "SidCardEnabled", TED::toggleSidCard, &TED::sidCardEnabled, RVAR_TOGGLE, NULL },
@@ -91,7 +91,7 @@ enum {
 	TRFSHDELAY = 1 << 11
 };
 
-TED::TED() : sidCard(0), SaveState(), clockDivisor(10)
+TED::TED() : sidCard(0), SaveState(), clockDivisor(10), crsrphase(0)
 {
 	unsigned int i;
 
@@ -118,7 +118,7 @@ TED::TED() : sidCard(0), SaveState(), clockDivisor(10)
 	// pointer of the end of the screen memory
 	endptr=scrptr + 456;
 	// setting the CPU to fast mode
-	fastmode=1;
+	fastmode=-1;
 	// initial position of the electron beam (upper left corner)
 	irqline=vertSubCount=0;
 	beamy = ff1d_latch = 0;
@@ -142,7 +142,10 @@ TED::TED() : sidCard(0), SaveState(), clockDivisor(10)
 	tcbmbus = NULL;
 	crsrblinkon = false;
 	VertSubActive = false;
+	dmaAllowed = false;
+	externalFetchWindow = false;
 	CharacterPositionReload = CharacterPosition = 0;
+	CharacterCountReload = 0x03FF;
 	SideBorderFlipFlop = false;
 	render_ok = false;
 	displayEnable = false;
@@ -248,7 +251,7 @@ void TED::loadroms()
 	mem_fc00_fcff = mem_c000_ffff = actromhi = rom[0] + 0x4000;
 }
 
-void TED::loadromfromfile(int nr, char fname[512], unsigned int offset)
+void TED::loadromfromfile(int nr, const char fname[512], unsigned int offset)
 {
 	FILE *img;
 
@@ -282,6 +285,12 @@ void TED::loadromfromfile(int nr, char fname[512], unsigned int offset)
 ClockCycle TED::GetClockCount()
 {
 	return CycleCounter;
+}
+
+void TED::log(unsigned int addr, unsigned int value)
+{
+	fprintf(stderr, "%04X<-%02X(%03d) Old:%02X HC:(%03d/$%02X) VC:(%03d/$%03X) XY:%03i/%03i PC:$%04X BL:%02X frm:%i cyc:%llu\n",
+		addr, value, value, Read(addr), getHorizontalCount(), getHorizontalCount(), beamy, beamy, beamx, TVScanLineCounter, cpuptr->getPC(), BadLine, crsrphase, CycleCounter);
 }
 
 void TED::ChangeMemBankSetup()
@@ -548,7 +557,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 							// Check if screen is turned on
 							displayEnable = !!(value & 0x10);
 							if (!attribFetch && displayEnable && beamy == 0) {
-								attribFetch = true;
+								attribFetch = dmaAllowed = true;
 								vertSubCount = 7;
 								if (vshift != (ff1d_latch & 7))
 								{
@@ -566,18 +575,19 @@ void TED::Write(unsigned int addr, unsigned char value)
 								if (vshift == (ff1d_latch & 7)) {
 									// Delayed DMA?
 									if (beamx>=3 && beamx<86) {
-										unsigned char idleread = Read((cpuptr->getPC()+1)&0xFFFF);
-										unsigned int delay = (BadLine & 2) ? 0 : (beamx - 1) >> 1;
+										const unsigned char idleread = Read((cpuptr->getPC()+1)&0xFFFF);
+										const unsigned int delay = (BadLine & 2) ? 0 : (beamx - 1) >> 1;
 										unsigned int invalidcount = (delay > 3) ? 3 : delay;
-										unsigned int invalidpos = delay - invalidcount;
+										const unsigned int invalidpos = delay - invalidcount;
 										invalidcount = (invalidcount < 40-invalidpos) ? invalidcount : 40-invalidpos;
-										unsigned int newdmapos = (invalidpos+invalidcount < 40) ? invalidpos+invalidcount : 40;
-										unsigned int newdmacount = 40 - newdmapos ;
-										unsigned int oldcount = 40 - newdmacount - invalidcount;
+										const unsigned int newdmapos = (invalidpos+invalidcount < 40) ? invalidpos+invalidcount : 40;
+										const unsigned int newdmacount = 40 - newdmapos ;
+										const unsigned int oldcount = 40 - newdmacount - invalidcount;
+										const unsigned int dmaposition = beamx < 9 ? (CharacterCountReload + 1) & 0x03FF : CharacterCount;
+
 										memcpy(tmpClrbuf, clrbuf, oldcount);
 										memset(tmpClrbuf + oldcount, idleread, invalidcount);
-										memcpy(tmpClrbuf + oldcount + invalidcount, VideoBase + CharacterCount + oldcount
-											+ invalidcount, newdmacount);
+										memcpy(tmpClrbuf + oldcount + invalidcount, VideoBase + dmaposition + oldcount + invalidcount, newdmacount);
 										BadLine |= 1;
 										delayedDMA = true;
 										if (!(BadLine & 2))
@@ -710,7 +720,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 							// the 0th bit is not writable, it indicates if the ROMs are on
 							Ram[0xFF13]=(value&0xFE)|(Ram[0xFF13]&0x01);
 							// bit 1 is the fast/slow mode switch
-							if ((fastmode ^ value) & 2) {
+							if ((fastmode ^ value ^ 2) & 2) {
 								fastmode = (value & 2) ^ 2;
 								if (!fastmode) {
 									if (clockingState == TDS) {
@@ -762,19 +772,14 @@ void TED::Write(unsigned int addr, unsigned char value)
 							CharacterPositionReload = (CharacterPositionReload & 0x300) | value;
 							return;
 						case 0xFF1C:
-							/*fprintf(stderr, "%04X write %d (%02X) in line: %d (%03X) @ TV line %d @PC=%04X in cycle %llu \n",
-								addr, value, value, beamy, beamy, TVScanLineCounter, cpuptr->getPC(), CycleCounter);*/
 							beamy=((value&0x01)<<8)|(beamy&0xFF);
 							return;
 						case 0xFF1D:
-							/*fprintf(stderr, "%04X write %d (%02X) in line: %d (%03X) @ TV line %d @PC=%04X in cycle %llu \n", 
-								addr, value, value, beamy, beamy, TVScanLineCounter, cpuptr->getPC(), CycleCounter);*/
+							//log(0xff1d, value);
 							beamy=(beamy&0x0100)|value;
 							return;
 						case 0xFF1E:
 							{
-								/*fprintf(stderr, "%04X write %02X in cycle %d, in line: %d\n", addr,
-									value ^ 0xFF, beamx, beamy);*/
 								unsigned int low_x = beamx&1;
 								// lowest 2 bits are not writable
 								// inverted value must be written
@@ -1282,13 +1287,17 @@ inline void TED::newLine()
 			if (fltscr) ScreenOn = false;
 			break;
 
+		case 203:
+			dmaAllowed = false;
+			break;
+
 		case 204:
 			if (!fltscr) ScreenOn = false;
+			VertSubActive = false;
+			attribFetch = false;
 			break;
 
 		case 205:
-			CharacterCount = 0;
-			VertSubActive = false;
 			// cursor phase counter in TED register $1F
 			if ((++crsrphase&0x0F) == 0x0F)
         		crsrblinkon ^= 1;
@@ -1332,7 +1341,7 @@ inline void TED::newLine()
 			CharacterPositionReload = 0;
 			if (displayEnable) {
 				if (!attribFetch) {
-					attribFetch = true;
+					attribFetch = dmaAllowed = true;
 					endOfScreen = true;
 				}
 			}
@@ -1355,28 +1364,29 @@ void TED::ted_process(const unsigned int continuous)
                 break;
 
             case 2:
-                if (VertSubActive)
-                	vertSubCount = (vertSubCount+1)&7;
+				if (externalFetchWindow) {
+					vertSubCount = (vertSubCount + 1) & 7;
+				}
 				break;
 
 			case 3:
 				if (endOfScreen) {
-					vertSubCount = 7;
+					if (!externalFetchWindow)
+						vertSubCount = 7;
 					endOfScreen = false;
 				}
 				break;
 
              case 4:
-                if (attribFetch) {
-					BadLine |= (vshift == (ff1d_latch & 7)) & (ff1d_latch != 203);
-					if ( BadLine ) {
+                if (dmaAllowed) {
+					BadLine |= (vshift == (ff1d_latch & 7));
+					if (BadLine) {
 						if (clockingState != TDMADELAY) clockingState = THALT1;
 					} else
                  		clockingState = TSS;
-                 	if (beamy==203) {
-						attribFetch = false;
-						if (!(BadLine & 2)) clockingState = TSS;
-					}
+				}
+				else {
+					clockingState = VertSubActive || !fastmode ? TSS : TDS;
 				}
                 break;
 
@@ -1384,10 +1394,29 @@ void TED::ted_process(const unsigned int continuous)
 				HBlanking = false;
 				break;
 
+			case 9:
+				if (dmaAllowed) {
+					if (dmaFetchCountStart) {
+						CharacterCountReload = CharacterCount;
+					} else {
+						dmaFetchCountStart = 1;
+						CharacterCount = CharacterCountReload;
+					}
+				}
+				break;
+
             case 10:
 				if (VertSubActive)
 					CharacterPosition = CharacterPositionReload;
-                break;
+				if (BadLine & 1) {
+					if (!delayedDMA)
+						doDMA(tmpClrbuf, 0);
+					else
+						delayedDMA = false;
+				}
+				if (BadLine & 2)
+					doDMA(chrbuf, (BadLine & 1) ? 0 : 0x400);
+				break;
 
             case 16:
 				if (ScreenOn) {
@@ -1397,14 +1426,6 @@ void TED::ted_process(const unsigned int continuous)
 						CharacterWindow = true;
 					x = 0;
 				}
-				if (BadLine & 1) {
-					if (!delayedDMA)
-						doDMA(tmpClrbuf, 0);
-					else
-						delayedDMA = false;
-				}
-				if (BadLine & 2)
-					doDMA(chrbuf, (BadLine & 1) ? 0 : 0x400);
                 break;
 
 			case 18:
@@ -1414,12 +1435,21 @@ void TED::ted_process(const unsigned int continuous)
 				break;
 
 			case 89:
-				if (VertSubActive && vertSubCount == 6)
-					CharacterCount = (CharacterCount + 40)&0x3FF;
+				//fprintf(stderr, "DMApos:%i |reload:%i,VC=%i,VSUB=%i,BL:%i,TVline:%i, VSHIFT=%i, frame:%i\n", CharacterCount, CharacterCountReload, beamy, vertSubCount, BadLine, TVScanLineCounter, vshift, crsrphase);
+				if (dmaAllowed) {
+					if (vertSubCount == 6)
+						CharacterCountReload = CharacterCount;
+					dmaFetchCountStart = 0;
+				}
+				if (ff1d_latch == 205) {
+					externalFetchWindow = false;
+					CharacterCountReload = 0x03FF;
+				}
 				break;
 
             case 90:
-    			if ( VertSubActive && charPosLatchFlag) // FIXME
+				//fprintf(stderr, "charpos:%i |reload:%i,VC=%i,VSUB=%i,BL:%i,TVline:%i, VSHIFT=%i, frame:%i\n", CharacterPosition, CharacterPositionReload, beamy, vertSubCount, BadLine, TVScanLineCounter, vshift, crsrphase);
+    			if (VertSubActive && charPosLatchFlag) // FIXME
 					CharacterPositionReload = (CharacterPosition + x + 3)&0x3FF;
 				break;
 
@@ -1462,7 +1492,7 @@ void TED::ted_process(const unsigned int continuous)
 			case 111:
 				if (BadLine & 1) {
     			    BadLine = 2;
-					VertSubActive = true;
+					VertSubActive = externalFetchWindow = true;
 				} else if (BadLine & 2) {// in the second bad line, we're finished...
    					BadLine &= ~2;
 				}
@@ -1484,12 +1514,10 @@ void TED::ted_process(const unsigned int continuous)
 
 		if (beamx&1) {	// perform these only in every second cycle
 			if (t2on && !((timer2--)&0xFFFF)) {// Timer2 permitted
-				timer2=0xFFFF;
 				Ram[0xFF09] |= ((Ram[0xFF0A]&0x10) << 3) | 0x10; // interrupt
 				irqFlag |= Ram[0xFF09] & 0x80;
 			}
 			if (t3on && !((timer3--)&0xFFFF)) {// Timer3 permitted
-				timer3=0xFFFF;
 				Ram[0xFF09] |= ((Ram[0xFF0A]&0x40) << 1) | 0x40; // interrupt
 				irqFlag |= Ram[0xFF09] & 0x80;
 			}
@@ -1501,11 +1529,41 @@ void TED::ted_process(const unsigned int continuous)
 				scrptr+=8;
 			else
 				doHRetrace();
+			switch (clockingState) {
+				case TRFSH:
+				case TSS:
+				case TDS:
+					cpuptr->process();
+					break;
+				case TDMADELAY:
+					cpuptr->process();
+					clockingState = THALT1;
+					break;
+				case THALT1:
+				case THALT2:
+				case THALT3:
+					cpuptr->stopcycle();
+					clockingState <<= 1;
+					break;
+				case TSSDELAY:
+					cpuptr->process();
+					break;
+				case TDSDELAY:
+					clockingState = TDS;
+					cpuptr->process();
+					break;
+				default:;
+			}
+			CycleCounter += 2;
+			CharacterCount = (CharacterCount + (dmaFetchCountStart != 0)) & 0x3FF;
 		} else {
-			if (t1on && !timer1--) { // Timer1 permitted decreased and zero
-				timer1=(t1start-1)&0xFFFF;
-				Ram[0xFF09] |= ((Ram[0xFF0A]&0x08) << 4) | 8; // interrupt
-				irqFlag |= Ram[0xFF09] & 0x80;
+			if (t1on) { // Timer1 permitted?
+				if (!timer1) {
+					timer1 = t1start;
+					Ram[0xFF09] |= ((Ram[0xFF0A] & 0x08) << 4) | 8; // interrupt
+					irqFlag |= Ram[0xFF09] & 0x80;
+				}
+				timer1--;
 			}
 			if (!(HBlanking||VBlanking)) {
 				if (SideBorderFlipFlop) { // drawing the visible part of the screen
@@ -1518,48 +1576,24 @@ void TED::ted_process(const unsigned int continuous)
 					*((int*)scrptr) = framecol;
 				}
 			}
-		}
-		if (aligned_write) {
-			*aw_addr_ptr = aw_value;
-			aligned_write = false;
-		}
-		switch (clockingState|(beamx&1)) {
-        	case TRFSH|1:
- 	    	case TSS|1:
- 	    	case TDS|1:
-       		case TDS:
-				cpuptr->process();
-     	    	break;
-			case TDMADELAY|1:
-				cpuptr->process();
-				clockingState = THALT1;
-				break;
-      		case THALT1|1:
-  	    	case THALT2|1:
-        	case THALT3|1:
-            	cpuptr->stopcycle();
-            	clockingState<<=1;
-            	break;
-
-			case TSSDELAY:
-				clockingState = TSS;
-			case TSSDELAY|1:
-				cpuptr->process();
-				break;
-			case TDSDELAY|1:
-				clockingState = TDS;
-				cpuptr->process();
-				break;
-			case TDSDELAY:
-				clockingState = TDS;
-				break;
-			case TRFSH:
-				break;
+			if (aligned_write) {
+				*aw_addr_ptr = aw_value;
+				aligned_write = false;
+			}
+			switch (clockingState) {
+				case TSSDELAY:
+					clockingState = TSS;
+				case TDS:
+					cpuptr->process();
+					break;
+				case TDSDELAY:
+					clockingState = TDS;
+				default:
+				case TRFSH:
+					break;
+			}
 		}
 
-		CycleCounter++;
-
-#if 1
 		unsigned int i = 0;
 		while (Clockable::itemHeap[i]) {
 			Clockable *c = Clockable::itemHeap[i];
@@ -1570,7 +1604,6 @@ void TED::ted_process(const unsigned int continuous)
 			c->ClockCount += c->ClockRate;
 			i++;
 		}
-#endif
 
 	} while (loop_continuous);
 
@@ -1712,6 +1745,7 @@ inline void TEDFAST::dmaLineBased()
 				endOfDMA = false;
 			}
 			attribFetch = false;
+			CharacterCount = 0;
 		}
 	}
 	if (beamy == 204) {
