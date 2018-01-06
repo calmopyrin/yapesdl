@@ -957,7 +957,7 @@ inline void TED::hi_text()
 	else if (VertSubActive)
 		mask = cset[((chr&0x7F)<<3)|vertSubCount];
 	else
-		mask = Read(0xFFFF);
+		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
 	if (chr&0x80)
 		mask ^= 0xFF;
@@ -991,7 +991,7 @@ inline void TED::rv_text()
 	else if (VertSubActive)
 		mask = cset[(chr<<3)|vertSubCount];
 	else
-		mask = Read(0xFFFF);
+		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
 	if (crsrpos==((CharacterPosition+x)&0x3FF) && crsrblinkon )
 		mask ^= 0xFF;
@@ -1021,7 +1021,7 @@ inline void TED::ec_text()
 	if (VertSubActive)
 		mask = cset[ ((chr & 0x3F) << 3)|vertSubCount ];
 	else
-		mask = Read(0xFFFF);
+		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
 	chr >>= 6;
 
@@ -1046,7 +1046,7 @@ inline void TED::mc_text_rvs()
 	if (VertSubActive)
 		mask = cset[(chr << 3) | vertSubCount];
 	else
-		mask = Read(0xFFFF);
+		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
 	if (charcol&0x08) { // if character is multicolored
 
@@ -1081,7 +1081,7 @@ inline void TED::mc_text()
 	if (VertSubActive)
 		mask = cset[(chr << 3) | vertSubCount];
 	else
-		mask = Read(0xFFFF);
+		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
 	if ((charcol)&0x08) { // if character is multicolored
 
@@ -1117,7 +1117,7 @@ inline void TED::hi_bitmap()
 	if (VertSubActive)
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) | vertSubCount];
 	else
-		mask = Read(0xFFFF);
+		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
 	wbuffer[0] = (mask & 0x80) ? hcol[1] : hcol[0];
 	wbuffer[1] = (mask & 0x40) ? hcol[1] : hcol[0];
@@ -1141,7 +1141,7 @@ inline void TED::mc_bitmap()
 	if (VertSubActive)
 		mask = grbank[ (((CharacterPosition+x)<<3)&0x1FFF)+vertSubCount ];
 	else
-		mask = Read(0xFFFF);
+		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
 	wbuffer[0]= wbuffer[1] = bmmcol[ mask >> 6 ];
 	wbuffer[2]= wbuffer[3] = bmmcol[ (mask & 0x30) >> 4 ];

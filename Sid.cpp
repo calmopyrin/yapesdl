@@ -323,7 +323,7 @@ unsigned char SIDsound::read(unsigned int adr)
 		// 8 most significant bits
 		case 0x1B:
 			lastByteWritten = 0;
-			return (unsigned char)(getWaveSample(voice[2]) >> 4) & (combinedWaveFormMask | -(voice[2].wave <= 8)); // 4?
+			return (unsigned char)(getWaveSample(voice[2]) >> 0) & (combinedWaveFormMask | -(voice[2].wave <= 8)); // 4?
 
 		// Voice 3 EG readout
 		case 0x1C:

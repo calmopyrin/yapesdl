@@ -176,19 +176,17 @@ static void parseCommand(char *line, unsigned int &cmdCode)
 //	return argCount;
 //}
 
-static void memShow(int pc, int dumpwidth)
+static void memShow(int pc, int dumpwidth, unsigned int rows = ROWS)
 {
 	unsigned short current_pc;
 	int i;
-	unsigned int rowcount, rows, cols;
+	unsigned int rowcount, cols;
 	char temp[256];
 	char line[256];
 	char **linebuffer;
 	MemoryHandler &mem = debugContext->getMem();
 
-	//con->getDimensions(cols, rows);
 	cols = COLS;
-	rows = ROWS;
 
 	linebuffer = new2d(rows,cols);
 	if (memDumpPc == 0)
@@ -239,15 +237,18 @@ static void memDump()
 static void memChange(vector<string> args)
 {
 	unsigned int argCount = (unsigned int) args.size();
-	if (argCount--) {
+	if (argCount >= 1) {
 		memDumpPc = xtoi(args[0].c_str()) & 0xffff;
-	} else {
-		memDump();
-		return;
-	}
-	while (argCount--) {
-		unsigned char a = xtoi(args[argCount + 1].c_str()) & 0xff;
+		argCount -= 1;
+	} 
+	while (argCount) {
+		unsigned char a = xtoi(args[argCount].c_str()) & 0xff;
+		argCount--;
 		debugContext->getMem().Write(memDumpPc + argCount, a);
+	}
+	if (!argCount) {
+		int dumpwidth = ((COLS - 16) / 2) & 0xF8;
+		memShow(memDumpPc, dumpwidth, 1);
 	}
 }
 

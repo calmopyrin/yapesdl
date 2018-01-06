@@ -44,15 +44,15 @@ COMPILE
   
   To be able to compile on Linux, you must have the latest SDL
   package from http://libsdl.org. The recent stable release as of time of
-  this writing is 2.0.4. You will also need the development libraries.
+  this writing is 2.0.7. You will also need the development libraries.
   
   The provided makefile is written for the GNU C++ compiler but can also
   be easily adjusted for other compilers.
   
   It is very likely that if SDL and GCC are supported on your system, then 
   Yape can be compiled and run. Hence, an Android port is also possible, 
-  and Yape has been succesfully compiled on Windows and 64 bit Linux systems
-  as well.
+  and Yape has been succesfully compiled on systems other than Windows and 
+  Linux as well.
   
   Once the libraries and header files are installed, you should
   extract the source tarball to a directory, and simply type:
@@ -168,6 +168,7 @@ KEYBOARD MAPPINGS
   ------------------------
   Pound 	= END
   Clr/Home	= HOME
+  Restore   = PRINT SCREEN
 
 FEATURES
 ========

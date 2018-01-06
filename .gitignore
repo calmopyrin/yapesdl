@@ -96,3 +96,7 @@ YapeSDL.layout
 *.deb
 *.db
 Emscripten/Release/favicon.ico
+*.exp
+*.lib
+/Emscripten/EmbeddedFiles/YapeSDL.html
+Emscripten/Release/YapeSDL.html

@@ -2722,12 +2722,13 @@ void CPU::process()
 				case 4: ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 5: nextins=mem->Read(ptr);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
+						break;
+				case 6:	mem->Write(ptr, nextins);
+						nextins & 0x01 ? ST |= 0x01 : ST &= 0xFE;
 						nextins >>= 1;
 						break;
-				case 6: mem->Write(ptr,nextins);
-						break;
-				case 7: AC^=nextins;
+				case 7: mem->Write(ptr, nextins);
+						AC^=nextins;
 						SETFLAGS_ZN(AC);
 						cycle=0;
 						break;
@@ -4007,6 +4008,21 @@ void CPU::stopcycle()
 						SETFLAGS_ZN(nextins);
 						cycle=0;
 						break;
+			}
+			break;
+
+		case 0x43: // LSE/SRE ($00,X) -	A <- (M >> 1) ^ A
+			switch (cycle) {
+				case 6:	mem->Write(ptr, nextins);
+					nextins & 0x01 ? ST |= 0x01 : ST &= 0xFE;
+					nextins >>= 1;
+					cycle++;
+					break;
+				case 7: mem->Write(ptr, nextins);
+					AC ^= nextins;
+					SETFLAGS_ZN(AC);
+					cycle = 0;
+					break;
 			}
 			break;
 
