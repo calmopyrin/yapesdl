@@ -1,6 +1,7 @@
 objects =		\
 1541mem.o \
 archdep.o		\
+Cia.o		\
 cpu.o	\
 dis.o	\
 diskfs.o \
@@ -52,6 +53,9 @@ yapedebug : $(objects)
 	$(CC) $(cflags) -c $<
 
 archdep.o : archdep.cpp
+	$(CC) $(cflags) -c $<
+
+Cia.o : Cia.cpp
 	$(CC) $(cflags) -c $<
 
 cpu.o : cpu.cpp tedmem.h

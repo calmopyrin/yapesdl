@@ -40,6 +40,8 @@
 		<Unit filename="1541mem.cpp" />
 		<Unit filename="1541mem.h" />
 		<Unit filename="1541rom.h" />
+		<Unit filename="Cia.cpp" />
+		<Unit filename="Cia.h" />
 		<Unit filename="FdcGcr.cpp" />
 		<Unit filename="FdcGcr.h" />
 		<Unit filename="SaveState.cpp" />
