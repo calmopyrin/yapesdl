@@ -27,7 +27,7 @@ vic2mem.o \
 video.o
 
 EXENAME = yapesdl
-SRCPACKAGENAME = $(EXENAME)_0.70.1-1
+SRCPACKAGENAME = $(EXENAME)_0.70.2-1
 BINPACKAGENAME = $(SRCPACKAGENAME)_amd64
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LDFLAGS := $(shell sdl2-config --libs)
