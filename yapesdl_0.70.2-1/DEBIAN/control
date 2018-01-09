@@ -1,0 +1,26 @@
+Package: yapesdl
+Version: 0.70.2-1
+Section: non-free
+Priority: optional
+Architecture: amd64
+Depends: libsdl2-2.0-0 (>= 2.0), libstdc++6, libc6
+Installed-Size: 732
+Maintainer: Attila Grosz <gaia@atilia.eu>
+Homepage: http://yapesdl.codeplex.com
+Description: YAPE is a decent no-nonsense Commodore 264 family (C16, plus/4 etc.) emulator.
+  YAPE is a decent no-nonsense Commodore 264 family (C16, plus/4 etc.) and Commodore 64 emulator.
+  It is being developed for 10+ years by now and is available in Windows as well as multiplatform (SDL) editions. The SDL version features:
+  - full, cycle exact MOS 6502/6510/7501/8501 CPU emulation
+  - almost full MOS 7360/8360 aka 'TED' chip emulation
+  - almost complete MOS 6569 aka 'VIC-II' chip emulation
+  - reasonable MOS 6581/8580 aka 'SID' chip emulation
+  - somewhat incomplete CIA 6526 aka 'CIA' emulation
+  - real 1541 drive emulation (Read/Write)
+  - full ROM banking on +4
+  - almost full tape emulation
+  - joystick emulation via cursor keys and gamepads
+  - PRG, P00, T64, D64 and TAP file format support
+  - partial CRT emulation
+  - serial IEC disk LOAD/SAVE to the file system
+  - snapshots / savestates
+
