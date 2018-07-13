@@ -7,7 +7,7 @@
 	and/or modify it under certain conditions. For more information,
 	read 'Copying'.
 
-	(c) 2000, 2001, 2004, 2005, 2007, 2015 Attila Grósz
+	(c) 2000, 2001, 2004, 2005, 2007, 2015-2018 Attila Grósz
 	(c) 2005 VENESZ Roland
 */
 
@@ -268,11 +268,6 @@ bool start_file(const char *szFile, bool autostart = true)
 {
 	char *pFileExt = (char *) strrchr(szFile, '.');
 
-	// to work around a few buggy defenders...
-	if (!ted8360->getEmulationLevel())
-		while (ted8360->beamy != 240)
-			ted8360->ted_process(0);
-
 	if (pFileExt) {
 		char *fileext = pFileExt;
 		if (!strcmp(fileext,".d64") || !strcmp(fileext,".D64")) {
@@ -317,6 +312,10 @@ bool autostart_file(const char *szFile, bool autostart)
 	// do some frames
 	unsigned int frames = ted8360->getAutostartDelay();
 	machineDoSomeFrames(frames);
+	// to work around a few buggy defenders...
+	if (!ted8360->getEmulationLevel())
+		while (ted8360->getVerticalCount() != 160)
+			ted8360->ted_process(0);
 	// and then try to load the parameter as file
 	return start_file(szFile, autostart);
 }
@@ -844,7 +843,7 @@ inline static void poll_events(void)
                                 break;
 							case SDLK_r:
 								ted8360->Reset(false);
-								machineReset(false);
+								machineReset((event.key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT)) != 0);
 								printf("Resetting...\n");
 								PopupMsg(" RESET ");
 								break;
@@ -901,6 +900,7 @@ inline static void poll_events(void)
 						{
 							unsigned int buttonPressed = ted8360->tap->IsButtonPressed();
 							ted8360->tap->pressTapeButton(ted8360->GetClockCount(), !buttonPressed);
+							PopupMsg(" %s TAPE... ", buttonPressed ? "STOPPING" : "PLAYING");
 						}
 						break;
 

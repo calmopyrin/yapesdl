@@ -102,18 +102,18 @@ unsigned char CIECFSDrive::OpenFile(int channel, char *filename)
 		FindFirstFile(plainname);
 	} else {
 
-	switch (filetype) {
+		switch (filetype) {
 		case FTYPE_PRG:
-			strcpy( extension, ".prg"); // Add .prg extension
+			strcpy(extension, ".prg"); // Add .prg extension
 			break;
-		/*case FTYPE_SEQ:
-			strcpy( extension, ".seq");	// Add .seq extension
-			break;*/
+			/*case FTYPE_SEQ:
+				strcpy( extension, ".seq");	// Add .seq extension
+				break;*/
 		default:
-			strcpy( extension, ".prg");
+			strcpy(extension, ".prg");
+		}
+		strcat(plainname, extension);	/* Add extension */
 	}
-	strcat( plainname, extension);	/* Add extension */
-    }
 	//fprintf(stderr,"Searching for: %s\n", plainname);
 
 	switch (filemode) {

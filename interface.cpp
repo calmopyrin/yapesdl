@@ -501,6 +501,12 @@ bool UI::handle_menu_command( struct element_t *element)
 		case UI_TAPE_REWIND:
 			ted8360->tap->rewind();
 			break;
+		case UI_TAPE_STOP:
+			ted8360->tap->pressTapeButton(ted8360->GetClockCount(), 0);
+			break;
+		case UI_TAPE_PLAY:
+			ted8360->tap->pressTapeButton(ted8360->GetClockCount(), 1);
+			break;
 		case UI_FILE_LOAD_PRG:
 			show_file_list( &file_menu, UI_PRG_ITEM );
 			return false;

@@ -7,7 +7,7 @@
 	and/or modify it under certain conditions. For more information,
 	read 'Copying'.
 
-	(c) 2000, 2001, 2005 Attila Grósz
+	(c) 2000, 2001, 2005, 2016-2018 Attila Grósz
 */
 
 #include "tape.h"
@@ -35,7 +35,7 @@ enum {
 
 static unsigned char mtap_header_default[]={
 	'C','1','6','-','T','A','P','E','-','R','A','W',
-	0x02, // version -> 1 - whole wave 2 - wholeWave
+	0x02, // version -> 1 - "whole wave" 2 - "half wave"
 	0x02, // 0 - C64, 1 - VIC20, 2 - C16/+4
 	0x00, // Video standard ( 0= PAL, 1 =NTSC, 2 = NTSC2
 	0x00, // empty
@@ -48,7 +48,7 @@ const char tapeFormatStr[][32] = {
 	"MTAP1", "MTAP2", "PCM WAV 8-bit", "PCM WAV 16-bit", "Unknown"
 };
 
-TAP::TAP() : tapeSoFar(0), tapeFileSize(0), tapeBuffer(NULL), lastCycle(0), edge(0), buttonPressed(0)
+TAP::TAP() : tapeFileSize(0), tapeBuffer(NULL), lastCycle(0), edge(0), buttonPressed(0), tapeSoFar(0)
 {
 	buttonPressed = motorOn = false;
 }
@@ -193,7 +193,6 @@ inline void TAP::readWavData(unsigned int elapsed)
 			int sample = tapeBuffer[tapeSoFar++];
 
 			if (tapeFormat == TAPE_FORMAT_PCM16) {
-				short in = short(sample | (tapeBuffer[tapeSoFar++] << 8));
 				sample += tapeBuffer[tapeSoFar++] << 8;
 				int change = short(sample) - prevSample;
 				if (sample > 0 && change > 0) {

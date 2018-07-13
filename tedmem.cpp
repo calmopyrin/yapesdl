@@ -91,7 +91,7 @@ enum {
 	TRFSHDELAY = 1 << 11
 };
 
-TED::TED() : sidCard(0), SaveState(), clockDivisor(10), crsrphase(0)
+TED::TED() : SaveState(), sidCard(0), crsrphase(0), clockDivisor(10)
 {
 	unsigned int i;
 
@@ -154,14 +154,14 @@ TED::TED() : sidCard(0), SaveState(), clockDivisor(10), crsrphase(0)
 	BadLine = 0;
 	CycleCounter = 0;
 	retraceScanLine = RETRACESCANLINEMAX;
-	
+
 	tedSoundInit(sampleRate);
 	if (enableSidCard(true, 0)) {
 		//sidCard->setModel(SID8580DB);
 	}
 }
 
-void TED::flipRamMask(void *none) 
+void TED::flipRamMask(void *none)
 {
 	if (RAMMask == 0xFFFF) RAMMask = 0x3FFF;
 	else if (RAMMask == 0x7FFF) RAMMask = 0xFFFF;
@@ -272,7 +272,7 @@ void TED::loadromfromfile(int nr, const char fname[512], unsigned int offset)
 			case 1: if (!strncmp(fname, "3PLUS1LOW",9))
 						memcpy(rom[1] + offset, plus4lo, ROMSIZE);
 					else if (!strncmp(fname, "3PLUS1HIGH", 10))
-						memcpy(rom[1] + offset, plus4hi, ROMSIZE); 
+						memcpy(rom[1] + offset, plus4hi, ROMSIZE);
 					else
 						memset(rom[1] + offset, 0, ROMSIZE);
 				break;
