@@ -947,7 +947,7 @@ inline static void poll_events(void)
 						if (event.key.keysym.mod & (KMOD_LCTRL|KMOD_RCTRL) ) {
 							ted8360->Reset(false);
 						} else {
-							ted8360->Reset(false);
+							machine->Reset();
 						}
 						machineReset(false);
 						break;
