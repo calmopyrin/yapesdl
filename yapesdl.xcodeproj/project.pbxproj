@@ -7,47 +7,58 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A5CA5C1A1DFDB047006AD19D /* 1541mem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAA1DFDAB1F006AD19D /* 1541mem.cpp */; };
-		A5CA5C1B1DFDB047006AD19D /* archdep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAB1DFDAB1F006AD19D /* archdep.cpp */; };
-		A5CA5C1C1DFDB047006AD19D /* cpu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAC1DFDAB1F006AD19D /* cpu.cpp */; };
-		A5CA5C1D1DFDB047006AD19D /* dis.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAD1DFDAB1F006AD19D /* dis.cpp */; };
-		A5CA5C1E1DFDB047006AD19D /* diskfs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAE1DFDAB1F006AD19D /* diskfs.cpp */; };
-		A5CA5C1F1DFDB047006AD19D /* dos.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAF1DFDAB1F006AD19D /* dos.cpp */; };
-		A5CA5C201DFDB047006AD19D /* drive.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB01DFDAB1F006AD19D /* drive.cpp */; };
-		A5CA5C211DFDB047006AD19D /* FdcGcr.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB11DFDAB1F006AD19D /* FdcGcr.cpp */; };
-		A5CA5C221DFDB047006AD19D /* iec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB21DFDAB1F006AD19D /* iec.cpp */; };
-		A5CA5C231DFDB047006AD19D /* interface.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB31DFDAB1F006AD19D /* interface.cpp */; };
-		A5CA5C241DFDB047006AD19D /* keyboard.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB41DFDAB1F006AD19D /* keyboard.cpp */; };
-		A5CA5C251DFDB047006AD19D /* keys64.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB51DFDAB1F006AD19D /* keys64.cpp */; };
-		A5CA5C261DFDB047006AD19D /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB61DFDAB1F006AD19D /* main.cpp */; };
-		A5CA5C271DFDB047006AD19D /* monitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB71DFDAB1F006AD19D /* monitor.cpp */; };
-		A5CA5C281DFDB047006AD19D /* prg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB81DFDAB1F006AD19D /* prg.cpp */; };
-		A5CA5C291DFDB047006AD19D /* SaveState.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB91DFDAB1F006AD19D /* SaveState.cpp */; };
-		A5CA5C2A1DFDB047006AD19D /* serial.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBA1DFDAB1F006AD19D /* serial.cpp */; };
-		A5CA5C2B1DFDB047006AD19D /* Sid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBB1DFDAB1F006AD19D /* Sid.cpp */; };
-		A5CA5C2C1DFDB047006AD19D /* sound.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBC1DFDAB1F006AD19D /* sound.cpp */; };
-		A5CA5C2D1DFDB047006AD19D /* tape.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBD1DFDAB1F006AD19D /* tape.cpp */; };
-		A5CA5C2E1DFDB047006AD19D /* tcbm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBE1DFDAB1F006AD19D /* tcbm.cpp */; };
-		A5CA5C2F1DFDB047006AD19D /* tedmem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBF1DFDAB1F006AD19D /* tedmem.cpp */; };
-		A5CA5C301DFDB047006AD19D /* tedsound.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BC01DFDAB1F006AD19D /* tedsound.cpp */; };
-		A5CA5C311DFDB047006AD19D /* vic2mem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BC11DFDAB1F006AD19D /* vic2mem.cpp */; };
-		A5CA5C321DFDB047006AD19D /* video.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BC21DFDAB1F006AD19D /* video.cpp */; };
-		A5E861951DFDE23100337DFF /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5CA5BDC1DFDAB99006AD19D /* SDL2.framework */; };
+		A53DF10A22BCA61B0033D6E2 /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5CA5BDC1DFDAB99006AD19D /* SDL2.framework */; };
+		A53DF10B22BCA68B0033D6E2 /* 1541mem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAA1DFDAB1F006AD19D /* 1541mem.cpp */; };
+		A53DF10C22BCA68B0033D6E2 /* archdep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAB1DFDAB1F006AD19D /* archdep.cpp */; };
+		A53DF10D22BCA68B0033D6E2 /* Cia.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A53DF0F222BCA3880033D6E2 /* Cia.cpp */; };
+		A53DF10E22BCA68B0033D6E2 /* cpu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAC1DFDAB1F006AD19D /* cpu.cpp */; };
+		A53DF10F22BCA68B0033D6E2 /* dis.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAD1DFDAB1F006AD19D /* dis.cpp */; };
+		A53DF11022BCA68B0033D6E2 /* diskfs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAE1DFDAB1F006AD19D /* diskfs.cpp */; };
+		A53DF11122BCA68B0033D6E2 /* dos.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAF1DFDAB1F006AD19D /* dos.cpp */; };
+		A53DF11222BCA68B0033D6E2 /* drive.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB01DFDAB1F006AD19D /* drive.cpp */; };
+		A53DF11322BCA68B0033D6E2 /* FdcGcr.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB11DFDAB1F006AD19D /* FdcGcr.cpp */; };
+		A53DF11422BCA68B0033D6E2 /* iec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB21DFDAB1F006AD19D /* iec.cpp */; };
+		A53DF11522BCA68B0033D6E2 /* interface.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB31DFDAB1F006AD19D /* interface.cpp */; };
+		A53DF11622BCA68B0033D6E2 /* keyboard.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB41DFDAB1F006AD19D /* keyboard.cpp */; };
+		A53DF11722BCA68B0033D6E2 /* keys64.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB51DFDAB1F006AD19D /* keys64.cpp */; };
+		A53DF11822BCA68B0033D6E2 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB61DFDAB1F006AD19D /* main.cpp */; };
+		A53DF11922BCA68B0033D6E2 /* monitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB71DFDAB1F006AD19D /* monitor.cpp */; };
+		A53DF11A22BCA68B0033D6E2 /* prg.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB81DFDAB1F006AD19D /* prg.cpp */; };
+		A53DF11B22BCA68B0033D6E2 /* SaveState.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BB91DFDAB1F006AD19D /* SaveState.cpp */; };
+		A53DF11C22BCA68B0033D6E2 /* serial.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBA1DFDAB1F006AD19D /* serial.cpp */; };
+		A53DF11D22BCA68B0033D6E2 /* Sid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBB1DFDAB1F006AD19D /* Sid.cpp */; };
+		A53DF11E22BCA68B0033D6E2 /* sound.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBC1DFDAB1F006AD19D /* sound.cpp */; };
+		A53DF11F22BCA68B0033D6E2 /* tape.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBD1DFDAB1F006AD19D /* tape.cpp */; };
+		A53DF12022BCA68B0033D6E2 /* tcbm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBE1DFDAB1F006AD19D /* tcbm.cpp */; };
+		A53DF12122BCA68B0033D6E2 /* tedmem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BBF1DFDAB1F006AD19D /* tedmem.cpp */; };
+		A53DF12222BCA68B0033D6E2 /* tedsound.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BC01DFDAB1F006AD19D /* tedsound.cpp */; };
+		A53DF12322BCA68B0033D6E2 /* vic2mem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BC11DFDAB1F006AD19D /* vic2mem.cpp */; };
+		A53DF12422BCA68B0033D6E2 /* video.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BC21DFDAB1F006AD19D /* video.cpp */; };
+		A54FE70722BCA9D50008C12D /* SDL2.framework in Copy SDL2.framework */ = {isa = PBXBuildFile; fileRef = A5CA5BDC1DFDAB99006AD19D /* SDL2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A54FE70922BCAF5F0008C12D /* plus4.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A54FE70822BCAF5F0008C12D /* plus4.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		A5CA5C111DFDB038006AD19D /* CopyFiles */ = {
+		A54FE70622BCA9BA0008C12D /* Copy SDL2.framework */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
+			dstPath = "";
+			dstSubfolderSpec = 10;
 			files = (
+				A54FE70722BCA9D50008C12D /* SDL2.framework in Copy SDL2.framework */,
 			);
-			runOnlyForDeploymentPostprocessing = 1;
+			name = "Copy SDL2.framework";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A53DF0F222BCA3880033D6E2 /* Cia.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Cia.cpp; sourceTree = SOURCE_ROOT; };
+		A53DF0F322BCA3880033D6E2 /* Cia.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Cia.h; sourceTree = SOURCE_ROOT; };
+		A53DF0F922BCA5B30033D6E2 /* yapeSDL.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = yapeSDL.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A53DF10322BCA5B40033D6E2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A53DF10622BCA5B50033D6E2 /* yapeSDL.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = yapeSDL.entitlements; sourceTree = "<group>"; };
+		A54FE70822BCAF5F0008C12D /* plus4.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = plus4.xcassets; sourceTree = SOURCE_ROOT; };
 		A5CA5B8B1DFDAB1F006AD19D /* 1541mem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = 1541mem.h; sourceTree = SOURCE_ROOT; };
 		A5CA5B8C1DFDAB1F006AD19D /* 1541rom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = 1541rom.h; sourceTree = SOURCE_ROOT; };
 		A5CA5B8D1DFDAB1F006AD19D /* archdep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = archdep.h; sourceTree = SOURCE_ROOT; };
@@ -105,55 +116,55 @@
 		A5CA5BC11DFDAB1F006AD19D /* vic2mem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vic2mem.cpp; sourceTree = SOURCE_ROOT; };
 		A5CA5BC21DFDAB1F006AD19D /* video.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = video.cpp; sourceTree = SOURCE_ROOT; };
 		A5CA5BDC1DFDAB99006AD19D /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = ../../../../Library/Frameworks/SDL2.framework; sourceTree = "<group>"; };
-		A5CA5C131DFDB038006AD19D /* yapesdl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = yapesdl; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		A5CA5C101DFDB038006AD19D /* Frameworks */ = {
+		A53DF0F622BCA5B30033D6E2 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A5E861951DFDE23100337DFF /* SDL2.framework in Frameworks */,
+				A53DF10A22BCA61B0033D6E2 /* SDL2.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		A5CA5B781DFDAAC9006AD19D = {
+		A53DF0FA22BCA5B30033D6E2 /* yapeSDL */ = {
 			isa = PBXGroup;
 			children = (
-				A5CA5BDC1DFDAB99006AD19D /* SDL2.framework */,
-				A5CA5B831DFDAAC9006AD19D /* yapesdl */,
-				A5CA5B821DFDAAC9006AD19D /* Products */,
+				A54FE70822BCAF5F0008C12D /* plus4.xcassets */,
+				A53DF10322BCA5B40033D6E2 /* Info.plist */,
+				A53DF10622BCA5B50033D6E2 /* yapeSDL.entitlements */,
 			);
+			path = yapeSDL;
 			sourceTree = "<group>";
 		};
-		A5CA5B821DFDAAC9006AD19D /* Products */ = {
+		A54FE70A22BCB01E0008C12D /* Source */ = {
 			isa = PBXGroup;
 			children = (
-				A5CA5C131DFDB038006AD19D /* yapesdl */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		A5CA5B831DFDAAC9006AD19D /* yapesdl */ = {
-			isa = PBXGroup;
-			children = (
-				A5CA5B8B1DFDAB1F006AD19D /* 1541mem.h */,
 				A5CA5B8C1DFDAB1F006AD19D /* 1541rom.h */,
-				A5CA5B8D1DFDAB1F006AD19D /* archdep.h */,
 				A5CA5B8E1DFDAB1F006AD19D /* c64rom.h */,
+				A53DF0F322BCA3880033D6E2 /* Cia.h */,
+				A5CA5B931DFDAB1F006AD19D /* drive.h */,
+				A5CA5B941DFDAB1F006AD19D /* FdcGcr.h */,
+				A5CA5B981DFDAB1F006AD19D /* keyboard.h */,
+				A5CA5BA71DFDAB1F006AD19D /* types.h */,
+				A5CA5BA81DFDAB1F006AD19D /* vic2mem.h */,
+				A5CA5BAA1DFDAB1F006AD19D /* 1541mem.cpp */,
+				A53DF0F222BCA3880033D6E2 /* Cia.cpp */,
+				A5CA5BB21DFDAB1F006AD19D /* iec.cpp */,
+				A5CA5BB51DFDAB1F006AD19D /* keys64.cpp */,
+				A5CA5BBD1DFDAB1F006AD19D /* tape.cpp */,
+				A5CA5B8B1DFDAB1F006AD19D /* 1541mem.h */,
+				A5CA5B8D1DFDAB1F006AD19D /* archdep.h */,
 				A5CA5B8F1DFDAB1F006AD19D /* Clockable.h */,
 				A5CA5B901DFDAB1F006AD19D /* cpu.h */,
 				A5CA5B911DFDAB1F006AD19D /* device.h */,
 				A5CA5B921DFDAB1F006AD19D /* diskfs.h */,
-				A5CA5B931DFDAB1F006AD19D /* drive.h */,
-				A5CA5B941DFDAB1F006AD19D /* FdcGcr.h */,
 				A5CA5B951DFDAB1F006AD19D /* icon.h */,
 				A5CA5B961DFDAB1F006AD19D /* iec.h */,
 				A5CA5B971DFDAB1F006AD19D /* interface.h */,
-				A5CA5B981DFDAB1F006AD19D /* keyboard.h */,
 				A5CA5B991DFDAB1F006AD19D /* keyoverlay.h */,
 				A5CA5B9A1DFDAB1F006AD19D /* keys64.h */,
 				A5CA5B9B1DFDAB1F006AD19D /* mem.h */,
@@ -168,10 +179,7 @@
 				A5CA5BA41DFDAB1F006AD19D /* tape.h */,
 				A5CA5BA51DFDAB1F006AD19D /* tcbm.h */,
 				A5CA5BA61DFDAB1F006AD19D /* tedmem.h */,
-				A5CA5BA71DFDAB1F006AD19D /* types.h */,
-				A5CA5BA81DFDAB1F006AD19D /* vic2mem.h */,
 				A5CA5BA91DFDAB1F006AD19D /* video.h */,
-				A5CA5BAA1DFDAB1F006AD19D /* 1541mem.cpp */,
 				A5CA5BAB1DFDAB1F006AD19D /* archdep.cpp */,
 				A5CA5BAC1DFDAB1F006AD19D /* cpu.cpp */,
 				A5CA5BAD1DFDAB1F006AD19D /* dis.cpp */,
@@ -179,10 +187,8 @@
 				A5CA5BAF1DFDAB1F006AD19D /* dos.cpp */,
 				A5CA5BB01DFDAB1F006AD19D /* drive.cpp */,
 				A5CA5BB11DFDAB1F006AD19D /* FdcGcr.cpp */,
-				A5CA5BB21DFDAB1F006AD19D /* iec.cpp */,
 				A5CA5BB31DFDAB1F006AD19D /* interface.cpp */,
 				A5CA5BB41DFDAB1F006AD19D /* keyboard.cpp */,
-				A5CA5BB51DFDAB1F006AD19D /* keys64.cpp */,
 				A5CA5BB61DFDAB1F006AD19D /* main.cpp */,
 				A5CA5BB71DFDAB1F006AD19D /* monitor.cpp */,
 				A5CA5BB81DFDAB1F006AD19D /* prg.cpp */,
@@ -190,36 +196,53 @@
 				A5CA5BBA1DFDAB1F006AD19D /* serial.cpp */,
 				A5CA5BBB1DFDAB1F006AD19D /* Sid.cpp */,
 				A5CA5BBC1DFDAB1F006AD19D /* sound.cpp */,
-				A5CA5BBD1DFDAB1F006AD19D /* tape.cpp */,
 				A5CA5BBE1DFDAB1F006AD19D /* tcbm.cpp */,
 				A5CA5BBF1DFDAB1F006AD19D /* tedmem.cpp */,
 				A5CA5BC01DFDAB1F006AD19D /* tedsound.cpp */,
 				A5CA5BC11DFDAB1F006AD19D /* vic2mem.cpp */,
 				A5CA5BC21DFDAB1F006AD19D /* video.cpp */,
 			);
-			name = yapesdl;
-			path = yape;
+			name = Source;
+			sourceTree = "<group>";
+		};
+		A5CA5B781DFDAAC9006AD19D = {
+			isa = PBXGroup;
+			children = (
+				A54FE70A22BCB01E0008C12D /* Source */,
+				A53DF0FA22BCA5B30033D6E2 /* yapeSDL */,
+				A5CA5BDC1DFDAB99006AD19D /* SDL2.framework */,
+				A5CA5B821DFDAAC9006AD19D /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A5CA5B821DFDAAC9006AD19D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A53DF0F922BCA5B30033D6E2 /* yapeSDL.app */,
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A5CA5C121DFDB038006AD19D /* yapesdl */ = {
+		A53DF0F822BCA5B30033D6E2 /* yapeSDL */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A5CA5C171DFDB038006AD19D /* Build configuration list for PBXNativeTarget "yapesdl" */;
+			buildConfigurationList = A53DF10722BCA5B50033D6E2 /* Build configuration list for PBXNativeTarget "yapeSDL" */;
 			buildPhases = (
-				A5CA5C0F1DFDB038006AD19D /* Sources */,
-				A5CA5C101DFDB038006AD19D /* Frameworks */,
-				A5CA5C111DFDB038006AD19D /* CopyFiles */,
+				A53DF0F522BCA5B30033D6E2 /* Sources */,
+				A53DF0F622BCA5B30033D6E2 /* Frameworks */,
+				A53DF0F722BCA5B30033D6E2 /* Resources */,
+				A54FE70622BCA9BA0008C12D /* Copy SDL2.framework */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = yapesdl;
-			productName = yape;
-			productReference = A5CA5C131DFDB038006AD19D /* yapesdl */;
-			productType = "com.apple.product-type.tool";
+			name = yapeSDL;
+			productName = yapeSDL;
+			productReference = A53DF0F922BCA5B30033D6E2 /* yapeSDL.app */;
+			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
@@ -230,8 +253,18 @@
 				LastUpgradeCheck = 0720;
 				ORGANIZATIONNAME = me;
 				TargetAttributes = {
-					A5CA5C121DFDB038006AD19D = {
-						CreatedOnToolsVersion = 7.2.1;
+					A53DF0F822BCA5B30033D6E2 = {
+						CreatedOnToolsVersion = 10.1;
+						DevelopmentTeam = VNV35Q55PD;
+						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.HardenedRuntime = {
+								enabled = 1;
+							};
+							com.apple.Sandbox = {
+								enabled = 0;
+							};
+						};
 					};
 				};
 			};
@@ -248,47 +281,138 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A5CA5C121DFDB038006AD19D /* yapesdl */,
+				A53DF0F822BCA5B30033D6E2 /* yapeSDL */,
 			);
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		A53DF0F722BCA5B30033D6E2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A54FE70922BCAF5F0008C12D /* plus4.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
-		A5CA5C0F1DFDB038006AD19D /* Sources */ = {
+		A53DF0F522BCA5B30033D6E2 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A5CA5C1D1DFDB047006AD19D /* dis.cpp in Sources */,
-				A5CA5C2F1DFDB047006AD19D /* tedmem.cpp in Sources */,
-				A5CA5C281DFDB047006AD19D /* prg.cpp in Sources */,
-				A5CA5C1F1DFDB047006AD19D /* dos.cpp in Sources */,
-				A5CA5C241DFDB047006AD19D /* keyboard.cpp in Sources */,
-				A5CA5C271DFDB047006AD19D /* monitor.cpp in Sources */,
-				A5CA5C231DFDB047006AD19D /* interface.cpp in Sources */,
-				A5CA5C261DFDB047006AD19D /* main.cpp in Sources */,
-				A5CA5C2C1DFDB047006AD19D /* sound.cpp in Sources */,
-				A5CA5C321DFDB047006AD19D /* video.cpp in Sources */,
-				A5CA5C311DFDB047006AD19D /* vic2mem.cpp in Sources */,
-				A5CA5C2B1DFDB047006AD19D /* Sid.cpp in Sources */,
-				A5CA5C291DFDB047006AD19D /* SaveState.cpp in Sources */,
-				A5CA5C301DFDB047006AD19D /* tedsound.cpp in Sources */,
-				A5CA5C1C1DFDB047006AD19D /* cpu.cpp in Sources */,
-				A5CA5C1A1DFDB047006AD19D /* 1541mem.cpp in Sources */,
-				A5CA5C211DFDB047006AD19D /* FdcGcr.cpp in Sources */,
-				A5CA5C2A1DFDB047006AD19D /* serial.cpp in Sources */,
-				A5CA5C251DFDB047006AD19D /* keys64.cpp in Sources */,
-				A5CA5C2E1DFDB047006AD19D /* tcbm.cpp in Sources */,
-				A5CA5C201DFDB047006AD19D /* drive.cpp in Sources */,
-				A5CA5C2D1DFDB047006AD19D /* tape.cpp in Sources */,
-				A5CA5C1B1DFDB047006AD19D /* archdep.cpp in Sources */,
-				A5CA5C1E1DFDB047006AD19D /* diskfs.cpp in Sources */,
-				A5CA5C221DFDB047006AD19D /* iec.cpp in Sources */,
+				A53DF10F22BCA68B0033D6E2 /* dis.cpp in Sources */,
+				A53DF12122BCA68B0033D6E2 /* tedmem.cpp in Sources */,
+				A53DF11A22BCA68B0033D6E2 /* prg.cpp in Sources */,
+				A53DF11122BCA68B0033D6E2 /* dos.cpp in Sources */,
+				A53DF11622BCA68B0033D6E2 /* keyboard.cpp in Sources */,
+				A53DF11922BCA68B0033D6E2 /* monitor.cpp in Sources */,
+				A53DF11522BCA68B0033D6E2 /* interface.cpp in Sources */,
+				A53DF11822BCA68B0033D6E2 /* main.cpp in Sources */,
+				A53DF11E22BCA68B0033D6E2 /* sound.cpp in Sources */,
+				A53DF12422BCA68B0033D6E2 /* video.cpp in Sources */,
+				A53DF12322BCA68B0033D6E2 /* vic2mem.cpp in Sources */,
+				A53DF11D22BCA68B0033D6E2 /* Sid.cpp in Sources */,
+				A53DF11B22BCA68B0033D6E2 /* SaveState.cpp in Sources */,
+				A53DF12222BCA68B0033D6E2 /* tedsound.cpp in Sources */,
+				A53DF10E22BCA68B0033D6E2 /* cpu.cpp in Sources */,
+				A53DF10D22BCA68B0033D6E2 /* Cia.cpp in Sources */,
+				A53DF11322BCA68B0033D6E2 /* FdcGcr.cpp in Sources */,
+				A53DF11C22BCA68B0033D6E2 /* serial.cpp in Sources */,
+				A53DF11722BCA68B0033D6E2 /* keys64.cpp in Sources */,
+				A53DF12022BCA68B0033D6E2 /* tcbm.cpp in Sources */,
+				A53DF11222BCA68B0033D6E2 /* drive.cpp in Sources */,
+				A53DF10B22BCA68B0033D6E2 /* 1541mem.cpp in Sources */,
+				A53DF11F22BCA68B0033D6E2 /* tape.cpp in Sources */,
+				A53DF10C22BCA68B0033D6E2 /* archdep.cpp in Sources */,
+				A53DF11022BCA68B0033D6E2 /* diskfs.cpp in Sources */,
+				A53DF11422BCA68B0033D6E2 /* iec.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		A53DF10822BCA5B50033D6E2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = MacAppIcon;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "Mac Developer";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = VNV35Q55PD;
+				ENABLE_HARDENED_RUNTIME = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				INFOPLIST_FILE = yapeSDL/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = eu.atilia.gaia.yapeSDL;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = "-Wno-undefined-var-template";
+			};
+			name = Debug;
+		};
+		A53DF10922BCA5B50033D6E2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = MacAppIcon;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "Mac Developer";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = VNV35Q55PD;
+				ENABLE_HARDENED_RUNTIME = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				INFOPLIST_FILE = yapeSDL/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = eu.atilia.gaia.yapeSDL;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = "-Wno-undefined-var-template";
+			};
+			name = Release;
+		};
 		A5CA5B861DFDAAC9006AD19D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -369,49 +493,23 @@
 			};
 			name = Release;
 		};
-		A5CA5C181DFDB038006AD19D /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 10.7;
-				PRODUCT_NAME = yapesdl;
-			};
-			name = Debug;
-		};
-		A5CA5C191DFDB038006AD19D /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)",
-					"$(LOCAL_LIBRARY_DIR)/Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 10.7;
-				PRODUCT_NAME = yapesdl;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		A53DF10722BCA5B50033D6E2 /* Build configuration list for PBXNativeTarget "yapeSDL" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A53DF10822BCA5B50033D6E2 /* Debug */,
+				A53DF10922BCA5B50033D6E2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		A5CA5B7C1DFDAAC9006AD19D /* Build configuration list for PBXProject "yapesdl" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A5CA5B861DFDAAC9006AD19D /* Debug */,
 				A5CA5B871DFDAAC9006AD19D /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		A5CA5C171DFDB038006AD19D /* Build configuration list for PBXNativeTarget "yapesdl" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A5CA5C181DFDB038006AD19D /* Debug */,
-				A5CA5C191DFDB038006AD19D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
