@@ -7,7 +7,7 @@
 	and/or modify it under certain conditions. For more information,
 	read 'Copying'.
 
-	(c) 2000, 2001, 2004, 2005, 2007, 2015-2018 Attila Grósz
+	(c) 2000, 2001, 2004, 2005, 2007, 2015-2018 Attila Grï¿½sz
 	(c) 2005 VENESZ Roland
 */
 
@@ -40,6 +40,11 @@
 #include "vic2mem.h"
 #include "SaveState.h"
 #include "keyoverlay.h"
+
+#ifdef __WIIU__
+#include <whb/proc.h>
+#include <string>
+#endif
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -366,7 +371,7 @@ static void showKeyboardOverlay()
 		SDL_RWops *rwops = SDL_RWFromMem((void*) keyoverlay, sizeof(keyoverlay));
 		SDL_Surface* loadedSurface = SDL_LoadBMP_RW(rwops, 1);
 		if (loadedSurface) {
-			// Note: the logical size of the window surface is 2×!
+			// Note: the logical size of the window surface is 2ï¿½!
 			rc.w = loadedSurface->w * 2;
 			rc.h = loadedSurface->h * 2;
 			rc.x = SCREENX - rc.w / 2;
@@ -456,8 +461,12 @@ bool SaveSettings(char *inifileName)
 			fprintf(ini,"ROMC%dLOW = %s\n",i, ted8360->romlopath[i]);
 			fprintf(ini,"ROMC%dHIGH = %s\n",i, ted8360->romhighpath[i]);
 		}
+#ifndef __WIIU__
 		ad_get_curr_dir(tmpStr);
 		fprintf(ini, "CurrentDirectory = %s\n", tmpStr);
+#else
+		fprintf(ini, "CurrentDirectory = fs:/vol/external01/wiiu/apps/yape\n");
+#endif
 		fprintf(ini, "CRTEmulation = %u\n", g_bUseOverlay);
 		fprintf(ini, "WindowMultiplier = %u\n", g_iWindowMultiplier);
 		fprintf(ini, "EmulationLevel = %u\n", g_iEmulationLevel);
@@ -835,9 +844,11 @@ inline static void poll_events(void)
 							case SDLK_i :
 								doSwapJoy();
 								break;
+#ifndef __WIIU__
 							case SDLK_m :
 								monitorEnter(machine);
 								break;
+#endif
                             case SDLK_p:
 								toggleCrtEmulation(NULL);
                                 break;
@@ -854,12 +865,14 @@ inline static void poll_events(void)
 							case SDLK_w :
 								toggleFullThrottle(NULL);
 								break;
+#ifndef __WIIU__
 							case SDLK_RETURN:
 								{
 									Uint32 isFS = SDL_GetWindowFlags(sdlWindow) & SDL_WINDOW_FULLSCREEN_DESKTOP;
 									SDL_SetWindowFullscreen(sdlWindow, isFS ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
 								}
 								break;
+#endif
 							case SDLK_F5:
 								getSerializedFilename("snapshot", "yss", lastSnapshotName);
 								SaveState::openSnapshot(lastSnapshotName, true);
@@ -925,8 +938,10 @@ inline static void poll_events(void)
 					case SDLK_F11 :
 						g_bActive = false;
 						break;
+#ifndef __WIIU__
 					case SDLK_F12 :
 						exit(0);
+#endif
 					default :
 						return;
 				}
@@ -955,7 +970,7 @@ inline static void poll_events(void)
 							;
 				}
 				break;
-
+#ifndef __WIIU__
 			case SDL_JOYBUTTONUP:
 				//printf("joy: %u, button: %u was pressed!\n", event.jbutton.which, event.jbutton.button);
 				if (event.jbutton.button == 5 || event.jbutton.button == 14) { // START button
@@ -968,6 +983,41 @@ inline static void poll_events(void)
 					toggleFullThrottle(NULL);
 				}
 				break;
+#else
+
+			case SDL_JOYBUTTONUP:
+			//printf("joy: %u, button: %u was pressed!\n", event.jbutton.which, event.jbutton.button);
+				if (event.jbutton.button == SDL_MINUS) { // START button
+					enterMenu();
+				} else if (event.jbutton.button == SDL_PLUS) {
+					int mult = g_iWindowMultiplier;
+					mult++;
+					if(mult > 3)
+						mult = 1;
+					g_iWindowMultiplier = mult;
+					setWindowScale(mult);
+					PopupMsg(" WINDOW SIZE: %ux ", mult);
+				} else if (event.jbutton.button == SDL_ZL) {
+					ted8360->copyToKbBuffer("LIST\r",5);
+				} else if (event.jbutton.button == SDL_L) {
+					ted8360->copyToKbBuffer("LOAD\"$\",8\r",10);
+				} else if (event.jbutton.button == SDL_R) {
+					ted8360->copyToKbBuffer("LOAD\"*\",8,1\r",12);
+				} else if (event.jbutton.button == SDL_ZR) {
+					ted8360->copyToKbBuffer("RUN:\r",5);
+				} else if (event.jbutton.button == SDL_Y) {
+					doSwapJoy();
+				} else if (event.jbutton.button == SDL_X) {
+					toggleFullThrottle(NULL);
+				} else if (event.jbutton.button == SDL_L_THUMB) {
+					ted8360->Reset(false);
+					machineReset(false);
+				} else if (event.jbutton.button == SDL_R_THUMB) {
+					ted8360->Reset(false);
+					machineReset(true);
+				}
+				break;
+#endif
 
 			case SDL_DROPFILE:
 				{
@@ -977,8 +1027,11 @@ inline static void poll_events(void)
 						SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "File failed to load properly.", sdlWindow);
 				}
 				break;
-
+#ifdef __WIIU__
+			case SDL_FINGERDOWN:
+#else
 			case SDL_MOUSEBUTTONDOWN:
+#endif
 				// stupid workaround for too early detection
 				if (ted8360->GetClockCount() > TED_REAL_CLOCK_M10 / 10) {
 					if (timeOutOverlayKeys) {
@@ -988,12 +1041,19 @@ inline static void poll_events(void)
 				}
 				break;
 
+#ifdef __WIIU__
+			case SDL_FINGERUP:
+#else
 			case SDL_MOUSEBUTTONUP:
+#endif
 				mouseBtnHeld = false;
 				break;
 
             case SDL_QUIT:
                 exit(0);
+				
+			default:
+				break;
         }
     }
 }
@@ -1089,6 +1149,7 @@ static void app_initialise()
         fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError());
         exit(1);
     }
+#ifndef __WIIU__
 	atexit(app_close);
 
 	// check the video driver we have
@@ -1099,11 +1160,19 @@ static void app_initialise()
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         WINDOWX * g_iWindowMultiplier, WINDOWY * g_iWindowMultiplier,
 		SDL_WINDOW_RESIZABLE); // SDL_WINDOW_FULLSCREEN_DESKTOP
+#else
+    sdlWindow = SDL_CreateWindow(NULL,
+		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        WINDOWX * g_iWindowMultiplier, WINDOWY * g_iWindowMultiplier,
+		SDL_WINDOW_RESIZABLE); // SDL_WINDOW_FULLSCREEN_DESKTOP
+#endif
     if (!sdlWindow) {
         printf("Unable to create window: %s\n", SDL_GetError());
         return;
     }
+#ifndef __WIIU__
 	setSDLIcon(sdlWindow);
+#endif
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 	//
 	printf("On-screen keyboard");
@@ -1168,9 +1237,8 @@ int main(int argc, char *argv[])
 {
 	machineInit();
 	uinterface = new UI(ted8360);
-
 	fprintf(stderr, "%s\n", NAME);
-#ifndef __EMSCRIPTEN__
+#if !defined(__EMSCRIPTEN__)  &&  !defined(__WIIU__)
 	inipath = SDL_GetPrefPath("Gaia", "yapeSDL");
 	if (inipath) {
 		fprintf(stderr, "Home directory is %s\n", inipath);
@@ -1194,9 +1262,19 @@ int main(int argc, char *argv[])
 	} else
 		fprintf(stderr,"Error loading settings or no .ini file present...\n");
 #endif
+#ifdef __WIIU__
+	g_iEmulationLevel = 2;
+	std::string fileName = "fs:/vol/external01/wiiu/apps/yape/yape.conf";
+	inifile = (char *)fileName.c_str();
+	LoadSettings(inifile);
+	char tmpStr[512];
+	ad_get_curr_dir(tmpStr);
+	fprintf(stderr, "IEC drive path: %s\n", tmpStr);
+	setEmulationLevel(g_iEmulationLevel);
+#endif
 
 	app_initialise();
-
+#ifndef __WIIU__
 	/* ---------- Command line parameters ---------- */
 	if (argc > 1) {
 		printf("Parameter 1 :%s\n", argv[1]);
@@ -1211,6 +1289,7 @@ int main(int argc, char *argv[])
 		autostart_file(argv[1], true);
 #endif
 	}
+#endif
 #ifdef __EMSCRIPTEN__
 	printf("%s - Javascript build using Emscripten.\n", NAME);
 	printf("Type DIRECTORY (or LOAD\"$\",8 and then LIST) and press ENTER to see disk contents. Type LOAD\"filename*\",8 to load a specific file!\n");
@@ -1234,9 +1313,16 @@ int main(int argc, char *argv[])
 	setMainLoop(1);
 #else
 	ad_vsync_init();
+#ifndef __WIIU__
 	for (;;) {
 		mainLoop();
 	}
+#else
+	while(WHBProcIsRunning()) {
+		mainLoop();
+	}
+	app_close();
+#endif
 #endif
 	return 0;
 }

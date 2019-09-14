@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<app version="1">
+  <name>YAPE 4 U</name>
+  <coder>brienj</coder>
+  <version>0.70.2</version>
+  <url>https://github.com/xhp-creations/yapesdl</url>
+  <release_date>20190913184900</release_date>
+  <short_description>YAPE 4 U</short_description>
+  <long_description>YAPE 4 U
+  
+  Port of yapesdl by calmopyrin
+  
+  You'll get best results with a USB keyboard and reading all the keyboard shortcuts in the Readme on GitHub.
+  Some functionality, such as the debug monitor, not available on Wii U yet.
+  Wii U version supports the gamepad, MINUS button to open/close the settings menu.
+</long_description>
+</app>

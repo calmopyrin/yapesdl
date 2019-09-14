@@ -7,7 +7,7 @@
 	and/or modify it under certain conditions. For more information,
 	read 'Copying'.
 
-	(c) 2000, 2001, 2005 Attila Grósz
+	(c) 2000, 2001, 2005 Attila Grï¿½sz
 */
 
 #include <string.h>
@@ -23,6 +23,9 @@
 #include "drive.h"
 #include "roms.h"
 #include "SaveState.h"
+#ifdef __WIIU__
+#include "keyboard.h"
+#endif
 
 #ifndef SDL_CONTROLLERBUTTONDOWN // Emscripten
 #define SDL_CONTROLLERBUTTONDOWN -1
@@ -436,6 +439,12 @@ bool UI::handle_menu_command( struct element_t *element)
 		case UI_DRIVE_ITEM:
 			ad_exit_drive_selector();
 		case UI_DIR_ITEM:
+#ifdef __WIIU__
+			if (!strcmp(curr_menu->subtitle, "fs:/vol/")) {
+				strcpy(element->name, "fs:/vol/external01/");
+				strcpy(curr_menu->subtitle, "fs:/vol/external01/");
+			}
+#endif
 			if (ad_set_curr_dir(element->name)) {
 				ad_get_curr_dir( (char*)&(curr_menu->subtitle) );
 				if ( ptype == UI_FILE_LOAD_PRG )
@@ -576,8 +585,11 @@ void UI::show_title(menu_t * menu)
 		subtitle += chunklen;
 		startline += 8;
 	} while (chunks--);
-
+#ifdef __WIIU__
+	char helptxt[] = "d-pad: navigate, a: select, b: back";
+#else
 	char helptxt[] = "Arrows: navigate, ENTER: select, ESC: resume";
+#endif
 	texttoscreen( (CPR - int(strlen(helptxt)*8)) / 2 - 8, 312 - 32, petstr2ascstr(helptxt));
 	set_color( fgcol, bgcol );
 }
@@ -746,7 +758,7 @@ int UI::wait_events()
 			case SDL_JOYBUTTONDOWN:
 				//printf("joy: %u, button: %u was pressed!\n", event.jbutton.which, event.jbutton.button);
 				break;
-
+#ifndef __WIIU__
 			case SDL_JOYBUTTONUP:
 				switch (event.jbutton.button) { // START button
 					case 10:
@@ -768,7 +780,37 @@ int UI::wait_events()
 						break;
 				}
 				break;
-
+#else
+			case SDL_JOYBUTTONUP:
+				switch (event.jbutton.button) { // START button
+					case SDL_MINUS:
+						clear (0, 0);
+						return 1;
+					case SDL_B:
+						if ( curr_menu->parent ) {
+							curr_menu = curr_menu->parent;
+							clear (1, 5);
+							show_menu( curr_menu );
+							show_sel_bar( curr_menu );
+						}
+						break;
+					case SDL_PLUS:
+					case SDL_A:
+						if (!menuEnter())
+							return 1;
+						break;
+					case SDL_DOWN:
+						menuMove(+1);
+						break;
+					case SDL_UP:
+						menuMove(-1);
+						break;
+					default:
+						//printf("joy: %u, button: %u was pressed!\n", event.jbutton.which, event.jbutton.button);
+						break;
+				}
+				break;
+#endif
 	        case SDL_KEYDOWN:
 				//printf("key: %u, button was pressed!\n", event.key.keysym.scancode);
 				switch (event.key.keysym.sym) {

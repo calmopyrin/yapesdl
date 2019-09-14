@@ -7,7 +7,7 @@
 	and/or modify it under certain conditions. For more information,
 	read 'Copying'.
 
-	(c) 2000, 2001, 2004, 2005, 2015 Attila Grósz
+	(c) 2000, 2001, 2004, 2005, 2015 Attila Grï¿½sz
 */
 #include <stdio.h>
 #include <string.h>

@@ -7,7 +7,7 @@
 	and/or modify it under certain conditions. For more information,
 	read 'Copying'.
 
-	(c) 2000, 2001, 2004, 2015, 2016 Attila Grósz
+	(c) 2000, 2001, 2004, 2015, 2016 Attila GrÃ³sz
 */
 #include <memory.h>
 #include <stdio.h>
@@ -37,7 +37,11 @@ unsigned int KEYS::joystickScanCodes[][5] = {
 	{ SDL_SCANCODE_W, SDL_SCANCODE_D, SDL_SCANCODE_S, SDL_SCANCODE_A, SDL_SCANCODE_RSHIFT }
 }; // PC keycodes up, right, down, left and fire
 unsigned int KEYS::nrOfJoys;
+#ifndef __WIIU__
 SDL_GameController *KEYS::sdlJoys[2];
+#else
+SDL_Joystick *KEYS::sdlJoystick[2];
+#endif
 // both joysticks are active by default
 unsigned int KEYS::activejoy = 3;
 
@@ -46,7 +50,9 @@ rvar_t inputSettings[] = {
 	{ "Active keyset for joystick", "KeysetIndex", KEYS::swapKeyset, &KEYS::joystickScanCodeIndex, RVAR_STRING_FLIPLIST, &KEYS::activeJoyKeyset },
 	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };
-
+#ifdef __WIIU__
+KBWrapper* KEYS::kbdwrapper = new KBWrapper(true, true);
+#endif
 KEYS::KEYS() 
 {
 	empty();
@@ -57,12 +63,20 @@ void KEYS::initPcJoys()
 {
 	nrOfJoys = SDL_NumJoysticks();
 	SDL_JoystickEventState(SDL_ENABLE);
+#ifndef __WIIU__
 	sdlJoys[0] = sdlJoys[1] = 0;
+#else
+	sdlJoystick[0] = sdlJoystick[1] = 0;
+#endif
 	unsigned int i = nrOfJoys + 1;
 	if (i > 2) i = 2;
 	while (i) {
 		i -= 1;
+#ifndef __WIIU__
 		sdlJoys[i] = SDL_GameControllerOpen(i);
+#else
+		sdlJoystick[i] = SDL_JoystickOpen(i);
+#endif
 	}
 	
 	fprintf(stderr, "Found %i joysticks.\n", nrOfJoys);
@@ -85,7 +99,11 @@ void KEYS::latch(unsigned int keyrow, unsigned int joyrow)
 
 unsigned char KEYS::keyReadMatrixRow(unsigned int r)
 {
+#ifndef __WIIU__
 	const Uint8 *kbstate = SDL_GetKeyboardState(NULL);
+#else
+	const Uint8 *kbstate = KEYS::kbdwrapper->getKeyboardState();
+#endif
 	unsigned char tmp;
 
 	//for(int i = 0; i < 256; i++)
@@ -220,7 +238,11 @@ unsigned char KEYS::feedkey(unsigned char latch)
 
 unsigned char KEYS::joy_trans(unsigned char r)
 {
+#ifndef __WIIU__
 	const Uint8 *kbstate = SDL_GetKeyboardState(NULL);
+#else
+	const Uint8 *kbstate = KEYS::kbdwrapper->getKeyboardState();
+#endif
 	unsigned char tmp;
 
 	tmp = ~
@@ -236,7 +258,7 @@ unsigned char KEYS::joy_trans(unsigned char r)
 
 	return tmp;
 }
-
+#ifndef __WIIU__
 unsigned char KEYS::getPcJoyState(unsigned int joyNr, unsigned int activeJoy)
 {
 	const Sint16 deadZone = 32767 / 5;
@@ -263,26 +285,73 @@ unsigned char KEYS::getPcJoyState(unsigned int joyNr, unsigned int activeJoy)
 	}
 	return state ^ 0xFF;
 }
+#else
+unsigned char KEYS::getPcJoystickState(unsigned int joystickNr, unsigned int activeJoystick)
+{
+	const Sint16 deadZone = 32767 / 5;
+	unsigned char state;
+	Sint16 x_move, y_move;
+	SDL_Joystick *thisJoystick = sdlJoystick[joystickNr];
 
+	state = SDL_JoystickGetButton(thisJoystick, SDL_B);
+	// state |= SDL_JoystickGetButton(thisJoystick, SDL_A);
+	state <<= fireButtonIndex(activeJoystick);
+	// if (state)
+// 	  fprintf(stderr,"Joy(%i) state: %X ", joyNr, state);
+	x_move = SDL_JoystickGetAxis(thisJoystick, SDL_CONTROLLER_AXIS_LEFTX);
+	y_move = SDL_JoystickGetAxis(thisJoystick, SDL_CONTROLLER_AXIS_LEFTY);
+	if (x_move >= deadZone || SDL_JoystickGetButton(thisJoystick, SDL_RIGHT)) {
+		state |= 8;
+	}
+	else if (x_move <= -deadZone || SDL_JoystickGetButton(thisJoystick, SDL_LEFT)) {
+		state |= 4;
+	}
+	if (y_move >= deadZone || SDL_JoystickGetButton(thisJoystick, SDL_DOWN)) {
+		state |= 2;
+	}
+	else if (y_move <= -deadZone || SDL_JoystickGetButton(thisJoystick, SDL_UP)) {
+		state |= 1;
+	}
+	// Add two button support for certain games like Super Mario Bros
+	if (SDL_JoystickGetButton(thisJoystick, SDL_A)) {
+		state |= 1;
+	}
+	return state ^ 0xFF;
+}
+#endif
 unsigned char KEYS::feedjoy(unsigned char latch)
 {
 	unsigned char tmp = 0xFF;
 
 	if ((latch & 0x04) == 0) {
 		const unsigned int joy1ix = activejoy & 1;
+#ifndef __WIIU__
 		const unsigned int activePcJoy1ix = (joy1ix || sdlJoys[1]) ? 1 : 0;
+#else
+		const unsigned int activePcJoy1ix = (joy1ix || sdlJoystick[1]) ? 1 : 0;
+#endif
 		if (joy1ix)
 			tmp &= joy_trans(1);
+#ifndef __WIIU__
 		if (sdlJoys[activePcJoy1ix])
 			tmp &= getPcJoyState(activePcJoy1ix, 0);
+#else
+		if (sdlJoystick[activePcJoy1ix])
+			tmp &= getPcJoystickState(activePcJoy1ix, 0);
+#endif
 	}
 	if ((latch & 0x02) == 0) {
 		const unsigned int joy2ix = activejoy & 2;
 		const unsigned int activePcJoy2ix = joy2ix ? 1 : 0;
 		if (joy2ix)
 			tmp &= joy_trans(2);
+#ifndef __WIIU__
 		if (sdlJoys[activePcJoy2ix])
 			tmp &= getPcJoyState(activePcJoy2ix, 1);
+#else
+		if (sdlJoystick[activePcJoy2ix])
+			tmp &= getPcJoystickState(activePcJoy2ix, 1);
+#endif
 	}
 	return tmp;
 }
@@ -302,7 +371,11 @@ void KEYS::closePcJoys()
 	int i = nrOfJoys;
 	while (i) {
 		i -= 1;
+#ifndef __WIIU__
 		SDL_GameControllerClose(sdlJoys[i]);
+#else
+		SDL_JoystickClose(sdlJoystick[i]);
+#endif
 	}
 }
 

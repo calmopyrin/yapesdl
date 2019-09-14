@@ -211,7 +211,11 @@ void init_audio(unsigned int sampleFrq)
 	if (BufferLength < 512) BufferLength = 512;
 
 	desired.freq		= MixingFreq;
+#ifdef __WIIU__
+	desired.format		= AUDIO_S16SYS;
+#else
 	desired.format		= AUDIO_S16;
+#endif
 	desired.channels	= 1;
 	desired.samples		= BufferLength;
 	desired.callback	= 

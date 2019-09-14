@@ -69,7 +69,8 @@ void init_palette(TED *videoChip)
 		Uint8 Gc = (Uint8) myMax<double>(myMin<double>(gf, 255.0), 0);
 		Uint8 Bc = (Uint8) myMax<double>(myMin<double>(bf, 255.0), 0);
 
-		palette[ix + 128] = palette[ix] = Bc | (Gc << 8) | (Rc << 16);
+        // XHP Creations added (0xFF << 24) to fix Alpha issue on Wii U, shouldn't break other versions, doesn't break Win32 version for sure, and should be included for all.
+		palette[ix + 128] = palette[ix] = Bc | (Gc << 8) | (Rc << 16) | (0xFF << 24);
 #if 1
 		yuvPalette[ix].y = (unsigned char)(Yc);
 		yuvPalette[ix].u = (int)(Uc + 128);
@@ -191,10 +192,17 @@ void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned 
 
                 // store result
                 *(pImage + j) =
+#ifndef __WIIU__
                     (U << 0)
                     | (Y0 << 8)
                     | (V << 16)
                     | (Y1 << 24);
+#else
+                    (U << 24)
+                    | (Y0 << 16)
+                    | (V << 8)
+                    | (Y1 << 0);
+#endif
 
             } while (j++ < SCREENX / 2);
             // take care of double scan

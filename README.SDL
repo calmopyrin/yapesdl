@@ -8,7 +8,7 @@ LEGAL
 =====
 
   Yape for SDL is 
-  (C) 2000,2001,2004,2007,2008,2015-2017 Attila Grósz (gyros@freemail.hu)
+  (C) 2000,2001,2004,2007,2008,2015-2017 Attila Grï¿½sz (gyros@freemail.hu)
   http://yape.plus4.net
 
   This program is free software; you can redistribute it and/or
@@ -104,6 +104,68 @@ COMPILE
 
   Also download the prebuilt SDL2 libraries required for linking:
   https://buildbot.libsdl.org/sdl-builds/sdl-emscripten/?C=M;O=D
+
+  Wii U
+  -----
+
+  Before compiling, set up your environment for development on Wii U.
+  If you do not have Devkitpro, install it from here:
+  https://www.devkitpro.org
+  Follow instructions for setting it up and setting up the package manager.
+  Once you have the package manager installed, begin by installing each of
+  the WUT packages, as well as all the SDL for Wii U packages.
+  Complete instructions for setup can be found here:
+  https://github.com/yawut/ProgrammingOnTheU
+
+  The Wii U version uses CMake to ensure you have your environment setup to
+  compile the project.
+
+  To compile:
+  mkdir build
+  cd build
+  ckame ..
+  make
+
+  Note that the Wii U is similar, but slightly different than most other
+  versions, because of the environment the app will be used on, and the
+  differences in SDL for the Wii U.  Not everything in SDL is implemented
+  on the Wii U yet, this includes keyboard support, so a wrapper is provided
+  to allow you to use a USB keyboard.
+  
+  A USB keyboard is not required, but for the best experience, it is recommended.
+
+  Some functions, such as the external monitor and disassembler are not fully
+  implemented in the Wii U version yet, because we can not show the "console"
+  and GPU graphics at the same time.  Once a second window to contain this info
+  is added to the project, along with a method to show it, it will be available
+  to use.
+
+  Gamepad mappings:
+  HOME button:  Exit emulator and go back to HBL
+  MINUS button: Enter/exit options menus
+  A, B, D-PAD:  Navigate options menu and make selections or go back.
+  PLUS button:  Change windows size
+  B button:     Joystick button 1
+  A button:     Joystick button 2 (for games like Super Mario Bros. that use
+                                    the UP direction for a second button)
+  Y button:     switch emulated joystick port
+  X button:     toggle between unlimited speed and 50 Hz frame rate (original speed)
+  L button:     Send 'LOAD"$",8' to the keyboard buffer
+  ZL button:    Send 'LIST' to the keyboard buffer
+  R button:     Send 'LOAD"*",8,1' to the keyboard buffer
+  ZR button:    Send 'RUN:' to the keyboard buffer
+  Left Thumb:   forced reset (memory remains intact)
+  Right Thumb:  hard reset (clear memory, reloads ROMs, rewinds tape)
+  Touch Screen: Bring up keyboard overlay for reference only
+
+  If you are using a USB keyboard, most shortcuts are the same as the other versions,
+  only a few that aren't mapped to the gamepad or in the options menu are not included.
+
+  The Wii U version is not endorsed by calmopyrin yet, and may not be in the future.
+  The Wii U version was ported by brienj of XHP Creations from calmopyrin's SDL version.
+  I give full credit to calmopyrin for making the original SDL version.
+  https://github.com/xhp-creations
+
 
 USAGE
 =====

@@ -175,7 +175,7 @@ int ad_makedirs(char *path)
 }
 #endif /* end of Windows functions */
 
-#if defined(_WIN32) || defined(__EMSCRIPTEN__)
+#if defined(_WIN32) || defined(__EMSCRIPTEN__) || defined(__WIIU__)
 static unsigned int timeelapsed;
 
 void ad_vsync_init(void)
@@ -250,6 +250,20 @@ unsigned int	gl_currsize;
 char		temp[512];
 char		sem_vsync, sem_fps;
 
+#ifdef __WIIU__
+#include <vector>
+#include <string>
+#include <algorithm>
+
+char curdir[512];
+typedef struct
+{
+	char * FilePath;
+	bool isDir;
+} DirEntry;
+std::vector <DirEntry> dirlist;
+#endif
+
 void ad_exit_drive_selector()
 {
 	//
@@ -270,32 +284,97 @@ int ad_get_curr_dir(char *pathstring)
 
 int ad_set_curr_dir(char *path)
 {
-	if (chdir(path) == 0) return 1;
+	if (chdir(path) == 0) {
+#ifdef __WIIU__
+		size_t size = 512;
+		getcwd(curdir, size);
+#endif
+		return 1;
+	}
 	return 0;
 }
+#ifdef __WIIU__
+static bool SortCallback(const DirEntry & f1, const DirEntry & f2)
+{
+	if(f1.isDir && !(f2.isDir)) return true;
+	if(!(f1.isDir) && f2.isDir) return false;
 
+	if(f1.FilePath && !f2.FilePath) return true;
+	if(!f1.FilePath) return false;
+
+	if(strcasecmp(f1.FilePath, f2.FilePath) > 0)
+		return false;
+
+	return true;
+}
+#endif
 int ad_find_first_file(const char *filefilter)
 {
 	// We will search in the current working directory.
+#ifndef __WIIU__
 	if (glob(filefilter, 0, NULL, &gl) != 0) return 0;
 	gl_curr = 0; gl_currsize = 0;
 	return 1;
+#else
+    DIR* dirp = opendir(curdir);
+    struct dirent * dp;
+    while ((dp = readdir(dirp)) != NULL) {
+		bool isDir = dp->d_type & DT_DIR;
+		if (!strncmp("*", filefilter, 2)) {
+			int pos = dirlist.size();
+			dirlist.resize(pos+1);
+			dirlist[pos].FilePath = (char *) malloc(sizeof(dp->d_name)+2);
+			sprintf(dirlist[pos].FilePath, "%s", dp->d_name);
+			dirlist[pos].isDir = isDir;
+		}
+		else {
+			char* filterExt = strrchr(filefilter, '.');
+			if (!filterExt)
+				continue;
+			char* fileExt = strrchr(dp->d_name, '.');
+			if (!fileExt)
+				continue;
+			if (!strncmp(filterExt, fileExt, 3)) {
+				int pos = dirlist.size();
+				dirlist.resize(pos+1);
+				dirlist[pos].FilePath = (char *) malloc(sizeof(dp->d_name)+2);
+				sprintf(dirlist[pos].FilePath, "%s", dp->d_name);
+				dirlist[pos].isDir = isDir;
+			}
+		}
+    }
+    closedir(dirp);
+    std::sort(dirlist.begin(), dirlist.end(), SortCallback);
+	if (dirlist.size() <= 0) return 0;
+	gl_curr = 0; gl_currsize = 0;
+	return 1;
+#endif
 }
 
 char *ad_return_current_filename(void)
 {
 	//	fprintf(stderr, "File: %s parsed\n", gl.gl_pathv[gl_curr]);
+#ifndef __WIIU__
 	if (!gl.gl_pathc)
 		return 0;
 	return (char *) gl.gl_pathv[gl_curr];
+#else
+	if (gl_curr > dirlist.size())
+		return 0;
+	return (char *) dirlist[gl_curr].FilePath;
+#endif
 }
 
 UI_FileTypes ad_return_current_filetype(void)
 {
 	// Probably too kludgy but I dunno Unix so who cares...
+#ifndef __WIIU__
 	DIR *dirp;
 	if (gl.gl_pathv && (dirp = opendir(gl.gl_pathv[gl_curr])) != NULL) {
 		closedir(dirp);
+#else
+	if (dirlist[gl_curr].isDir) {
+#endif
 		return FT_DIR;
 	} else
 		return FT_FILE;
@@ -310,14 +389,22 @@ unsigned int ad_get_current_filesize(void)
 
 	// If the file size actually is 0, subsequent calls to this
 	// function will stat the file over and over again. I don't care.
+#ifndef __WIIU__
 	if (stat(gl.gl_pathv[gl_curr], &buf) == 0) {
+#else
+	if (stat(dirlist[gl_curr].FilePath, &buf) == 0) {
+#endif
 		return (gl_currsize = (unsigned int) buf.st_size);
 	} else return 0;
 }
 
 int ad_find_next_file(void)
 {
+#ifndef __WIIU__
 	if (++gl_curr >= gl.gl_pathc) {
+#else
+	if (++gl_curr >= dirlist.size()) {
+#endif
 		// No more matches: we don't need the glob any more.
 		//globfree(&gl);
 		return 0;
@@ -328,6 +415,10 @@ int ad_find_next_file(void)
 
 int	ad_find_file_close(void)
 {
+#ifdef __WIIU__
+	dirlist.resize(0);
+	gl_curr = 0; gl_currsize = 0;
+#endif
 	return 1;
 }
 
@@ -343,7 +434,7 @@ int ad_makedirs(char *path)
 }
 #endif
 
-#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__) && !defined(__WIIU__)
 void _ad_vsync_sigalrm_handler(int signal)
 {
 	sem_vsync = 0x01;

@@ -11,7 +11,11 @@ KEYS64::~KEYS64()
 
 unsigned char KEYS64::keyReadMatrixRow(unsigned int r)
 {
+#ifndef __WIIU__
 	const Uint8 *kbstate = SDL_GetKeyboardState(NULL);
+#else
+	const Uint8 *kbstate = KEYS::kbdwrapper->getKeyboardState();
+#endif
 	unsigned char tmp;
 
 	if (kbstate[SDL_SCANCODE_LALT])
@@ -170,7 +174,11 @@ unsigned char KEYS64::feedKeyColumn(unsigned char column)
 
 unsigned char KEYS64::feedjoy()
 {
+#ifndef __WIIU__
 	const Uint8 *kbstate = SDL_GetKeyboardState(NULL);
+#else
+	const Uint8 *kbstate = KEYS::kbdwrapper->getKeyboardState();
+#endif
 	unsigned char tmp = ~
 		((kbstate[joystickScanCodes[joystickScanCodeIndex][0]]<<0)
 		|(kbstate[SDL_SCANCODE_KP_7]<<0)
@@ -195,7 +203,12 @@ unsigned char KEYS64::getJoyState(unsigned int j)
 		tmp &= feedjoy();
 	}
 	const unsigned int pcJoyIx = activejoy >> 1;
+#ifndef __WIIU__
 	if (sdlJoys[1 ^ pcJoyIx ^ j]) // FIXME
 		tmp &= getPcJoyState(1 ^ pcJoyIx ^ j, 0);
+#else
+	if (sdlJoystick[1 ^ pcJoyIx ^ j]) // FIXME
+		tmp &= getPcJoystickState(1 ^ pcJoyIx ^ j, 0);
+#endif
 	return tmp;
 }
