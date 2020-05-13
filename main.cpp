@@ -85,7 +85,7 @@ static CTrueDrive		*drive1541 = NULL;
 static FakeSerialDrive	*fsd1541 = NULL;
 
 //
-static char				textout[64];
+static char				textout[128];
 static char				*inipath;
 static char				*inifile;
 

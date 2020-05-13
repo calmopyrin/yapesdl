@@ -35,7 +35,7 @@ static inline int bytetobin(int decnum)
 
 int CPU::disassemble(int pc, char *line)
 {
-	char hexstr[40], out[40];
+	char hexstr[40], out[64];
 	int current = mem->Read(pc);
 	int next = mem->Read(pc+1);
 	int word = (mem->Read(pc+2)<<8)|next;
