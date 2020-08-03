@@ -25,6 +25,7 @@ static struct {
 	{ "f <src_from> <src_to> <value>", MON_CMD_FILLMEM, "Fill memory range with <value>." },
 	{ "g [<address>]", MON_CMD_GO, "Set PC (to [<address>])." },
 	{ "h <from> <to> <a1> [<a2..an]", MON_CMD_HUNT, "Hunt memory for a1..an." },
+	{ "l <filename> [<address1>]", MON_CMD_LOADPRG, "Load PRG to memory (from <address1>" },
 	{ "m [<address>]", MON_CMD_MEM, "Memory dump (from [<address>])." },
 	{ "s <filename> [<address1>] [<address2>]", MON_CMD_SAVEPRG, "Save memory as PRG (from <address1> to <address2>" },
 	{ "t <src_from> <src_to> <target>", MON_CMD_TRANSFER, "Memory copy transfer (from start address)." },
@@ -410,6 +411,15 @@ void executeCmd(unsigned int cmd, vector<string> &args, char *wholeLine)
 		//	theMachine->coldRestart();
 		//	printf("Machine restart.\n");
 		//	break;
+
+		case MON_CMD_LOADPRG:
+			if (argCount >= 1) {
+				string prgName = args[0] + ".prg";
+				unsigned short adr1 = argCount >= 2 ? argval[1] : 0;
+				if (!mainLoadPrgToMemory(prgName.c_str(), adr1))
+					fprintf(stderr, "Failed to load %s.\n", prgName.c_str());
+			}
+			break;
 
 		case MON_CMD_LOADBIN:
 			if (argCount >= 2) {

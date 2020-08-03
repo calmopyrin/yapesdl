@@ -42,8 +42,8 @@ SDL_GameController *KEYS::sdlJoys[2];
 unsigned int KEYS::activejoy = 3;
 
 rvar_t inputSettings[] = {
-	{ "Active joystick port", "ActiveJoystick", KEYS::swapjoy, &KEYS::activejoy, RVAR_STRING_FLIPLIST, &KEYS::activeJoyTxt },
 	{ "Active keyset for joystick", "KeysetIndex", KEYS::swapKeyset, &KEYS::joystickScanCodeIndex, RVAR_STRING_FLIPLIST, &KEYS::activeJoyKeyset },
+	{ "Active joy for keyset", "ActiveJoystick", KEYS::swapjoy, &KEYS::activejoy, RVAR_STRING_FLIPLIST, &KEYS::activeJoyTxt },
 	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };
 
@@ -243,6 +243,8 @@ unsigned char KEYS::getPcJoyState(unsigned int joyNr, unsigned int activeJoy)
 	unsigned char state;
 	Sint16 x_move, y_move;
 	SDL_GameController *thisController = sdlJoys[joyNr];
+
+	SDL_GameControllerUpdate();
 
 	state = SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_A);
 	state |= SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_RIGHTSTICK);

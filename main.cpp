@@ -69,7 +69,9 @@ static SDL_Texture *sdlTexture = NULL;
 
 // class pointer for the user interface
 static UI				*uinterface = NULL;
+// timeout variables
 static unsigned int		timeOutOverlayKeys = 0;
+static unsigned int		timeOutMousePointer = 75;
 static bool mouseBtnHeld = 0;
 
 ////////////////
@@ -279,15 +281,18 @@ bool start_file(const char *szFile, bool autostart = true)
 		}
 		if (!strcmp(fileext,".prg") || !strcmp(fileext,".PRG")
 			|| !strcmp(fileext,".p00") || !strcmp(fileext,".P00")) {
-			PrgLoad(szFile, 0, ted8360 );
-			if (autostart)
-				ted8360->copyToKbBuffer("RUN:\r");
-			return true;
+			if (PrgLoad(szFile, 0, ted8360)) {
+				if (autostart)
+					ted8360->copyToKbBuffer("RUN:\r");
+				return true;
+			}
 		}
 		if (!strcmp(fileext, ".t64") || !strcmp(fileext,".T64")) {
-            prgLoadFromT64(szFile, 0, ted8360);
-			if (autostart)
-				ted8360->copyToKbBuffer("RUN:\r");
+			if (prgLoadFromT64(szFile, 0, ted8360)) {
+				if (autostart)
+					ted8360->copyToKbBuffer("RUN:\r");
+				return true;
+			}
 		}
 		if (!strcmp(fileext,".tap") || !strcmp(fileext,".TAP")) {
 			ted8360->tap->detachTape();
@@ -603,10 +608,21 @@ bool mainSaveMemoryAsPrg(const char *prgname, unsigned short &beginAddr, unsigne
 	return prgSaveBasicMemory(newPrgname, ted8360, beginAddr, endAddr, beginAddr == endAddr);
 }
 
+bool mainLoadPrgToMemory(const char* prgname, unsigned short& beginAddr)
+{
+	return PrgLoad(prgname, beginAddr, ted8360);
+}
+
 static void doSwapJoy()
 {
 	KEYS::swapjoy(NULL);
 	PopupMsg(" ACTIVE JOY IS : %s ", KEYS::activeJoyTxt());
+}
+
+static void doSwapKeyset()
+{
+	KEYS::swapKeyset(NULL);
+	PopupMsg(" ACTIVE KEYSET IS : %s ", KEYS::activeJoyKeyset());
 }
 
 static void enterMenu()
@@ -780,6 +796,12 @@ static void flipWindowScale(void *none)
 inline static void poll_events(void)
 {
 	SDL_Event event;
+	
+	if (timeOutMousePointer) {
+		timeOutMousePointer--;
+		if (!timeOutMousePointer)
+			SDL_ShowCursor(0);
+	}
 
     if ( SDL_PollEvent(&event) ) {
         switch (event.type) {
@@ -834,6 +856,9 @@ inline static void poll_events(void)
 								break;
 							case SDLK_i :
 								doSwapJoy();
+								break;
+							case SDLK_k:
+								doSwapKeyset();
 								break;
 							case SDLK_m :
 								monitorEnter(machine);
@@ -970,9 +995,11 @@ inline static void poll_events(void)
 			case SDL_DROPFILE:
 				{
 					const Uint8 *keystate = SDL_GetKeyboardState(NULL);
+					char *dropped_file_dir = event.drop.file;
 					bool autostart = (!keystate[SDL_SCANCODE_LSHIFT] && !keystate[SDL_SCANCODE_RSHIFT]);
-					if (!autostart_file(event.drop.file, autostart))
+					if (!autostart_file(dropped_file_dir, autostart))
 						SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "File failed to load properly.", sdlWindow);
+					SDL_free(dropped_file_dir);
 				}
 				break;
 
@@ -988,6 +1015,11 @@ inline static void poll_events(void)
 
 			case SDL_MOUSEBUTTONUP:
 				mouseBtnHeld = false;
+				break;
+
+			case SDL_MOUSEMOTION:
+				SDL_ShowCursor(1);
+				timeOutMousePointer = 75;
 				break;
 
             case SDL_QUIT:
@@ -1217,6 +1249,7 @@ int main(int argc, char *argv[])
 	printf("Usage:\n");
 	printf("LALT + 1-3   : set window size\n");
 	printf("LALT + I     : switch emulated joystick port\n");
+	printf("LALT + K     : flip keyset for joystick\n");
 	printf("LALT + L     : switch among emulators (C+4 cycle based; C+4 line based; C64 cycle based)\n");
 	printf("LALT + M     : enter console based external monitor and disassembler (currently deadlocks!)\n");
 	printf("LALT + P     : toggle CRT emulation\n");

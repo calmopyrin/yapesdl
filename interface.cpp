@@ -65,10 +65,10 @@ static menu_t main_menu = {
 		{ "             ", 0, UI_MENUITEM_SEPARATOR },
 		{"Reset emulator", 0, UI_EMULATOR_RESET },
 		{ "             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Quit YAPE"	, 0, UI_EMULATOR_EXIT }
+		{"Quit emulation", 0, UI_EMULATOR_EXIT }
 	},
 	0,
-	15,
+	19,
 	0,
 	0,
 	0
@@ -460,7 +460,7 @@ bool UI::handle_menu_command( struct element_t *element)
 		case UI_PRG_ITEM:
 			{
 				const Uint8 *state = SDL_GetKeyboardState(NULL);
-				if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT]) {
+				if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT] || autoStartNext) {
 					autostart_file(element->name);
 				} else {
 				    if (menuSelection != UI_T64_ITEM)
@@ -697,9 +697,20 @@ void UI::menuMove(int direction)
 	}
 }
 
+void UI::menuMoveLeft()
+{
+	if (curr_menu->parent) {
+		curr_menu = curr_menu->parent;
+		clear(1, 5);
+		show_menu(curr_menu);
+		show_sel_bar(curr_menu);
+	}
+}
+
 int UI::menuEnter(bool forceAutoRun = false)
 {
 	element_t *elem;
+	autoStartNext = forceAutoRun;
 
 	if ( curr_menu->element[ curr_menu->curr_sel ].child ) {
 		elem = &(curr_menu->element[ curr_menu->curr_sel ]);
@@ -738,34 +749,32 @@ int UI::wait_events()
 				}
 				break;
 
-			case SDL_JOYAXISMOTION:
-				//printf("joy: %u, button: %u was pressed!\n", event.jaxis.which, event.jaxis.axis);
+			case SDL_CONTROLLERAXISMOTION:
+				//printf("controller: %u, axis: %u was pressed!\n", event.caxis.which, event.caxis.axis);
 				break;
 
-			case (Uint32)SDL_CONTROLLERBUTTONDOWN:
-			case SDL_JOYBUTTONDOWN:
-				//printf("joy: %u, button: %u was pressed!\n", event.jbutton.which, event.jbutton.button);
-				break;
+			case (Uint32)SDL_CONTROLLERBUTTONUP:
+				//printf("controller: %u, button: %u was pressed!\n", event.cbutton.which, event.cbutton.button);
+				switch (event.cbutton.button) {
+				default:
+					break;
+				case SDL_CONTROLLER_BUTTON_DPAD_UP:
+					menuMove(-1);
+					break;
+				case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+					menuMove(+1);
+					break;
+				case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+					menuMoveLeft();
+					break;
 
-			case SDL_JOYBUTTONUP:
-				switch (event.jbutton.button) { // START button
-					case 10:
-						if (!menuEnter())
-							return 1;
-						break;
-					case 14:
-					case 12:
-					case 5:
-						return 0;
-					case 0:
-						menuMove(+1);
-						break;
-					case 1:
-						menuMove(-1);
-						break;
-					default:
-						//printf("joy: %u, button: %u was pressed!\n", event.jbutton.which, event.jbutton.button);
-						break;
+				case SDL_CONTROLLER_BUTTON_A:
+				case SDL_CONTROLLER_BUTTON_START:
+				case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+				case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+					if (!menuEnter(true))
+						return 1;
+					break;
 				}
 				break;
 
@@ -828,12 +837,7 @@ int UI::wait_events()
 						show_sel_bar( curr_menu);
 						break;
 					case SDLK_LEFT:
-						if ( curr_menu->parent ) {
-							curr_menu = curr_menu->parent;
-							clear (1, 5);
-							show_menu( curr_menu );
-							show_sel_bar( curr_menu );
-						}
+						menuMoveLeft();
 						break;
 					case SDLK_RIGHT:
 					case SDLK_RETURN:

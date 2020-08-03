@@ -104,8 +104,10 @@ class UI {
 		menu_t *curr_menu;
 		TED *ted8360;
 		void menuMove(int direction);
+		void menuMoveLeft();
 		int menuEnter(bool forceAutoRun);
 		void openD64Item(const char *name);
+		bool autoStartNext;
 
 	public:
 		UI(class TED *ted);

@@ -36,21 +36,31 @@
 				<Option output="bin/Release/YapeSDL" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Release/" />
 				<Option type="0" />
-				<Option compiler="cb64-bit_gnu_gcc_compiler" />
-				<Option projectIncludeDirsRelation="1" />
-				<Option projectLibDirsRelation="0" />
+				<Option compiler="gnu_gcc_compiler_64-bit" />
 				<Compiler>
-					<Add option="-O2" />
+					<Add option="-march=pentium4" />
+					<Add option="-fomit-frame-pointer" />
+					<Add option="-fexpensive-optimizations" />
+					<Add option="-flto" />
+					<Add option="-O3" />
 					<Add option="-m64" />
-					<Add option="-D_WIN64" />
-					<Add directory="D:/Program Files (x86)/CodeBlocks/Mingw64/x86_64-w64-mingw32/include" />
+					<Add option="-D__MINGW64__" />
 				</Compiler>
 				<Linker>
+					<Add option="-flto" />
 					<Add option="-s" />
 					<Add option="-m64" />
-					<Add option="-mconsole" />
-					<Add directory="D:/Program Files (x86)/CodeBlocks/Mingw64/x86_64-w64-mingw32/lib" />
+					<Add library="libSDL2" />
+					<Add library="libSDL2main" />
 				</Linker>
+				<MakeCommands>
+					<Build command="" />
+					<CompileFile command="" />
+					<Clean command="" />
+					<DistClean command="" />
+					<AskRebuildNeeded command="" />
+					<SilentBuild command=" &gt; $(CMD_NULL)" />
+				</MakeCommands>
 			</Target>
 		</Build>
 		<Compiler>
@@ -74,6 +84,8 @@
 		<Unit filename="SaveState.h" />
 		<Unit filename="Sid.cpp" />
 		<Unit filename="Sid.h" />
+		<Unit filename="Via.cpp" />
+		<Unit filename="Via.h" />
 		<Unit filename="archdep.cpp" />
 		<Unit filename="archdep.h" />
 		<Unit filename="c64rom.h" />
@@ -118,9 +130,6 @@
 		<Unit filename="video.cpp" />
 		<Unit filename="video.h" />
 		<Extensions>
-			<code_completion />
-			<envvars />
-			<debugger />
 			<lib_finder disable_auto="1" />
 		</Extensions>
 	</Project>
