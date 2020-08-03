@@ -1222,7 +1222,8 @@ void TED::doHRetrace()
 	}
 	// the beam reached a new line
 	TVScanLineCounter += 1;
-	scrptr = screen + TVScanLineCounter * SCR_HSIZE;
+	if (scrptr != endptr)
+		scrptr = screen + TVScanLineCounter * SCR_HSIZE;
 	endptr = scrptr + SCR_HSIZE;
 }
 

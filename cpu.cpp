@@ -4181,6 +4181,7 @@ void CPU::stopcycle()
 			switch (cycle) {
 				case 4: mem->Write(ptr,farins);
 						farins&0x01 ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						cycle++;
 						break;
 				case 5: mem->Write(ptr,nextins);
 						SETFLAGS_ZN(nextins);
