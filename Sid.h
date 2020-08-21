@@ -47,6 +47,7 @@ public:
 		return label[model_];
 	}
 	static rvar_t sidSettings[2];
+	void setPaddleReadCallback(CallBackReadMemory func);
 
 private:
 
@@ -147,6 +148,11 @@ private:
 	static unsigned int model_;
 	static unsigned int combinedWaveFormMask;
 	bool enableDigiBlaster;
+	// Paddle
+	CallBackReadMemory readPaddle_;
+	static unsigned char readPaddleEmpty(unsigned short) {
+		return 0xFF;
+	}
 };
 
 /*

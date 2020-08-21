@@ -368,8 +368,8 @@ void Vic2mem::changeCharsetBank()
 		? charrombank + (cSetOffset & 0x0800) : charrambank;
 	grbank = vicBase + ((vicReg[0x18] & 8) << 10);
 #if 0
-	fprintf(stderr, "VIC bank: %04X, matrix:%04X cset:%04X(%u) in line:%03i pra:%02X ddra:%02X vic18:%02X\n",
-		vicBank, vmOffset, cSetOffset, cset != charrambank, beamy, cia[1].pra, cia[1].ddra, vicReg[0x18]);
+	fprintf(stderr, "VIC bank: %04X, grbank:%04X matrix:%04X cset:%04X(%u) in line:%03i pra:%02X ddra:%02X vic18:%02X\n",
+		vicBank, (vicReg[0x18] & 8) << 10, vmOffset, cSetOffset, cset != charrambank, beamy, cia[1].pra, cia[1].ddra, vicReg[0x18]);
 #endif
 }
 
@@ -603,7 +603,9 @@ unsigned char Vic2mem::Read(unsigned int addr)
 #if 1
 									{
 										static unsigned char oldRetval = 0xFF;
-										retval = ((keys64->feedkey((cia[0].pra | ~cia[0].ddra) & keys64->getJoyState(1)) ) //  | (cia[0].read(1) & 0xC0)
+										retval = ((keys64->feedkey((cia[0].pra | ~cia[0].ddra) 
+											& keys64->getJoyState(1)) ) //  | (cia[0].read(1) & 0xC0)
+											& keys64->readPaddleFireButton(0)
 											& ~cia[0].ddrb)
 											| (cia[0].read(1) & cia[0].ddrb);
 										if ((oldRetval & 0x10) && !(retval & 0x10))

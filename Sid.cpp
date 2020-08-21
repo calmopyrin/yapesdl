@@ -139,6 +139,11 @@ void SIDsound::setModel(unsigned int model)
 	model_ = model;
 }
 
+void SIDsound::setPaddleReadCallback(CallBackReadMemory func)
+{
+	readPaddle_ = func;
+}
+
 // Static data members
 const unsigned int SIDsound::RateCountPeriod[16] = {
 	0x7F00,0x0006,0x003C,0x0330,0x20C0,0x6755,0x3800,0x500E,
@@ -205,6 +210,7 @@ SIDsound::SIDsound(unsigned int model, unsigned int chnlDisableMask) : enableDig
 	setModel(model);
 	calcEnvelopeTable();
 	reset();
+	setPaddleReadCallback(readPaddleEmpty);
 }
 
 void SIDsound::reset(void)
@@ -315,9 +321,9 @@ unsigned char SIDsound::read(unsigned int adr)
 	switch(adr) {
 		case 0x19:
 		case 0x1A:
-			// POTX/POTY paddle AD converters (unemulated)
+			// POTX/POTY paddle potentiometers
 			lastByteWritten = 0;
-			return 0xFF;
+			return readPaddle_(adr);
 
 		// Voice 3 (only) oscillator readout
 		// 8 most significant bits

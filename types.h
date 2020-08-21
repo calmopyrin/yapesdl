@@ -65,6 +65,8 @@ typedef struct _WAV_HEADER {
 #pragma pack()
 
 typedef void(*CallBackFunctor)(void *);
+typedef void(*CallBackFunctorInt8)(void* , unsigned char);
+typedef unsigned char(*CallBackReadMemory)(unsigned short);
 
 // Simple linked list class
 template<typename T>

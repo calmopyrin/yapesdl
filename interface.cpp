@@ -750,7 +750,34 @@ int UI::wait_events()
 				break;
 
 			case SDL_CONTROLLERAXISMOTION:
-				//printf("controller: %u, axis: %u was pressed!\n", event.caxis.which, event.caxis.axis);
+				{
+					//printf("controller: %u, axis: %u/%i was pressed!\n", event.caxis.which, event.caxis.axis, event.caxis.value);
+					unsigned int axis = (event.caxis.axis & 1) << 1;
+					unsigned int pressed = abs(event.caxis.value) > 8192 ? 1 : 0;
+					unsigned int dir = (event.caxis.value > 0);
+					static unsigned int previousState = 0;
+
+					if (pressed && (!previousState || abs(event.caxis.value) >= 32767)) {
+						switch (axis | dir) {
+						default:
+							break;
+						case 0:
+							menuMoveLeft();
+							break;
+						case 1:
+							if (!menuEnter(true))
+								return 1;
+							break;
+						case 2:
+							menuMove(-1);
+							break;
+						case 3:
+							menuMove(+1);
+							break;
+						}
+					}
+					previousState = pressed;
+				}
 				break;
 
 			case (Uint32)SDL_CONTROLLERBUTTONUP:

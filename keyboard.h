@@ -51,6 +51,9 @@ class KEYS {
 		}
 		unsigned char readLatch() { return latched | blockMask; };
 		void block(bool isBlocked) { blockMask = isBlocked ? 0xFF : 0x00; };
+		static unsigned char readPaddleAxis(unsigned short axis);
+		static unsigned char readPaddleFireButton(unsigned int paddleID);
+		unsigned char readSidcardJoyport();
 };
 
 extern rvar_t inputSettings[];

@@ -418,6 +418,10 @@ unsigned char TED::Read(unsigned int addr)
 							return 0xFD;
 						case 0xFD3:
 							return Ram[0xFD30];
+						case 0xFD8: // Joyport on SID-card
+							if (sidCard) {
+								return keys->readSidcardJoyport();
+							}
 					}
 					return 0xFD;
 				case 0xFC:
@@ -1620,6 +1624,7 @@ bool TED::enableSidCard(bool enable, unsigned int disableMask)
 		sidCard->setSampleRate(SAMPLE_FREQ);
 		sidCard->setFrequency(TED_SOUND_CLOCK / 2);
 		sidCardEnabled = 1;
+		sidCard->setPaddleReadCallback(keys->readPaddleAxis);
 	} else {
 		if (!sidCard)
 			return false;

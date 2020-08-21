@@ -244,7 +244,7 @@ unsigned char KEYS::getPcJoyState(unsigned int joyNr, unsigned int activeJoy)
 	Sint16 x_move, y_move;
 	SDL_GameController *thisController = sdlJoys[joyNr];
 
-	SDL_GameControllerUpdate();
+	//SDL_GameControllerUpdate();
 
 	state = SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_A);
 	state |= SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_RIGHTSTICK);
@@ -308,7 +308,57 @@ void KEYS::closePcJoys()
 	}
 }
 
-KEYS::~KEYS() 
+unsigned char KEYS::readPaddleAxis(unsigned short axis)
+{
+	Sint16 move;
+	unsigned char retval;
+
+	SDL_GameController* thisController = sdlJoys[axis & 1];
+	if (thisController) {
+		move = SDL_GameControllerGetAxis(thisController, SDL_CONTROLLER_AXIS_LEFTX);
+		double f = (double)move / 32768.0;
+		int a = (int)(f * f * f * 32768.0); // (f > 0) - (f < 0))*
+		//fprintf(stderr, "%u axis moved: %i\t%i\n", axis & 1, move, a);
+		retval = (unsigned char)(((int)a + 32768) >> 8) ^ 0xFF;
+	}
+	else
+		retval = 0xFF;
+
+	return retval;
+}
+
+unsigned char KEYS::readPaddleFireButton(unsigned int paddleID)
+{
+	unsigned char retval = 0;
+
+	SDL_GameController* thisController = sdlJoys[0];
+	if (thisController) {
+		retval = SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_A) << 3;
+	}
+	thisController = sdlJoys[1];
+	if (thisController) {
+		retval |= SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_A) << 2;
+	}
+	//fprintf(stderr, "%u paddle button state: %02x\n", paddleID, retval);
+	return retval ^ 0xFF;
+}
+
+unsigned char KEYS::readSidcardJoyport()
+{
+	const Uint8* kbstate = SDL_GetKeyboardState(NULL);
+	unsigned char tmp;
+
+	tmp = ~
+		((kbstate[joystickScanCodes[joystickScanCodeIndex][0]] << 0)
+			| (kbstate[joystickScanCodes[joystickScanCodeIndex][2]] << 1)
+			| (kbstate[joystickScanCodes[joystickScanCodeIndex][3]] << 2)
+			| (kbstate[joystickScanCodes[joystickScanCodeIndex][1]] << 3)
+			| (kbstate[joystickScanCodes[joystickScanCodeIndex][4]] << 4)
+			);
+	return tmp;
+}
+
+KEYS::~KEYS()
 {
 
 }
