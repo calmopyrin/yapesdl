@@ -587,7 +587,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 										const unsigned int newdmapos = (invalidpos+invalidcount < 40) ? invalidpos+invalidcount : 40;
 										const unsigned int newdmacount = 40 - newdmapos ;
 										const unsigned int oldcount = 40 - newdmacount - invalidcount;
-										const unsigned int dmaposition = beamx < 9 ? (CharacterCountReload + 1) & 0x03FF : CharacterCount;
+										const unsigned int dmaposition = (CharacterCountReload + 1) & 0x03FF;
 
 										memcpy(tmpClrbuf, clrbuf, oldcount);
 										memset(tmpClrbuf + oldcount, idleread, invalidcount);
@@ -845,6 +845,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 						case 0xFDD:
 							actromlo = rom[addr&0x03];
 							actromhi = rom[(addr&0x0c)>>2] + 0x4000;
+							ChangeMemBankSetup();
 							return;
 						case 0xFEC:
 						case 0xFED:

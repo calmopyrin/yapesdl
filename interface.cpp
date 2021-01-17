@@ -51,7 +51,8 @@ static menu_t main_menu = {
 		{"Attach disk image...", 0, UI_DRIVE_ATTACH_IMAGE },
 		{"Detach disk image", 0, UI_DRIVE_DETACH_IMAGE },
 		{ "             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Emulator snapshot...", 0, UI_FILE_LOAD_FRE },
+		{"Load emulator snapshot...", 0, UI_FILE_LOAD_FRE },
+		{"Save emulator snapshot", 0, UI_FILE_SAVE_FRE },
 		{ "             ", 0, UI_MENUITEM_SEPARATOR },
 		{ "Attach rom...", 0, UI_CRT_ATTACH },
 		{ "Detach rom...", 0, UI_CRT_DETACH },
@@ -68,7 +69,7 @@ static menu_t main_menu = {
 		{"Quit emulation", 0, UI_EMULATOR_EXIT }
 	},
 	0,
-	19,
+	20,
 	0,
 	0,
 	0
@@ -153,9 +154,9 @@ UI::UI(class TED *ted) :
 	main_menu.element[0].child = &file_menu;
 	main_menu.element[1].child = &d64_list;
 	main_menu.element[4].child = &fre_list;// snapshot_menu;
-	main_menu.element[6].child = &crt_list;
-	main_menu.element[9].child = &tape_menu;
-	main_menu.element[11].child = &options_menu;
+	main_menu.element[7].child = &crt_list;
+	main_menu.element[10].child = &tape_menu;
+	main_menu.element[12].child = &options_menu;
 	tape_menu.element[0].child = &tap_list;
 
 	curr_menu = &main_menu;
@@ -536,6 +537,9 @@ bool UI::handle_menu_command( struct element_t *element)
 		case UI_SNAPSHOT_LOAD:
 			show_file_list( &snapshot_menu, UI_FRE_ITEM );
 			return false;
+		case UI_FILE_SAVE_FRE:
+			snapshotSave();
+			return true;
 		case UI_EMULATOR_MONITOR:
 			monitorEnter(ted8360->cpuptr);
 			return true;

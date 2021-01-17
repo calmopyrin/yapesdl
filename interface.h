@@ -35,6 +35,7 @@ enum UI_MenuClass {
 	UI_FRE_ITEM,
 	UI_FILE_LOAD_PRG,
 	UI_FILE_LOAD_FRE,
+	UI_FILE_SAVE_FRE,
 	UI_CRT_ATTACH,
 	UI_CRT_DETACH,
 	UI_TAPE_ATTACH_TAP,
@@ -125,5 +126,6 @@ class UI {
 };
 
 extern void interfaceLoop(void *arg);
+extern void snapshotSave();
 
 #endif // _INTERFACE_H

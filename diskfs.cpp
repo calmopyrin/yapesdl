@@ -82,16 +82,11 @@ unsigned char CIECFSDrive::OpenFile(int channel, char *filename)
 
 	ParseFileName(filename, plainname, &filemode, &filetype, &wildflag);
 
-	/* Channel 0 is READ PRG, channel 1 is WRITE PRG */
-	switch (channel) {
-		case 1:
-			filemode = FMODE_WRITE;
+	// Channel 0 is READ PRG, channel 1 is WRITE PRG
+	if (channel <= 1) {
+		filemode = channel ? FMODE_WRITE : FMODE_READ;
+		if (filetype == FTYPE_DEL)
 			filetype = FTYPE_PRG;
-			break;
-		default:
-			filemode = FMODE_READ;
-			filetype = FTYPE_PRG;
-			break;
 	}
 
 	if (wildflag) {

@@ -60,6 +60,7 @@ static void toggleVsync(void *none);
 static void flipMachineTypeFwd(void *name);
 static const char *machineTypeLabel();
 static void flipWindowScale(void *none);
+static void poll_events(void);
 static void toggleTrueDriveEmulation(void *none);
 
 // SDL stuff
@@ -576,6 +577,14 @@ static bool getSerializedFilename(const char *name, const char *extension, char 
 	return !found;
 }
 
+void snapshotSave()
+{
+	getSerializedFilename("snapshot", "yss", lastSnapshotName);
+	SaveState::openSnapshot(lastSnapshotName, true);
+	PopupMsg(" Saving snapshot... ");
+	fprintf(stderr, "Saved emulator state to %s.\n", lastSnapshotName);
+}
+
 //-----------------------------------------------------------------------------
 // Name: SaveBitmap()
 // Desc: Saves the SDL surface to Windows bitmap file named as yapeXXXX.bmp
@@ -886,10 +895,7 @@ inline static void poll_events(void)
 								}
 								break;
 							case SDLK_F5:
-								getSerializedFilename("snapshot", "yss", lastSnapshotName);
-								SaveState::openSnapshot(lastSnapshotName, true);
-								PopupMsg(" Saving snapshot... ");
-								fprintf(stderr, "Saved emulator state to %s.\n", lastSnapshotName);
+								snapshotSave();
 								break;
 							case SDLK_F6:
 								if (SaveState::openSnapshot(lastSnapshotName, false))
@@ -1221,6 +1227,7 @@ int main(int argc, char *argv[])
 		ad_get_curr_dir(tmpStr);
 		fprintf(stderr, "IEC drive path: %s\n", tmpStr);
 		setEmulationLevel(g_iEmulationLevel);
+		machineReset(true);
 	} else
 		fprintf(stderr,"Error loading settings or no .ini file present...\n");
 #endif
