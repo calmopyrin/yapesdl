@@ -258,28 +258,49 @@ void TED::loadromfromfile(int nr, const char fname[512], unsigned int offset)
 	if ((fname[0]!='\0')) {
 		if ((img = fopen(fname, "rb"))) {
 			// load low ROM file
-			fread(rom[nr] + offset, ROMSIZE, 1, img);
+			unsigned char *buf;
+			buf = (unsigned char *)malloc(0x8000);
+			size_t r = fread(buf, 1, ROMSIZE * 2, img);
+			if (r > 0x4000) offset = 0;
+			memcpy(rom[nr] + offset, buf, r);
+			strcpy(!offset ? romlopath[nr] : romhighpath[nr], fname);
+			free(buf);
 			fclose(img);
 			return;
 		}
 		switch (nr) {
 			case 0:
-				if (!strncmp(fname, "BASIC", 5))
+				if (!strncmp(fname, "BASIC", 5) || (!strncmp(fname, "*", 1) && offset == 0)) {
 					memcpy(rom[0] + offset, basic, ROMSIZE);
-				else if (!strncmp(fname, "KERNAL", 6))
+					strcpy(romlopath[nr], "BASIC");
+				} 
+				else if (!strncmp(fname, "KERNAL", 6) || (!strncmp(fname, "*", 1) && offset == 0x4000)) {
 					memcpy(rom[0] + offset, kernal, ROMSIZE);
+					strcpy(romhighpath[nr], "KERNAL");
+				}
 				break;
-			case 1: if (!strncmp(fname, "3PLUS1LOW",9))
-						memcpy(rom[1] + offset, plus4lo, ROMSIZE);
-					else if (!strncmp(fname, "3PLUS1HIGH", 10))
-						memcpy(rom[1] + offset, plus4hi, ROMSIZE);
-					else
-						memset(rom[1] + offset, 0, ROMSIZE);
+			case 1: 
+				if (!strncmp(fname, "3PLUS1LOW", 9)) {
+					memcpy(rom[1] + offset, plus4lo, ROMSIZE);
+					strcpy(romlopath[nr], fname);
+				}
+				else if (!strncmp(fname, "3PLUS1HIGH", 10)) {
+					memcpy(rom[1] + offset, plus4hi, ROMSIZE);
+					strcpy(romhighpath[nr], fname);
+				} 
+				else {
+					memset(rom[1] + offset, 0, ROMSIZE);
+					strcpy(offset ? romhighpath[nr] : romlopath[nr], "");
+				}
 				break;
-			default : memset(rom[nr] + offset, 0, ROMSIZE);
+			default: 
+				memset(rom[nr] + offset, 0, ROMSIZE);
+				strcpy(offset ? romhighpath[nr] : romlopath[nr], "");
 		}
-	} else
+	} else {
 		memset(rom[nr] + offset, 0, ROMSIZE);
+		strcpy(offset ? romhighpath[nr] : romlopath[nr], "");
+	}
 }
 
 ClockCycle TED::GetClockCount()

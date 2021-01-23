@@ -55,7 +55,15 @@ enum UI_MenuClass {
 	UI_EMULATOR_MONITOR,
 	UI_EMULATOR_RESUME,
 	UI_EMULATOR_RESET,
-	UI_EMULATOR_EXIT
+	UI_EMULATOR_EXIT,
+	UI_FILE_LOAD_C0LO,
+	UI_FILE_LOAD_C0HI,
+	UI_FILE_LOAD_C1LO,
+	UI_FILE_LOAD_C1HI,
+	UI_FILE_LOAD_C2LO,
+	UI_FILE_LOAD_C2HI,
+	UI_FILE_LOAD_C3LO,
+	UI_FILE_LOAD_C3HI
 };
 
 struct menu_t;
@@ -101,6 +109,7 @@ class UI {
 		void show_menu(menu_t *menu);
 		void show_file_list(menu_t * menu, UI_MenuClass type);
 		void show_settings_list(menu_t * menu, rvar_t *rvItems);
+		void populateBankSelectionMenu();
 		bool handle_menu_command(struct element_t *element);
 		menu_t *curr_menu;
 		TED *ted8360;
@@ -109,6 +118,7 @@ class UI {
 		int menuEnter(bool forceAutoRun);
 		void openD64Item(const char *name);
 		bool autoStartNext;
+		char storedPath[MAX_PATH];
 
 	public:
 		UI(class TED *ted);

@@ -124,11 +124,28 @@ static menu_t options_menu = {
 	0
 };
 
+static menu_t bank_selection_menu = {
+	"CBM 264 ROM bank selection menu",
+	"",
+	{
+		{"", 0, UI_FILE_LOAD_C0LO },
+		{"", 0, UI_FILE_LOAD_C0HI },
+		{"", 0, UI_FILE_LOAD_C1LO },
+		{"", 0, UI_FILE_LOAD_C1HI },
+		{"", 0, UI_FILE_LOAD_C2LO },
+		{"", 0, UI_FILE_LOAD_C2HI },
+		{"", 0, UI_FILE_LOAD_C3LO },
+		{"", 0, UI_FILE_LOAD_C3HI }
+	},
+	0,	8,	0,	0,	0
+};
+
 static menu_t file_menu;
 static menu_t tap_list;
 static menu_t d64_list;
 static menu_t fre_list;
 static menu_t crt_list;
+static menu_t bank_list;
 static unsigned int *pixels;
 extern void frameUpdate(unsigned char *src, unsigned int *target);
 
@@ -174,6 +191,8 @@ UI::UI(class TED *ted) :
 	//snapshot_menu.parent = curr_menu;
 	fre_list.parent = curr_menu;
 	crt_list.parent = curr_menu;
+	bank_list.parent = curr_menu;
+	bank_selection_menu.parent = &crt_list;
 
 	// initialize settings menu
 	unsigned int i = 0, j = 0;
@@ -269,30 +288,42 @@ void UI::show_settings_list(menu_t * menu, rvar_t *rvItems)
 	menu->nr_of_elements = nf;
 }
 
+void UI::populateBankSelectionMenu()
+{
+	for (unsigned int i = 0; i < 8; i++) {
+		char txt[MAX_PATH + 16];
+		char *currbankTxt = (i & 1) ? TED::romhighpath[i >> 1] : TED::romlopath[i >> 1];
+		size_t currbankTxtLen = strlen(currbankTxt);
+		char *cbTxtPtr = currbankTxt + MAX(int(currbankTxtLen) - 30, 0);
+		size_t cbTxtLen = MIN(strlen(currbankTxt), 30);
+		cbTxtPtr[cbTxtLen] = '\0';
+		sprintf(txt, "BANK#%u %s : %s", i >> 1, (i & 1) ? "HI" : "LO", cbTxtPtr);
+		strcpy(bank_selection_menu.element[i].name, txt);
+	}
+}
+
 void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 {
 	int nf = 0, res;
 	char cfilename[512];
 	char *fileFoundName;
-	UI_FileTypes ft;
+	UI_FileTypes ft = FT_NONE;
 
 	menu->nr_of_elements = 0;
+	strcpy( menu->element[nf++].name, "..");
+	menu->element[0].menufunction = UI_DIR_ITEM;
+
 	res = ad_find_first_file("*");
-	fileFoundName = ad_return_current_filename();
-	ft = ad_return_current_filetype();
-	if (fileFoundName && !strcmp(fileFoundName, ".") )
-		res = ad_find_next_file();
-	if (!fileFoundName || strcmp(fileFoundName, "..") /*&& ft != UI_DRIVE_ITEM*/) {
-		strcpy( menu->element[nf++].name, "..");
-		menu->element[0].menufunction = UI_DIR_ITEM;
-	}
 	while (res) {
-		ft = ad_return_current_filetype();
-		// fprintf(stderr,"Parsed: %s\n", ad_return_current_filename());
-		if (ft != FT_FILE) {
-			strcpy(menu->element[nf].name, ad_return_current_filename());
-			menu->element[nf].menufunction = (ft == FT_DIR ? UI_DIR_ITEM : UI_DRIVE_ITEM);
-			++nf;
+		fileFoundName = ad_return_current_filename();
+		if (fileFoundName && strcmp(fileFoundName, ".") && strcmp(fileFoundName, "..")) {
+			ft = ad_return_current_filetype();
+			// fprintf(stderr,"Parsed: %s\n", ad_return_current_filename());
+			if (ft != FT_FILE) {
+				strcpy(menu->element[nf].name, ad_return_current_filename());
+				menu->element[nf].menufunction = (ft == FT_DIR ? UI_DIR_ITEM : UI_DRIVE_ITEM);
+				++nf;
+			}
 		}
 		res = ad_find_next_file();
 	}
@@ -342,9 +373,11 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 			case UI_CRT_ITEM:
 				strcpy(ftypes[0].name, "*.crt");
 				strcpy(ftypes[1].name, "*.rom");
+				strcpy(ftypes[2].name, "*.bin");
 				ftypes[0].menufunction = 
-				ftypes[1].menufunction = UI_CRT_ITEM;
-				nrOfExts = 2;
+				ftypes[1].menufunction =
+				ftypes[2].menufunction = UI_CRT_ITEM;
+				nrOfExts = 3;
 				break;
 			case UI_DRIVE_SET_DIR:
 				menu->nr_of_elements = nf;
@@ -489,8 +522,34 @@ bool UI::handle_menu_command( struct element_t *element)
 			start_file(element->name, true);
 			break;
 		case UI_CRT_ITEM:
+			if (ted8360->getEmulationLevel() < 2) {
+				curr_menu = &bank_selection_menu;
+				ad_get_curr_dir(storedPath);
+				strcat(storedPath, PATH_SEP);
+				strcat(storedPath, element->name);
+				populateBankSelectionMenu();
+				return false;
+			}
 			ted8360->loadromfromfile(1, element->name, 0);
 			break;
+		case UI_FILE_LOAD_C0LO:
+		case UI_FILE_LOAD_C0HI:
+		case UI_FILE_LOAD_C1LO:
+		case UI_FILE_LOAD_C1HI:
+		case UI_FILE_LOAD_C2LO:
+		case UI_FILE_LOAD_C2HI:
+		case UI_FILE_LOAD_C3LO:
+		case UI_FILE_LOAD_C3HI:
+			{
+				unsigned int ix = menuSelection - UI_FILE_LOAD_C0LO;
+				unsigned int rbank = ix >> 1;
+				unsigned int roffset = (ix & 1) ? 0x4000 : 0;
+				ted8360->loadromfromfile(rbank, storedPath, roffset);
+				machineReset(true);
+				curr_menu = bank_selection_menu.parent;
+			}
+			break;
+
 		case UI_FRE_ITEM:
 			SaveState::openSnapshot(element->name, false);
 			//clear(0, 0);
@@ -518,6 +577,13 @@ bool UI::handle_menu_command( struct element_t *element)
 			show_file_list(&crt_list, UI_CRT_ITEM);
 			return false;
 		case UI_CRT_DETACH:
+			if (ted8360->getEmulationLevel() < 2) {
+				curr_menu = &bank_selection_menu;
+				bank_selection_menu.parent = &main_menu;
+				strcpy(storedPath, "*");
+				populateBankSelectionMenu();
+				return false;
+			}
 			ted8360->loadromfromfile(1, "", 0);
 			break;
 		case UI_FILE_LOAD_FRE:
@@ -920,7 +986,11 @@ unsigned char UI::asc2pet(char c)
 	if ((c >= 'a') && (c <= 'z'))
 		return c - 96;
 	if (c == '\\')
-		return 0x4D;
+		return 0xCE;
+	if (c == '/') 
+		return 0xCD;
+	if (c == '_')
+		return 0x64;
 	/*if ((c >= 0xc1) && (c <= 0xda))
 		return c ^ 0x80;*/
 	return c;

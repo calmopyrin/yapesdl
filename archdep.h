@@ -21,7 +21,8 @@ This file contains the architecture dependent function prototypes
 enum UI_FileTypes {
 	FT_DIR,
 	FT_FILE,
-	FT_VOLUME
+	FT_VOLUME,
+	FT_NONE
 };
 
 #include "types.h"
@@ -31,8 +32,10 @@ enum UI_FileTypes {
 #include <unistd.h>
 #define MAX_PATH 256
 #define VSYNC_LATENCY 200
+#define PATH_SEP "/"
 #else
 #include <windows.h>
+#define PATH_SEP "\\"
 #endif
 
 int		ad_set_curr_dir(char *path);
@@ -50,7 +53,7 @@ extern void				ad_vsync_init(void);
 extern bool				ad_vsync(bool sync);
 extern unsigned int		ad_get_fps(unsigned int &framesDrawn);
 
-extern bool zipOpen(const char *zipName, unsigned char *buffer, unsigned int &bufferSize);
+extern bool zipOpen(const char *zipName, unsigned char **buffer, unsigned int &bufferSize, unsigned int &fileType);
 
 class Sync {
 public:

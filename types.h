@@ -19,6 +19,13 @@ typedef unsigned __int64 ClockCycle;
 #define TSTATE_T_LEN "lu"
 #endif
 
+#ifndef MAX
+#define MAX(A,B) ((A) > (B) ? (A) : (B))
+#endif
+#ifndef MIN
+#define MIN(A,B) ((A) < (B) ? (A) : (B))
+#endif
+
 typedef struct _MEM_PATCH {
 	unsigned int addr;
 	unsigned char byte;

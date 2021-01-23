@@ -7,11 +7,11 @@
 	and/or modify it under certain conditions. For more information,
 	read 'Copying'.
 
-	(c) 2000, 2001, 2004, 2005, 2007, 2015-2018 Attila Grósz
+	(c) 2000, 2001, 2004, 2005, 2007, 2015-2021 Attila Grósz
 	(c) 2005 VENESZ Roland
 */
 
-#define NAME    "Yape/SDL 0.70.2"
+#define NAME    "Yape/SDL 0.71.1"
 #define WINDOWX SCREENX
 #define WINDOWY SCREENY
 
@@ -250,17 +250,31 @@ static void startd64(const char *fileName, bool autostart)
 
 bool openZipDisk(const char *fname, bool autostart)
 {
-	const unsigned int size = 1 << 20;
-	unsigned char b[200000];
-	unsigned int fsize = size;
-	const char *tmpName = "tmp.d64";
+	static unsigned char *b = NULL;
+	unsigned int fsize = 0;
+	unsigned int ftype;
 
-	if (zipOpen(fname, b, fsize)) {
+	if (zipOpen(fname, &b, fsize, ftype)) {
+		const char* tmpName = (ftype == 1) ? "unz.d64" : "unz.tap";
 		FILE *tmp = fopen(tmpName, "wb");
-		if (tmp) {
+
+		if (b && tmp) {
 			fwrite(b, sizeof(char), fsize, tmp);
 			fclose(tmp);
-			startd64(tmpName, autostart);
+			if (ftype == 1)
+				startd64(tmpName, autostart);
+			else {
+				ted8360->tap->detachTape();
+				ted8360->tap->attachTape(tmpName);
+				if (autostart) {
+					ted8360->copyToKbBuffer("Lo:\rRUN\r");
+					ted8360->tap->pressTapeButton(ted8360->GetClockCount(), 1);
+				}
+				if (b) {
+					delete[] b;
+					b = NULL;
+				}
+			}
 			return true;
 		}
 	}

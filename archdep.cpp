@@ -399,9 +399,11 @@ unsigned int ad_get_fps(unsigned int &framesDrawn)
 #pragma comment(lib, "zlibstat.lib")
 #include "zlib/unzip.h"
 
-bool zipOpen(const char *zipName, unsigned char *buffer, unsigned int &bufferSize)
+bool zipOpen(const char *zipName, unsigned char **buffer, unsigned int &bufferSize, unsigned int &fileType)
 {
+	static unsigned int storedFileSize = 0;
 	unzFile zipFile = unzOpen(zipName);
+	fileType = 0;
 	   
 	if (zipFile) {
 		if (unzGoToFirstFile(zipFile) == UNZ_OK) {
@@ -411,21 +413,35 @@ bool zipOpen(const char *zipName, unsigned char *buffer, unsigned int &bufferSiz
 				int result = unzGetCurrentFileInfo(zipFile, &zipfileinfo, zippedName, 512, NULL, 0, NULL, 0);
 				fprintf(stderr, "First file in ZIP: %s\n", zippedName);
 				unsigned int fsize = zipfileinfo.uncompressed_size;
-
-				if (fsize > bufferSize) 
-					fsize = bufferSize;
-				bufferSize = fsize;
-				unzReadCurrentFile(zipFile, buffer, fsize);
-				unzCloseCurrentFile(zipFile);
-				unzClose(zipFile);
-				return true;
+				char *ext = strrchr(zippedName, '.');
+				if (ext) {
+					if (fsize > storedFileSize) {
+						if (*buffer) {
+							delete[] *buffer;
+							*buffer = NULL;
+						}
+						*buffer = new unsigned char[fsize];
+						storedFileSize = fsize;
+					}
+					if (*buffer) {
+						if (!strcmp(ext, ".d64") || !strcmp(ext, ".D64"))
+							fileType = 1;
+						else
+							fileType = 2;
+						bufferSize = fsize;
+						unzReadCurrentFile(zipFile, *buffer, fsize);
+						unzCloseCurrentFile(zipFile);
+						unzClose(zipFile);
+					}
+					return true;
+				}
 			}
 		}
 	}
 	return false;
 }
 #else
-bool zipOpen(const char *zipName, unsigned char *buffer, unsigned int &bufferSize)
+bool zipOpen(const char *zipName, unsigned char **buffer, unsigned int &bufferSize, unsigned int &fileType)
 {
 	return false;
 }

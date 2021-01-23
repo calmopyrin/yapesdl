@@ -66,7 +66,7 @@ bool TAP::attachTape(const char *fname)
 		fseek(tapfile, 0L, SEEK_SET);
 		// allocate and load file
 		tapeBuffer = new unsigned char[tapeFileSize];
-		if (fread(tapeBuffer, 1, tapeFileSize, tapfile) < 4)
+		if (fread(tapeBuffer, 1, tapeFileSize, tapfile) < 20)
 			return false;
 		tapeHeaderRead = tapeBuffer;
 

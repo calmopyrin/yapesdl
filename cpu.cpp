@@ -3213,13 +3213,17 @@ void CPU::process()
 				case 2: PC++;
 						break;
 				case 3: break;
-				case 4: if (nextins+Y<256) {
-							mem->Write(ptr+Y, X & (((ptr+Y)>>8)+1));
-						} else {
-							unsigned char t = X & (((ptr+Y)>>8)+1);
-							mem->Write( (nextins+Y)|(t << 8), t);
+				case 4: {
+							unsigned char t = X & ((ptr >> 8) + 1);
+							if (nextins + Y < 256)
+							{
+								mem->Write((ptr & 0xFF00) | ((nextins + Y) & 0xFF), t);
+							}
+							else {
+								mem->Write((t << 8) | ((nextins + Y) & 0xFF), t);
+							}
 						}
-						cycle=0;
+						cycle = 0;
 						break;
 			}
 			break;
