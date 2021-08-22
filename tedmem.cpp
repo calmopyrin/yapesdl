@@ -209,7 +209,7 @@ void TED::showled(int x, int y, unsigned char onoff)
 
 void TED::texttoscreen(int x,int y, const char *scrtxt)
 {
-	register int i =0;
+	int i =0;
 
 	while (scrtxt[i]!=0) {
 		chrtoscreen(x+i*8,y,scrtxt[i]);
@@ -1222,12 +1222,13 @@ void TED::doDMA( unsigned char *Buf, unsigned int Offset )
 
 void TED::doVRetrace()
 {
+	//fprintf(stderr, "Rasterline: %03i TV line:%03u\n", beamy, TVScanLineCounter);
 	// frame ready...
 	loop_continuous = 0;
 	// reset screen pointer ("TV" electron beam)
 	TVScanLineCounter = 0;
 	scrptr = screen;
-	retraceScanLine = RETRACESCANLINEMAX;
+	retraceScanLine = 0;
 	VBlanking = false;
 }
 
@@ -1241,7 +1242,6 @@ void TED::doHRetrace()
 		if ((Ram[0xFF07] & 0x40 ? 20U : 22U) <= retraceScanLine) {
 			if (TVScanLineCounter > RETRACESCANLINEMIN) {
 				doVRetrace();
-				retraceScanLine = 0;
 				return;
 			}
 		}
