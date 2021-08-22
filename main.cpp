@@ -827,7 +827,7 @@ inline static void poll_events(void)
 	}
 
     if ( SDL_PollEvent(&event) ) {
-        switch (event.type) {
+		switch (event.type) {
 
 			case SDL_WINDOWEVENT:
 				if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
@@ -1135,15 +1135,21 @@ static void setSDLIcon(SDL_Window* window)
 
 static void app_initialise()
 {
+	SDL_version sdlv;
+
+	SDL_GetVersion(&sdlv);
+	printf("SDL version detected: %d.%d.%d\n", sdlv.major, sdlv.minor, sdlv.patch);
+
     if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) < 0 ) {
-        fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError());
-        exit(1);
+        fprintf(stderr, "Unable to init SDL with controller support: %s\n", SDL_GetError());
+		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
+			fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError());
+			exit(1);
+		}
     }
 	atexit(app_close);
 
-	// check the video driver we have
-	fprintf(stderr, "Using video driver : %s\n", SDL_GetCurrentVideoDriver());
-
+	//SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#screen");
     // create a new window
     sdlWindow = SDL_CreateWindow(NAME,
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -1155,6 +1161,8 @@ static void app_initialise()
     }
 	setSDLIcon(sdlWindow);
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+	// check the video driver we have
+	printf("Using video driver : %s\n", SDL_GetCurrentVideoDriver());
 	//
 	printf("On-screen keyboard");
 	if (!SDL_HasScreenKeyboardSupport())
