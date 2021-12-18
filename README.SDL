@@ -2,13 +2,13 @@ README.SDL
 
 This is the README for the SDL port of Yape/SDL (Yet Another Plus/4 Emulator)
 
-Current version is 0.70.2
+Current version is 0.71.1
 
 LEGAL
 =====
 
   Yape for SDL is 
-  (C) 2000,2001,2004,2007,2008,2015-2017 Attila Grósz (gyros@freemail.hu)
+  (C) 2000,2001,2004,2007,2008,2015-2021 Attila Grósz (gyros@freemail.hu)
   http://yape.plus4.net
 
   This program is free software; you can redistribute it and/or
@@ -44,7 +44,7 @@ COMPILE
   
   To be able to compile on Linux, you must have the latest SDL
   package from http://libsdl.org. The recent stable release as of time of
-  this writing is 2.0.7. You will also need the development libraries.
+  this writing is 2.0.16. You will also need the development libraries.
   
   The provided makefile is written for the GNU C++ compiler but can also
   be easily adjusted for other compilers.
@@ -92,17 +92,24 @@ COMPILE
   Emscripten
   ----------
 
-  Compiling for Emscripten (Javascript) requires a lot of ugly manual
-  workarounds. These will be documented at a later stage.
+  Install Emscripten using the instructions here first:
+  https://emscripten.org/docs/getting_started/downloads.html
 
-  Under Windows it's best to use the official package that is embedded
-  into Visual Studio 2010.
+  In case you are using Visual Studio, grab the toolchain extension here:
+  https://github.com/nokotan/VSExtForEmscripten/releases/
+  https://marketplace.visualstudio.com/items?itemName=KamenokoSoft.emscriptenproj1
 
-  You might also need to download SDL2 headers separately from here:
+  Under Windows it's best to use the Solution configuration provided.
+  Compiling for Emscripten manually requires a lot of manual workarounds. 
+  These will be documented at a later stage.  
+
+  You won't need to download SDL2 headers as these are pulled in automatically during
+  the first compilation but they are available from here:
   https://github.com/kripken/emscripten
   https://github.com/emscripten-ports/SDL2
 
-  Also download the prebuilt SDL2 libraries required for linking:
+  Prebuilt SDL2 libraries required for linking can be found here, but these are not
+  needed if you are using the VS solution:
   https://buildbot.libsdl.org/sdl-builds/sdl-emscripten/?C=M;O=D
 
 USAGE
@@ -146,15 +153,17 @@ USAGE
   This means that an exact filename match will load
   the requested program, similarly can you save a file.
   
-  Full ROM banking is supported on the plus/4, currently only via the yape configuration
-  file. You must fill in the path for the relevant ROM image you intend to use.
-  However, Yape supports some internal ROMs already. These are:
+  Full ROM banking is supported on the plus/4, via the 'Attach/Detach ROM...' menu.
+  Yape also supports the default ROM's. These are:
   
   - 'BASIC' 	 - the ROM image containing the BASIC interpreter
   - 'KERNAL' 	 - the system kernal ROM image
   - '3PLUS1LOW'  - the low bank ROM image of the built-in plus/4 software
   - '3PLUS1HIGH' - the high bank ROM image of the built-in plus/4 software
   
+  In C64 mode, the 'Attach/Detach ROM...' can be used for cartridges, but right now
+  only a handful are supported.
+
 KEYBOARD MAPPINGS
 =================
 

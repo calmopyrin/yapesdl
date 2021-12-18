@@ -267,9 +267,7 @@ void FdcGcr::attachD64file(const char *filepath)
   			    NrOfTracks = 35;
   			    break;
 		}
-//		Log::write(_T("Number of tracks: %i.\n"), NrOfTracks);
 		NrOfSectors = d64SectorOffset[NrOfTracks+1];
-	//	Log::write(_T("Number of sectors: %i.\n"), NrOfSectors);
 
 		// x64 image?
 		fseek(diskImageHandle, 0, SEEK_SET);
@@ -303,6 +301,7 @@ void FdcGcr::attachD64file(const char *filepath)
 			isDiskCorrupted = false;
 			isDiskSwapped = true;
 		}
+		fprintf(stderr, "Attached disk (%u tracks, %u sectors): %s\n", NrOfTracks, NrOfSectors, filepath);
 		return;
 	}
 	isDiskInserted = false;

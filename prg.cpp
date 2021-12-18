@@ -61,6 +61,8 @@ bool PrgLoad(const char *fname, int loadaddress, TED *mem)
 
 bool prgLoadFromT64(const char *t64path, unsigned short *loadAddress, TED *mem)
 {
+    bool rv = false;
+
 	if ((prg = fopen(t64path, "rb"))) {
 	    unsigned char dirEntry[32];
 	    fseek(prg, 0x40, SEEK_SET);
@@ -76,14 +78,14 @@ bool prgLoadFromT64(const char *t64path, unsigned short *loadAddress, TED *mem)
                     if (fread(lpBufPtr, 1, fsize, prg)) {
                         prgLoadFromBuffer(adr, fsize, lpBufPtr, mem);
                         fprintf(stderr, "First PRG loaded from '%s' to $%04X-$%04X\n", t64path, adr, endAddr);
-                        return true;
+                        rv = true;
                     }
                 }
             }
         }
 	    fclose(prg);
 	}
-    return false;
+    return rv;
 }
 
 bool prgSaveBasicMemory(const char *prgname, TED *mem, unsigned short &beginAddr, unsigned short &endAddr, bool isBasic)

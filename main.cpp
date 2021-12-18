@@ -198,12 +198,12 @@ void machineDoSomeFrames(unsigned int frames)
 void machineEnable1551(bool enable)
 {
 	if (enable) {
+		if (drive1541) {
+			delete drive1541;
+			drive1541 = NULL;
+		}
 		if (ted8360->getEmulationLevel() != 2) {
 			ted8360->HookTCBM(tcbm);
-			if (drive1541) {
-				delete drive1541;
-				drive1541 = NULL;
-			}
 		} else {
 			fsd1541 = new FakeSerialDrive(8);
 		}
@@ -240,8 +240,8 @@ static void startd64(const char *fileName, bool autostart)
 	if (!machineIsTrueDriveEnabled()) {
 		machineEnable1551(false);
 		machineDoSomeFrames(70);
-		CTrueDrive::SwapDisk(fileName);
 	}
+	CTrueDrive::SwapDisk(fileName);
 	if (autostart)
 		ted8360->copyToKbBuffer("L\317\042*\042,8,1\rRUN:\r", 15);
 	else
@@ -1031,6 +1031,10 @@ inline static void poll_events(void)
 					timeOutOverlayKeys = 192;
 					mouseBtnHeld = true;
 				}
+#ifdef __EMSCRIPTEN__
+				// FIXME, this is a hack
+				EM_ASM("var SDL2 = Module['SDL2']; if (SDL2.audioContext.state !== 'running') { SDL2.audioContext.resume(); }", 0);
+#endif
 				break;
 
 			case SDL_MOUSEBUTTONUP:
@@ -1290,7 +1294,7 @@ int main(int argc, char *argv[])
 	printf("LALT + F6    : load emulator snapshot\n");
 	printf("ESC          : enter/leave menu\n");
 	printf("PAUSE        : suspend/resume emulation\n");
-	printf("Joystick buttons are the arrow keys and SPACE\n");
+	printf("Joystick buttons are the arrow keys and SPACE. You can change it in the menu under 'Options...'\n");
 	setMainLoop(1);
 #else
 	ad_vsync_init();

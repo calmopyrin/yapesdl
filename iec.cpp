@@ -116,5 +116,3 @@ unsigned int CFakeIEC::OutSec(unsigned char data)
     }
     return status;
 }
-
-
