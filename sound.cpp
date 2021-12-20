@@ -14,7 +14,7 @@
 
 // SDL specific
 static SDL_AudioDeviceID dev;
-static SDL_AudioSpec obtained, *audiohwspec;
+static SDL_AudioSpec obtained, *audiohwspec = NULL;
 //
 static const unsigned int bufLenInMsec[] = { 20, 50, 100, 200, 10 };
 static unsigned int bufLenIndex = 0;
@@ -26,12 +26,12 @@ static unsigned int	MixingFreq;
 static unsigned int BufferLength;
 static unsigned int	sndBufferPos;
 
-static short *mixingBuffer;
-static short *sndRingBuffer;
+static short *mixingBuffer = NULL;
+static short *sndRingBuffer = NULL;
 static unsigned int sndWriteBufferIndex;
 static unsigned int sndPlayBufferIndex;
-static short *sndWriteBufferPtr;
-static short *sndPlayBufferPtr;
+static short *sndWriteBufferPtr = NULL;
+static short *sndPlayBufferPtr = NULL;
 static short lastSample;
 static ClockCycle		lastUpdateCycle;
 static unsigned int		lastSamplePos;
@@ -221,13 +221,10 @@ void init_audio(unsigned int sampleFrq)
 		NULL;
 #endif
 	desired.userdata	= NULL;
-	desired.size		= desired.channels * desired.samples * sizeof(Uint8);
+	desired.size		= desired.channels * desired.samples * sizeof(Sint16);
 	desired.silence		= 0x00;
 
-	mixingBuffer = new short[BufferLength];
-	if (!mixingBuffer)
-		return;
-	dev = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+	dev = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, 0); // SDL_AUDIO_ALLOW_SAMPLES_CHANGE
 	if (!dev) {
 		fprintf(stderr, "SDL_OpenAudioDevice failed!\n");
 		return;
@@ -236,15 +233,18 @@ void init_audio(unsigned int sampleFrq)
     	fprintf(stderr, "Using audio driver : %s\n", SDL_GetCurrentAudioDriver());
 		audiohwspec = &obtained;
 	}
-	MixingFreq = audiohwspec->freq;
-	BufferLength = audiohwspec->samples;
-
 	fprintf(stderr, "Obtained mixing frequency: %u\n", audiohwspec->freq);
 	fprintf(stderr, "Obtained audio format: %04X\n", audiohwspec->format);
 	fprintf(stderr, "Obtained channel number: %u\n", audiohwspec->channels);
 	fprintf(stderr, "Obtained audio buffer size: %u\n", audiohwspec->size);
 	fprintf(stderr, "Obtained sample buffer size: %u\n", audiohwspec->samples);
 	fprintf(stderr, "Obtained silence value: %u\n", audiohwspec->silence);
+
+	MixingFreq = audiohwspec->freq;
+	BufferLength = audiohwspec->samples;
+	mixingBuffer = new short[BufferLength];
+	if (!mixingBuffer)
+		return;
 
 	sndRingBuffer = new short[SND_BUF_MAX_READ_AHEAD * BufferLength];
 	for(unsigned int i = 0; i < SND_BUF_MAX_READ_AHEAD * BufferLength; i++)
@@ -279,13 +279,13 @@ void sound_resume()
 void sound_change_freq(unsigned int &newFreq)
 {
 	close_audio();
-	SoundSource *cb = SoundSource::getRoot();
+	init_audio(newFreq);
+	newFreq = audiohwspec->freq;
+	SoundSource* cb = SoundSource::getRoot();
 	while (cb) {
 		cb->setSampleRate(newFreq);
 		cb = cb->getNext();
 	}
-	init_audio(newFreq);
-	newFreq = audiohwspec->freq;
 	SoundSource::setSamplingRate(newFreq);
 }
 
@@ -294,7 +294,9 @@ void close_audio()
 	SDL_PauseAudioDevice(dev, 1);
 	SDL_CloseAudioDevice(dev);
 	delete[] sndRingBuffer;
+	sndRingBuffer = NULL;
 	delete[] mixingBuffer;
+	mixingBuffer = NULL;
 }
 
 //-- sound options management
@@ -309,7 +311,7 @@ static void flipAudioBufferSize(void *none)
 
 static void flipAudioFrequency(void *none)
 {
-	const unsigned int frq[] = { 48000, 96000, 192000, 22050, 44100 };
+	const unsigned int frq[] = { 96000, 192000, 48000, 44100, 22050 };
 	const unsigned int current = MixingFreq;
 	const unsigned int entries = sizeof(frq) / sizeof(frq[0]);
 	int i = entries;
