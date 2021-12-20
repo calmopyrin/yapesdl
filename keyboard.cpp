@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include "keyboard.h"
 
-static SDL_Scancode kbmatrix[] {
+static SDL_Scancode kbmatrix[] = {
 	SDL_SCANCODE_BACKSPACE, SDL_SCANCODE_RETURN, SDL_SCANCODE_END, SDL_SCANCODE_F4, SDL_SCANCODE_F1, SDL_SCANCODE_F2, SDL_SCANCODE_F3, SDL_SCANCODE_LEFTBRACKET,
 	SDL_SCANCODE_3, SDL_SCANCODE_W, SDL_SCANCODE_A, SDL_SCANCODE_4, SDL_SCANCODE_Z, SDL_SCANCODE_S, SDL_SCANCODE_E, SDL_SCANCODE_LSHIFT,
 	SDL_SCANCODE_5, SDL_SCANCODE_R, SDL_SCANCODE_D, SDL_SCANCODE_6, SDL_SCANCODE_C, SDL_SCANCODE_F, SDL_SCANCODE_T, SDL_SCANCODE_X,
@@ -250,8 +250,8 @@ unsigned char KEYS::getPcJoyState(unsigned int joyNr, unsigned int activeJoy)
 	state <<= fireButtonIndex(activeJoy);
 	// if (state)
 // 	  fprintf(stderr,"Joy(%i) state: %X ", joyNr, state);
-	x_move = SDL_GameControllerGetAxis(thisController, SDL_CONTROLLER_AXIS_LEFTX);
-	y_move = SDL_GameControllerGetAxis(thisController, SDL_CONTROLLER_AXIS_LEFTY);
+	x_move = SDL_GameControllerGetAxis(thisController, SDL_CONTROLLER_AXIS_RIGHTX);
+	y_move = SDL_GameControllerGetAxis(thisController, SDL_CONTROLLER_AXIS_RIGHTY);
 	if (x_move >= deadZone || SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) {
 		state |= 8;
 	} else if (x_move <= -deadZone || SDL_GameControllerGetButton(thisController, SDL_CONTROLLER_BUTTON_DPAD_LEFT)) {
@@ -312,16 +312,14 @@ unsigned char KEYS::readPaddleAxis(unsigned short axis)
 	Sint16 move;
 	unsigned char retval;
 
-	SDL_GameController* thisController = sdlJoys[axis & 1];
+	SDL_GameController* thisController = sdlJoys[0];
 	if (thisController) {
-		move = SDL_GameControllerGetAxis(thisController, SDL_CONTROLLER_AXIS_LEFTX);
-		double f = (double)move / 32768.0;
-		int a = (int)(f * f * f * 32768.0); // (f > 0) - (f < 0))*
-		//fprintf(stderr, "%u axis moved: %i\t%i\n", axis & 1, move, a);
-		retval = (unsigned char)(((int)a + 32768) >> 8) ^ 0xFF;
+		move = SDL_GameControllerGetAxis(thisController, (axis & 1 ) ? SDL_CONTROLLER_AXIS_LEFTY : SDL_CONTROLLER_AXIS_LEFTX);
+		//fprintf(stderr, "%u axis moved: %i\t%i\n", axis & 1, move, (((int)move + 32768) >> 8) ^ 0xFF);
+		retval = (unsigned char)((move ^ 0x7FFF) >> 8);
 	}
 	else
-		retval = 0xFF;
+		retval = 0;
 
 	return retval;
 }
