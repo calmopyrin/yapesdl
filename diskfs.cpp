@@ -389,7 +389,7 @@ Uint8 CIECFSDrive::Write(int channel, Uint8 data, unsigned int cmd, bool eoi)
 				return ST_ERROR;
 			}
 
-			if (!eoi && fputc(data, file[channel]) == EOF) {
+			if (fputc(data, file[channel]) == EOF && !eoi) {
 				SetError(ERR_WRITEERROR, 0, 0);
 				return ST_ERROR;
 			}
