@@ -416,10 +416,12 @@ unsigned char TED::Read(unsigned int addr)
 					}
 					break;
 				case 0xFE:
-					if (tcbmbus)
-						return tcbmbus->Read(addr);
-					else
-						return addr >> 8; // FIXME
+					if (((addr >> 4) & 0xFEE) != 0xFE8) {
+						if (tcbmbus)
+							return tcbmbus->Read(addr);
+						else
+							return addr >> 8; // FIXME
+					}
 				case 0xFD:
 					switch (addr>>4) {
 						case 0xFD0: // RS232
@@ -444,7 +446,7 @@ unsigned char TED::Read(unsigned int addr)
 								return keys->readSidcardJoyport();
 							}
 					}
-					return 0xFD;
+					return addr >> 8;
 				case 0xFC:
 					return mem_fc00_fcff[addr&0x3FFF];
 				default:
