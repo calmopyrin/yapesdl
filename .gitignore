@@ -100,3 +100,7 @@ Emscripten/Release/favicon.ico
 *.lib
 /Emscripten/EmbeddedFiles/YapeSDL.html
 Emscripten/Release/YapeSDL.html
+
+
+# Executable
+yapesdl
