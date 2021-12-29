@@ -8,7 +8,7 @@ the year **2000** till the present day.
 
 ---
 
-**⸢ [How To Use] ⸥ ⸢ [Build From Source] ⸥**
+**⸢ [How To Use] ⸥ ⸢ [Build From Source] ⸥ ⸢ [Changelog] ⸥**
 
 ---
 
@@ -108,6 +108,7 @@ Everything else falls under **[GPLv2]**.
 
 [Build From Source]: docs/Build.md
 [How To Use]: docs/Usage.md
+[Changelog]: docs/Changelog.md
 
 [+4World]: http://plus4world.powweb.com/
 [C64]: http://c64.rulez.org
