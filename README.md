@@ -1,213 +1,113 @@
-README.SDL
+# YapeSDL
 
-This is the README for the SDL port of Yape/SDL (Yet Another Plus/4 Emulator)
+**Version:** `0.71.1`
 
-Current version is 0.71.1
+This is a **SDL** port of the **[YAPE]** emulator, <br>
+developed by [`Attila Grósz`][Atilia] since the<br>
+the year **2000** till the present day.  
 
-LEGAL
-=====
+---
 
-  Yape for SDL is 
-  (C) 2000,2001,2004,2007,2008,2015-2021 Attila Gr�sz (gyros@freemail.hu)
-  http://yape.plus4.net
+**⸢ [How To Use] ⸥ ⸢ [Build From Source] ⸥**
 
-  This program is free software; you can redistribute it and/or
-  modify it under the terms of the GNU General Public License as
-  published by the Free Software Foundation; either version 2 of the
-  License, or (at your option) any later version.
+---
 
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
+## Features
 
-  You should have received a copy of the GNU General Public License
-  along with this program; if not see <http://www.gnu.org/licenses/>.
+-   **Supported File Formats**
 
-  The ROM file headers in the package used to be 
-  Copyright (C) by Commodore Business Machines.
+    `PRG`  `P00`  `T64`  `D64`  `TAP`
+    
+-   **Memory Expansion Support**
 
-COMPILE
-=======
+    `REU 1700 / 1750 / 1764`  `Hannes 256kB`
 
-  The source code is hosted on GitHub.
-  https://github.com/calmopyrin/yapesdl
+-   **Save / Load Disk**
 
-  Define AUDIO_CALLBACK if you want to use the older audio API using
-  callbacks (pre-2.0.4 versions of SDL2 only support this one).
+    `Serial IEC`  ⬌  `File System`
 
-  Define explicitly ZIP_SUPPORT in case you need preliminary ZIP file 
-  support - only used for opening compressed D64 files for now.
+-   **ROM Banking**
 
-  GNU
-  ---
-  
-  To be able to compile on Linux, you must have the latest SDL
-  package from http://libsdl.org. The recent stable release as of time of
-  this writing is 2.0.16. You will also need the development libraries.
-  
-  The provided makefile is written for the GNU C++ compiler but can also
-  be easily adjusted for other compilers.
-  
-  It is very likely that if SDL and GCC are supported on your system, then 
-  Yape can be compiled and run. Hence, an Android port is also possible, 
-  and Yape has been succesfully compiled on systems other than Windows and 
-  Linux as well.
-  
-  Once the libraries and header files are installed, you should
-  extract the source tarball to a directory, and simply type:
-  
-  make
+    Fully supported on  `+4`
 
-  Alternatively, you can use the provided Code::Blocks project
-  file to compile Yape.
-  
-  If the compilation finished with no error, you can type:
-  
-      ./yapesdl [PRG/P00/T64/TAP/D64/ZIP filename] [-c64]
-  
-  to start the emulator, where [] means optional arguments.
+-   **Snapshots** / **Saves**
 
-  Mac OS X
-  --------
+---
 
-  Other than downloading the relevant SDL development libraries, you also 
-  need to copy the SDL2.framework file to the /Library/Frameworks folder. 
-  From then on, just use the provided Xcode workspace.
+## Supported Chips
 
-  Windows
-  -------
+#### CPU Emulation
 
-  Make sure you install either the Visual Studio or the Mingw version
-  of the SDL development library. You can use either compiler
-  targeting 32 as well as 64-bit binary builds.
+*These chips are emulated fully / cycle exact.*
 
-  It is recommended that you use the provided Microsoft Visual Studio 14 
-  solution file. The Community 2015 and 2017 Editions are terrific and free 
-  IDE's with an excellent debugger.
-  
-  Note that the 2.0.4 version of the Windows SDL runtime library had a
-  serious crash in its DX9 driver. Upgrade to 2.0.5+ to avoid it.
+<kbd>  6502  </kbd>  
+<kbd>  6510  </kbd>  
+<kbd>  7501  </kbd>  
+<kbd>  8501  </kbd>
 
-  Emscripten
-  ----------
+<br>
 
-  Install Emscripten using the instructions here first:
-  https://emscripten.org/docs/getting_started/downloads.html
+#### Chip Emulation
 
-  In case you are using Visual Studio, grab the toolchain extension here:
-  https://github.com/nokotan/VSExtForEmscripten/releases/
-  https://marketplace.visualstudio.com/items?itemName=KamenokoSoft.emscriptenproj1
+| Group | Chip | Replication |
+|:-----:|:----:|:-----------:|
+| `TED` | `7360` | `Near Full` |
+| `TED` | `8360` | `Near Full` |
+| `VIC-II` | `6569` | `Near Full` |
+| `SID` | `6581` | `Reasonable` |
+| `SID` | `8580` | `Reasonable` |
+| `CIA` | `6526` | `Partially`<br>`Incomplete` |
 
-  Under Windows it's best to use the Solution configuration provided.
-  Compiling for Emscripten manually requires a lot of manual workarounds. 
-  These will be documented at a later stage.  
+---
 
-  You won't need to download SDL2 headers as these are pulled in automatically during
-  the first compilation but they are available from here:
-  https://github.com/kripken/emscripten
-  https://github.com/emscripten-ports/SDL2
+## Supported Modules
 
-  Prebuilt SDL2 libraries required for linking can be found here, but these are not
-  needed if you are using the VS solution:
-  https://buildbot.libsdl.org/sdl-builds/sdl-emscripten/?C=M;O=D
+- **Joystick**
 
-USAGE
-=====
+    Via **Mouse** / **Gamepad**
 
-  The user interface isn't yet ready, so you MUST memorise a couple
-  of keyboard shortcuts:
-  
-  F12 or ESCAPE : exits the emulator
-  F11 or Alt+R  : soft reset
-  LCTRL + F11	: forced reset (memory remains intact)
-  SHIFT + F11	: hard reset (clear memory, reloads ROMs, rewinds tape)
-  
-  F5		: press PLAY on tape
-  F6		: press STOP on tape
-  F7		: save screenshot to BMP file
-  F8		: enter the user interface, press F8 again or ESC to quit.
-              You can move around in the menus with the arrow keys, press ENTER for selection.
-  F9		: quick debugger
-  F10		: save current settings to user's home directory
+- **Drive**
 
-  LALT + 1-3   : set window size
-  LALT + L	   : switch among emulators (C+4 cycle based; C+4 line based; C64 cycle based)
-  LALT + I	   : switch emulated joystick port
-  LALT + M     : enter console based external monitor and disassembler
-  LALT + P	   : toggle CRT emulation
-  LALT + R     : machine forced reset
-  LALT + S     : display frame rate on/off  
-  LALT + W	   : toggle between unlimited speed and 50 Hz frame rate (original speed)
-  LALT + ENTER : toggle full screen mode
-  LALT + F5    : save emulator state
-  LALT + F6    : load emulator state
-  LALT + F8	   : save memory pointed by $2B/$2C and $2D/$2E
-  LALT + KPLUS : collate replay frequencies
-  
-  Internal disk LOAD/SAVE operations are supported to the current
-  file system directory - which is usually '/home/<username>/yape'.
-  Any PRG files you may wish to load, should go there, although you can browse the directory tree
-  from the user interface, too.
-   
-  This means that an exact filename match will load
-  the requested program, similarly can you save a file.
-  
-  Full ROM banking is supported on the plus/4, via the 'Attach/Detach ROM...' menu.
-  Yape also supports the default ROM's. These are:
-  
-  - 'BASIC' 	 - the ROM image containing the BASIC interpreter
-  - 'KERNAL' 	 - the system kernal ROM image
-  - '3PLUS1LOW'  - the low bank ROM image of the built-in plus/4 software
-  - '3PLUS1HIGH' - the high bank ROM image of the built-in plus/4 software
-  
-  In C64 mode, the 'Attach/Detach ROM...' can be used for cartridges, but right now
-  only a handful are supported.
+    `1541` \| Read / Writes
 
-KEYBOARD MAPPINGS
-=================
+- **Tape**
 
-  For the keys at different positions, the emulator relies on SDL, so your
-  mileage may vary.
-  
-  There are a few keys that need to be mapped to the emulator keyboard
-  differently. These are:
-  
-  Real C=     Emulator
-  ------------------------
-  Pound 	= End
-  Clr/Home	= Home
-  Restore   = Insert
-  C=        = Left Ctrl
-  CONTROL   = Right Ctrl
-  INST/DEL  = Backspace
-  RUN/STOP  = TAB
+    *Near Full Emulation*
 
-FEATURES
-========
+- **CRT**
 
-  YapeSDL features:
-  
-  - full, cycle exact MOS 6502/6510/7501/8501 CPU emulation
-  - almost full MOS 7360/8360 aka 'TED' chip emulation
-  - almost complete MOS 6569 aka 'VIC-II' chip emulation
-  - reasonable MOS 6581/8580 aka 'SID' chip emulation
-  - somewhat incomplete CIA 6526 aka 'CIA' emulation
-  - real 1541 drive emulation (Read/Write)
-  - full ROM banking on +4
-  - almost full tape emulation
-  - joystick emulation via cursor keys and gamepads
-  - PRG, P00, T64, D64 and TAP file format support
-  - partial CRT emulation
-  - serial IEC disk LOAD/SAVE to the file system
-  - REU 1700/1750/1764 and Hannes 256kB memory expansion support
-  - snapshots / savestates
+    *Partial Emulation*
 
-LINKS
-=====
+---
 
-  https://github.com/calmopyrin/yapesdl : official source repository for yape/SDL
-  http://yape.homeserver.hu             : Yape homepage
-  http://plus4world.powweb.com          : Commodore +4 World (games, tape images, scans etc.)
-  http://c64.rulez.org	                : Commodore plus/4 FTP archive
-  http://gaia.atilia.eu                 : My 8-bit emulator page
+## Related
+
+##### [+4World]
+
+Games / Tape Images / Scans
+
+##### [C64]
+
+FTP Archive
+
+---
+
+## License
+
+The `ROM` file header used belong to <br>
+**Commodore Business Machines**.
+
+Everything else falls under **[GPLv2]**.
+
+<!----------------------------------------------------------------------------->
+
+[GPLv2]: LICENSE
+
+[YAPE]: http://yape.homeserver.hu/
+[Atilia]: http://gaia.atilia.eu/
+
+[Build From Source]: docs/Build.md
+[How To Use]: docs/Usage.md
+
+[+4World]: http://plus4world.powweb.com/
+[C64]: http://c64.rulez.org
