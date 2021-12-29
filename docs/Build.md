@@ -6,6 +6,8 @@ If your system supports both **[SDL]** and **[GCC]**, <br>
 
 *Even porting to `Android` is possible*
 
+<br>
+
 ---
 
 **⸢ [Source Code] ⸥ ⸢ [Releases] ⸥**
@@ -25,9 +27,6 @@ Define `ZIP_SUPPORT` for **Preliminary ZIP File** support.
   *Only needed for `Compressed D64` files*
 
 <br>
-
----
-
 <br>
 
 ## Linux
@@ -65,9 +64,6 @@ errors you can start **Yape** with:
 Check out what **[Arguments]** you can pass.
 
 <br>
-
----
-
 <br>
 
 ## Mac OS X
@@ -79,9 +75,6 @@ Check out what **[Arguments]** you can pass.
 4. Use the provided `XCode` workspace.
 
 <br>
-
----
-
 <br>
 
 ## Windows
@@ -107,9 +100,6 @@ to avoid crashes caused by the **DX9** driver.
 *Studio are free and have an excellent debugger.*
 
 <br>
-
----
-
 <br>
 
 ## Emscripten
