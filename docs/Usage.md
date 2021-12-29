@@ -1,7 +1,11 @@
 
 # Usage
 
+<br>
+
 ---
+
+<br>
 
 ## Command Line Arguments
 
@@ -33,7 +37,11 @@ Start **Yape** with `C64` emulation.
 yapesdl -c64
 ```
 
+<br>
+
 ---
+
+<br>
 
 ## Shortcuts
 
@@ -63,7 +71,11 @@ yapesdl -c64
 | <kbd>Left Alt</kbd> + <kbd>F8</kbd> | **Save** Memory of `$2B/$2C` & `$2D/$2E` |
 | <kbd>Left Alt</kbd> + <kbd>Keypad +</kbd> | Collate **Replay** frequencies |
 
+<br>
+
 ---
+
+<br>
 
 ## Files
 
@@ -74,7 +86,11 @@ use the file system directory, usually `/home/<User>/yape`.
 
 It is also possible to ***browse the file tree*** from within the **User Interface**.
 
+<br>
+
 ---
+
+<br>
 
 ## ROMs
 
@@ -106,6 +122,8 @@ for this use the `Attach / Detach ROM` menu.
 
 In this mode, a handful of cartridges can be <br>
 loaded using the `Attach / Detach ROM` option.
+
+<br>
 
 ---
 
