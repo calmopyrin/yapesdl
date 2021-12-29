@@ -3,14 +3,14 @@
 **Version:** `0.71.1`
 
 This is a **SDL** port of the **[YAPE]** emulator, <br>
-developed by [`Attila Grósz`][Atilia] since the<br>
+developed by [`Attila Grósz`][Attilia] since the<br>
 the year **2000** till the present day.  
 
 <br>
 
 ---
 
-**⸢ [How To Use] ⸥ ⸢ [Build From Source] ⸥ ⸢ [Changelog] ⸥**
+**⸢ [Demo] ⸥ ⸢ [How To Use] ⸥ ⸢ [Build From Source] ⸥ ⸢ [Changelog] ⸥**
 
 ---
 
@@ -116,8 +116,9 @@ Everything else falls under **[GPLv2]**.
 [GPLv2]: LICENSE
 
 [YAPE]: http://yape.homeserver.hu/
-[Atilia]: http://gaia.atilia.eu/
+[Attilia]: http://gaia.atilia.eu/
 
+[Demo]: http://gaia.atilia.eu/download/wip/YapeSDL.html
 [Build From Source]: docs/Build.md
 [How To Use]: docs/Usage.md
 [Changelog]: docs/Changelog.md
