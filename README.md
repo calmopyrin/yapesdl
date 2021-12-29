@@ -6,11 +6,15 @@ This is a **SDL** port of the **[YAPE]** emulator, <br>
 developed by [`Attila Grósz`][Atilia] since the<br>
 the year **2000** till the present day.  
 
+<br>
+
 ---
 
 **⸢ [How To Use] ⸥ ⸢ [Build From Source] ⸥ ⸢ [Changelog] ⸥**
 
 ---
+
+<br>
 
 ## Features
 
@@ -32,9 +36,12 @@ the year **2000** till the present day.
 
 -   **Snapshots** / **Saves**
 
----
+<br>
+<br>
 
 ## Supported Chips
+
+<br>
 
 #### CPU Emulation
 
@@ -44,6 +51,8 @@ the year **2000** till the present day.
 <kbd>  6510  </kbd>  
 <kbd>  7501  </kbd>  
 <kbd>  8501  </kbd>
+
+<br>
 
 <br>
 
@@ -58,7 +67,8 @@ the year **2000** till the present day.
 | `SID` | `8580` | `Reasonable` |
 | `CIA` | `6526` | `Partially`<br>`Incomplete` |
 
----
+<br>
+<br>
 
 ## Supported Modules
 
@@ -78,7 +88,8 @@ the year **2000** till the present day.
 
     *Partial Emulation*
 
----
+<br>
+<br>
 
 ## Related
 
@@ -90,7 +101,8 @@ Games / Tape Images / Scans
 
 FTP Archive
 
----
+<br>
+<br>
 
 ## License
 
