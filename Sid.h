@@ -31,6 +31,10 @@ public:
 	virtual void dumpState();
 	virtual void readState();
 	//
+	inline void updateState(unsigned int cyclesToDo);
+	inline int getOutput(int cyclesToDo);
+	void catchUpOnState(ClockCycle currCycle);
+	void calcSamplesCycleBased(short* buf, unsigned int count);
 	static void setModel(unsigned int model);
 	void calcEnvelopeTable();
 	unsigned char read(unsigned int adr);
@@ -77,6 +81,7 @@ private:
 		unsigned int accPrev;	// previous accu value (for ring modulation)
 		unsigned int shiftReg;	// shift register for noise waveform
 		unsigned int waveNoiseOut; // stored value of noise output
+		int lastWaveFormOutput;
 
 		unsigned int freq;	// voice frequency
 		unsigned int pw;		// pulse-width value
@@ -100,12 +105,19 @@ private:
 		// This bit is set for the modulating voice,
 		// not for the modulated one (compared to the real one)
 		unsigned int sync; // sync modulation flag
+
+		inline void doAccuCycles(const unsigned int count);
+		inline void updateShiftReg();
+		inline void doEnvelopeGenerator(const unsigned int cycles);
+		inline void applySync();
+
 	} voice[3];			// array for the 3 channels
 	int volume;			// SID Master volume
 	unsigned int sidBaseFreq;	// SID base frequency
 	unsigned int sidCyclesPerSampleInt;
 	unsigned int clockDeltaRemainder; // Accumulator for frequency conversion
 	unsigned int clockDeltaFraction; // Fractional component for frequency conversion
+	ClockCycle lastUpdate; // Last cycle the SID was updated in for readout
 	static int dcMixer; // different for 6581 and 8580 (constant level output for digi)
 	static int dcVoice;
 	static int dcWave;
@@ -121,11 +133,9 @@ private:
 	inline static int waveTriPulse(SIDVoice &v);
 	inline static int waveSawPulse(SIDVoice &v);
 	inline static int waveTriSawPulse(SIDVoice &v);
-	inline static int waveNoise(SIDVoice &v);
+	inline static int waveNoise(unsigned int shiftReg);
 	inline static int getWaveSample(SIDVoice &v);
-	inline void updateShiftReg(SIDVoice &v);
-	// Envelope
-	inline int doEnvelopeGenerator(unsigned int cycles, SIDVoice &v);
+	
 	static const unsigned int RateCountPeriod[16]; // Factors for A/D/S/R Timing
 	static const unsigned char envGenDRdivisors[256]; // For exponential approximation of D/R
 	static unsigned int masterVolume;

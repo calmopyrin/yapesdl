@@ -41,9 +41,8 @@ inline static long bit(long val, unsigned int bitnr)
 	return (val >> bitnr) & 1;
 }
 
-inline void SIDsound::updateShiftReg(SIDVoice &v)
+inline void SIDsound::SIDVoice::updateShiftReg()
 {
-	unsigned int &shiftReg = v.shiftReg;
 	unsigned int bit22 = bit(shiftReg,22);
 	unsigned int bit17 = bit(shiftReg,17);
 
@@ -53,12 +52,11 @@ inline void SIDsound::updateShiftReg(SIDVoice &v)
 	// Feed bit 0
 	shiftReg = shiftReg | (bit22 ^ bit17);
 	// Store output
-	v.waveNoiseOut = waveNoise(v);
+	waveNoiseOut = waveNoise(shiftReg);
 }
 
-inline int SIDsound::waveNoise(SIDVoice &v)
+inline int SIDsound::waveNoise(unsigned int shiftReg)
 {
-	unsigned int shiftReg = v.shiftReg;
 	// Pick out bits to make output value, left shift by 4
 	return
 		(bit(shiftReg,22) << 11) |
@@ -150,13 +148,13 @@ const unsigned int SIDsound::RateCountPeriod[16] = {
 	0x1212,0x0222,0x1848,0x59B8,0x3840,0x77E2,0x7625,0x0A93
 };
 
-const unsigned char SIDsound::envGenDRdivisors[256] = {
-	30,30,30,30,30,30,16,16,16,16,16,16,16,16,8,8,
-	8,8,8,8,8,8,8,8,8,8,4,4,4,4,4,4,
+const unsigned char SIDsound::envGenDRdivisors[] = {
+	1,30,30,30,30,30,30,16,16,16,16,16,16,16,16,8,
+	8,8,8,8,8,8,8,8,8,8,8,4,4,4,4,4,
 	4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-	4,4,4,4,4,4,2,2,2,2,2,2,2,2,2,2,
+	4,4,4,4,4,4,4,2,2,2,2,2,2,2,2,2,
 	2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
-	2,2,2,2,2,2,2,2,2,2,2,2,2,1,1,1,
+	2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,1,
 	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
 	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
@@ -191,7 +189,7 @@ void SIDsound::setSampleRate(unsigned int sampleRate_)
 	calcEnvelopeTable();
 }
 
-SIDsound::SIDsound(unsigned int model, unsigned int chnlDisableMask) : enableDigiBlaster(false)
+SIDsound::SIDsound(unsigned int model, unsigned int chnlDisableMask) : enableDigiBlaster(false), lastUpdate(0)
 {
 	unsigned int i;
 
@@ -236,6 +234,7 @@ void SIDsound::reset(void)
 		voice[v].envAttackAdd = voice[v].envDecaySub = voice[v].envReleaseSub = 0;
 		voice[v].envCounterCompare = 0;
 		voice[v].envCounter = 0x7fff;
+		voice[v].lastWaveFormOutput = 0;
 	}
 	for (unsigned int i = 0; i < 32; i++)
 		reg[i] = 0;
@@ -306,11 +305,7 @@ inline int SIDsound::getWaveSample(SIDVoice &v)
 		case WAVE_NOISE:
 			return v.waveNoiseOut;
 		case WAVE_NONE:
-			if (v.accu) {
-				int rv = (v.accu >> 12);
-				v.accu >>= 1;
-				//return rv;
-			}
+			return 0x000;
 		default:
 			return 0x000;
 	}
@@ -318,22 +313,29 @@ inline int SIDsound::getWaveSample(SIDVoice &v)
 
 unsigned char SIDsound::read(unsigned int adr)
 {
-	switch(adr) {
-		case 0x19:
-		case 0x1A:
-			// POTX/POTY paddle potentiometers
-			lastByteWritten = 0;
-			return readPaddle_(adr);
+	switch (adr) {
+	case 0x19:
+	case 0x1A:
+		// POTX/POTY paddle potentiometers
+		lastByteWritten = 0;
+		return readPaddle_(adr - 0x19);
 
 		// Voice 3 (only) oscillator readout
 		// 8 most significant bits
 		case 0x1B:
 			lastByteWritten = 0;
-			return (unsigned char)(getWaveSample(voice[2]) >> 0) & (combinedWaveFormMask | -(voice[2].wave <= 8)); // 4?
+			{
+				unsigned int bits = voice[2].wave & 0xF;
+				// check if power of 2, i.e. no combined waveform
+				unsigned char mask = !(bits & (bits - 1)) ? 0xFF : combinedWaveFormMask;
+				return (unsigned char)(voice[2].lastWaveFormOutput >> 4) & (mask);
+			}
 
 		// Voice 3 EG readout
 		case 0x1C:
-			return (unsigned char)(voice[2].envCurrLevel);
+			/*fprintf(stderr, "cycle: %010llu envcount : %04X state: %02X level: %02X\n", 
+				lastUpdate, voice[2].envCounter, voice[2].egState, voice[2].envCurrLevel);*/
+ 			return (unsigned char)(voice[2].envCurrLevel);
 
 		case 0x1E: // Digiblaster DAC readout
 			if (enableDigiBlaster && model_ == SID8580)
@@ -369,15 +371,13 @@ void SIDsound::write(unsigned int adr, unsigned char value)
 		case 2:
 		case 9:
 		case 16:
-			v.pw >>= 12;
-			v.pw = ((v.pw & 0x0f00) | value) << 12;
+			v.pw = (v.pw & 0xf00000) | (value << 12);
 			break;
 
 		case 3:
 		case 10:
 		case 17:
-			v.pw >>= 12;
-			v.pw = ((v.pw & 0xff) | ((value & 0xf) << 8)) << 12;
+			v.pw = (v.pw & 0x0ff000) | ((value & 0xf) << 20);
 			break;
 
 		case 4:
@@ -395,10 +395,16 @@ void SIDsound::write(unsigned int adr, unsigned char value)
 				}
 				v.gate = value & 1;
 			}
-			v.modulatedBy->sync = value & 2;
+			v.sync = value & 2;
 			v.ring = value & 4;
+			// Latch wave output if waveform 0 is selected
+			// Waveform 0 outputs the previous oscillator value (with analogue fade in the real chip)
+			// Note: we would not need this if SID emulation was cycle based
+			if (v.wave && !(value >> 4)) {
+				v.lastWaveFormOutput = getWaveSample(voice[2]);
+			}
 			if ((value & 8) && !v.test) {
-				v.accu = 0; //(model_ >= SID8580) ? 0 : 0;
+				v.accu = 0;
 				unsigned int bit19 = (v.shiftReg >> 19) & 1;
 				v.shiftReg = (v.shiftReg & 0x7ffffd) | ((bit19^1) << 1);
 				v.test = 0xFFF;
@@ -507,7 +513,7 @@ inline unsigned int SIDsound::clock()
 // simplified version of http://bel.fi/~alankila/c64-sw/index-cpp.html
 inline int SIDsound::filterOutput(unsigned int cycles, int Vi)
 {
-	int w0deltaTime = w0 >> 6;
+	const int w0deltaTime = w0 >> 6;
 	Vi >>= 7;
 	unsigned int count = cycles;
 
@@ -553,138 +559,252 @@ inline int SIDsound::filterOutput(unsigned int cycles, int Vi)
 
 // Envelope based on:
 // http://blog.kevtris.org/?p=13
-inline int SIDsound::doEnvelopeGenerator(unsigned int cycles, SIDVoice &v)
+inline void SIDsound::SIDVoice::doEnvelopeGenerator(const unsigned int cycles)
 {
 	unsigned int count = cycles;
 
 	do {
-		unsigned int LFSR = v.envCounter;
-		if (LFSR != RateCountPeriod[v.envCounterCompare & 0x0f]) {
+		unsigned int LFSR = envCounter;
+		if (LFSR != RateCountPeriod[envCounterCompare & 0x0f]) {
 			const unsigned int feedback = ((LFSR >> 14) ^ (LFSR >> 13)) & 1;
 			LFSR = ((LFSR << 1) | feedback) & 0x7FFF;
-			v.envCounter = LFSR;
+			envCounter = LFSR;
 		} else {
 			// LFSR = 0x7fff reset LFSR
-			v.envCounter = 0x7fff;
+			envCounter = 0x7fff;
 
-			if (v.egState == EG_ATTACK || ++v.envExpCounter == envGenDRdivisors[v.envCurrLevel & 0xff]) {
+			if (egState == EG_ATTACK || ((egState != EG_FROZEN) && ++envExpCounter == envGenDRdivisors[envCurrLevel & 0xff])) {
 
-				v.envExpCounter = 0;
+				envExpCounter = 0;
 
-				switch (v.egState) {
+				switch (egState) {
 
 				case EG_ATTACK:
 					// According to Bob Yannes, Attack is linear...
-					if ( ((++v.envCurrLevel) & 0xFF) == 0xFF) {
-						v.egState = EG_DECAY;
-						v.envCounterCompare = v.envDecaySub;
+					if ( ((++envCurrLevel) & 0xFF) == 0xFF) {
+						egState = EG_DECAY;
+						envCounterCompare = envDecaySub;
 					}
 					break;
 
 				case EG_DECAY:
-					if (v.envCurrLevel != v.envSustainLevel) {
-						--v.envCurrLevel &= 0xFF;
-						if (!v.envCurrLevel)
-							v.egState = EG_FROZEN;
+					if (envCurrLevel != envSustainLevel) {
+						--envCurrLevel &= 0xFF;
+						if (!envCurrLevel)
+							egState = EG_FROZEN;
 					}
 					break;
 
 				case EG_RELEASE:
-					v.envCurrLevel = (v.envCurrLevel - 1) & 0xFF;
-					if (!v.envCurrLevel)
-						v.egState = EG_FROZEN;
+					envCurrLevel = (envCurrLevel - 1) & 0xFF;
+					if (!envCurrLevel)
+						egState = EG_FROZEN;
 					break;
 
 				case EG_FROZEN:
-					v.envCurrLevel = 0;
+					envCurrLevel = 0;
 					break;
 				}
 			}
 		}
 	} while (--count);
 
-	return v.envCurrLevel & 0xFF; // envelope is 8 bits
+//	return v.envCurrLevel & 0xFF; // envelope is 8 bits
+}
+
+inline void SIDsound::SIDVoice::doAccuCycles(const unsigned int cyclesToDo)
+{
+	if (!test && freq) {
+		// Update accumulator
+		const unsigned int add = freq * cyclesToDo;
+		accPrev = accu;
+		accu += add;
+
+		// noise shift register is updating even when waveform is not selected
+		unsigned int accNext = accPrev;
+		do {
+			accNext += freq;
+			// Update noise shift register when bit 19 is rising high (FIXME: this is delayed by 2 cycles)
+			if (!(accPrev & 0x080000) && (accNext & 0x080000))
+				updateShiftReg();
+		} while (accNext < accu);
+		// accu is 24 bit
+		accu &= 0xFFFFFF;
+	}
+}
+
+inline void SIDsound::SIDVoice::applySync()
+{
+#if EXACT_SYNC
+	if (modulatesThis->sync && !(accPrev & 0x800000) && (accu & 0x800000)
+		&& !(sync && !(modulatedBy->accPrev & 0x800000) && (modulatedBy->accu & 0x800000))
+		)
+		modulatesThis->accu = 0;
+#else
+	if (sync && !(modulatedBy->accPrev & 0x800000) && (modulatedBy->accu & 0x800000)
+		/*&& !(modulatedBy->sync && !(modulatedBy->accPrev & 0x80000) &&
+			((modulatedBy->accu + add) & 0x80000))*/
+		)
+	{
+		accu = (modulatedBy->accu - 0x800000) & 0xFFFFFF;
+	}
+#endif
+}
+
+inline void SIDsound::updateState(unsigned int cyclesToDo)
+{
+	// Unrolled loop for the three voices
+	// Waveform generators
+	voice[0].doAccuCycles(cyclesToDo);
+	voice[1].doAccuCycles(cyclesToDo);
+	voice[2].doAccuCycles(cyclesToDo);
+	// Apply syncing when all oscillators are updated
+	voice[0].applySync();
+	voice[1].applySync();
+	voice[2].applySync();
+	// Remember last value for OSC3 readout 
+	voice[2].lastWaveFormOutput = getWaveSample(voice[2]);
+	// Envelope generators
+	voice[0].doEnvelopeGenerator(cyclesToDo);
+	voice[1].doEnvelopeGenerator(cyclesToDo);
+	voice[2].doEnvelopeGenerator(cyclesToDo);
+}
+
+inline int SIDsound::getOutput(int cyclesToDo)
+{
+	// Outputs for normal and filtered sounds
+	int sumFilteredOutput = 0;
+	int sumOutput = 0;
+
+	// Filtered and unfiltered output
+	unsigned int j = 2;
+	do {
+		SIDVoice& v = voice[j];
+		// test bit sets pulse high
+		int output = v.test ? 0xFFF : getWaveSample(v);
+		int envelope = v.envCurrLevel & 0xFF; // envelope is 8 bits
+
+		if (v.filter)
+			sumFilteredOutput += (output - dcWave) * envelope + dcVoice;
+		else {
+			if (v.muted)
+				sumOutput += (0x0000 - dcWave) * envelope + dcVoice;
+			else
+				sumOutput += (output - dcWave) * envelope + dcVoice;
+		}
+	} while (j--);
+
+	return (sumOutput + filterOutput(cyclesToDo, sumFilteredOutput)
+		+ dcMixer + dcDigiBlaster) * volume;
 }
 
 void SIDsound::calcSamples(short *buf, unsigned int count)
 {
 	do {
-		// Outputs for normal and filtered sounds
-		int sumFilteredOutput = 0;
-		int sumOutput = 0;
-
-		const unsigned int cyclesToDo = clock();
-		// Loop for the three voices
-		unsigned int j = 2;
-		do {
-			SIDVoice &v = voice[j];
-			const unsigned int freq = v.freq;
-			// Waveform generator
-			if (!v.test && freq) {
-				unsigned int accPrev = v.accu;
-				v.accPrev = accPrev;
-				// Update accumulator
-				const unsigned int add = freq * cyclesToDo;
-				v.accu += add;
-				// FIXME Apply syncing
-#if !EXACT_SYNC
-				if (v.sync && !(accPrev & 0x800000) && (v.accu & 0x800000)
-					)
-					v.modulatesThis->accu = 0;
-#else
-				if (v.sync && !(accPrev & 0x800000) && (v.accu & 0x800000)
-					/*&& !(v.modulatedBy->sync && !(v.modulatedBy->accPrev & 0x80000) &&
-						((v.modulatedBy->accu + add) & 0x80000))*/
-					)
-				{
-					if (j > v.modulatesThis->index) {
-						v.modulatesThis->accu = (accPrev - 0x8000000) & 0xFFFFFFF;
-					} else {
-						unsigned int addModulating = v.modulatesThis->accu > v.modulatesThis->accPrev ? 0 : 0x8000000;
-						addModulating += v.modulatesThis->accu - v.modulatesThis->accPrev;
-						v.modulatesThis->accu = (accPrev + addModulating - 0x8000000) & 0xFFFFFFF;
-					}
-				}
-#endif
-				// noise shift register is updating even when waveform is not selected
-				unsigned int accNext = accPrev;
-				do {
-					accNext += freq;
-					// Update noise shift register
-					if (!(accPrev & 0x080000) && (accNext & 0x080000))
-						updateShiftReg(v);
-					accPrev = accNext;
-				} while (accNext < v.accu);
-				// accu is 24 bit
-				v.accu &= 0xFFFFFF;
-			}
-#if EXACT_SYNC
-		} while (j--);
-		j = 2;
-		do {
-			SIDVoice &v = voice[j];
-#endif
-			int output = getWaveSample(v);
-			int envelope = doEnvelopeGenerator(cyclesToDo, v);
-
-			if (v.filter)
-				sumFilteredOutput += (output - dcWave) * envelope + dcVoice;
-			else {
-				if (v.muted)
-					sumOutput += (0x0000 - dcWave) * envelope + dcVoice;
-				else
-					sumOutput += (output - dcWave) * envelope + dcVoice;
-			}
-		} while (j--);
-
-		int accu = (sumOutput + filterOutput(cyclesToDo, sumFilteredOutput)
-			+ dcMixer + dcDigiBlaster) * volume;
-
-		*buf++ = (short) (accu >> 11);
+		const int cyclesToDo = clock();
+		updateState(cyclesToDo);
+		*buf++ = (short) (getOutput(cyclesToDo) >> 11);
 	} while (--count);
 }
 
 SIDsound::~SIDsound()
 {
 	masterVolume = volume;
+}
+
+static short interimBuffer[312 * 63 * 2];
+static unsigned int sampleUpdatePointer = 0;
+static int lastCount = 0;
+
+/*
+void SIDsound::catchUpOnState(ClockCycle currCycle)
+{
+	int todo = (int)(currCycle - lastUpdate);
+	while (todo > lastCount) {
+		if (lastCount) {
+			updateState(lastCount);
+			interimBuffer[sampleUpdatePointer++] = (short)(getOutput(lastCount) >> 11);
+			todo -= lastCount;
+		}
+		lastCount = clock();
+	}
+	//fprintf(stderr, "UPDATE cycle: %012llu todo: %012llu sample: %u\n", currCycle, lastUpdate, sampleUpdatePointer);
+	if (todo > 0) {
+		updateState(todo);
+		lastCount -= todo;
+	}
+	lastUpdate = currCycle;
+}
+
+void SIDsound::calcSamples(short* buf, unsigned int count)
+{
+	//if (count > sizeof(interimBuffer) / 2)
+	//	count = sizeof(interimBuffer) / 2;
+	while (count > sampleUpdatePointer) {
+		if (lastCount) {
+			updateState(lastCount);
+			interimBuffer[sampleUpdatePointer++] = (short)(getOutput(lastCount) >> 11);
+			lastUpdate += lastCount;
+		}
+		if (count > sampleUpdatePointer)
+			lastCount = clock();
+		else
+			lastCount = 0;
+	}
+	//fprintf(stderr, "FLUSH  cycle: %012llu todo: %08i sample: %08u\n", lastUpdate, lastCount, sampleUpdatePointer);
+	//if (count < sampleUpdatePointer) {
+	//	for (register unsigned int i = 0; i < count; i++)
+	//		buf[i] = interimBuffer[i];
+	//	for (register unsigned int i = 0; i < sampleUpdatePointer - count; i++)
+	//		buf[count + i] = interimBuffer[count + i];
+	//	sampleUpdatePointer = sampleUpdatePointer - count;
+	//}
+	for (register unsigned int i = 0; i < count; i++)
+		buf[i] = interimBuffer[i];
+	sampleUpdatePointer = 0;
+}
+*/
+
+int cycleCountForSample = 0;
+
+void SIDsound::catchUpOnState(ClockCycle currCycle)
+{
+	int todo = (int)(currCycle - lastUpdate);
+
+	if (todo > 0) {
+		int cyclesLeft = todo;
+		cycleCountForSample += todo;
+		while (cycleCountForSample > lastCount) {
+			lastCount = clock();
+			if (sampleUpdatePointer >= sizeof(interimBuffer) / 2)
+				return;
+			updateState(lastCount);
+			interimBuffer[sampleUpdatePointer++] = (short)(getOutput(lastCount) >> 11);
+			cycleCountForSample -= lastCount;
+			cyclesLeft -= lastCount;
+		}
+		if (cyclesLeft > 0)
+			updateState(cyclesLeft);
+		else
+			return;
+		lastUpdate = currCycle;
+	}
+}
+
+void SIDsound::calcSamplesCycleBased(short* buf, unsigned int count)
+{
+	//if (count > sizeof(interimBuffer) / 2)
+	//	count = sizeof(interimBuffer) / 2;
+	while (count > sampleUpdatePointer) {
+		catchUpOnState(lastUpdate + 1);
+	}
+	for (unsigned int i = 0; i < count; i++)
+		buf[i] = interimBuffer[i];
+	sampleUpdatePointer -= count;
+	//fprintf(stderr, "FLUSH  cycle: %012llu todo: %08i sample: %08u\n", lastUpdate, lastCount, sampleUpdatePointer);
+	if (sampleUpdatePointer) {
+		for (unsigned int i = 0; i < sampleUpdatePointer; i++)
+			interimBuffer[i] = interimBuffer[count + i];
+		sampleUpdatePointer = 0;
+	}
 }
