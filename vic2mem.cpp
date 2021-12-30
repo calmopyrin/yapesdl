@@ -81,7 +81,7 @@ static unsigned char cycleLookup[][128] = {
 
 static unsigned char prevY;
 
-Vic2mem::Vic2mem() : gamepin(1), exrom(1)
+Vic2mem::Vic2mem() : gamepin(1), exrom(1), reu(0)
 {
     instance_ = this;
 	setId("VIC2");
@@ -126,6 +126,8 @@ Vic2mem::Vic2mem() : gamepin(1), exrom(1)
 	Reset(true);
 	// remove TED sound (inherited) from the list
 	SoundSource::remove(this);
+
+	enableREU(reuSizeKb);
 }
 
 Vic2mem::~Vic2mem()
@@ -134,13 +136,17 @@ Vic2mem::~Vic2mem()
 	delete keys64;
 }
 
-void Vic2mem::Reset(bool clearmem)
+void Vic2mem::Reset(unsigned int resetLevel)
 {
-	if (clearmem) {
-		for (int i=0;i<RAMSIZE;Ram[i] = (i>>1)<<1==i ? 0 : 0xFF, i++);
-		loadroms();
+	// reset memory banks
+	if (resetLevel & 1) {
 		mem_8000_bfff = rom[0];
 		mem_c000_ffff = rom[0] + 0x4000;
+	}
+	// clear RAM with powerup pattern and reload ROM's
+	if (resetLevel & 2) {
+		for (int i = 0; i < RAMSIZE; Ram[i] = (i >> 1) << 1 == i ? 0 : 0xFF, i++);
+		loadroms();
 	}
 	// empty collision buffers
 	memset(spriteCollisions, 0, sizeof(spriteCollisions));
@@ -314,7 +320,7 @@ void Vic2mem::copyToKbBuffer(const char *text, unsigned int length)
 
 Color Vic2mem::getColor(unsigned int ix)
 {
-	const double bsat = 45.0;
+	const double bsat = 43.0;
 	const Color color[16] = {
 		{ 0, 0, 0 }, { 0, 5.0, 0 }, 
 #ifndef MOS6569R1
@@ -330,10 +336,15 @@ Color Vic2mem::getColor(unsigned int ix)
 		{ 126, 3.125, bsat },{ 147, 2.75, bsat },{ 96, 3.5, bsat },{ 0, 2.9375, 0 },
 		{ 0, 3.41, 0 },{ 245, 4.25, bsat },{ 350, 3.41, bsat },{ 0, 3.875, 0 }
 #else // screenshot
-	{ 96, 2.9375, bsat },{ 283, 3.875, bsat },
-	{ 55, 3.125, bsat },{ 241, 3.5, bsat },{ 347, 2.75, bsat },{ 167, 4.25, bsat },
-	{ 129, 3.125, bsat },{ 148, 2.75, bsat },{ 96, 3.5, bsat },{ 0, 2.9375, 0 },
-	{ 0, 3.41, 0 },{ 241, 4.25, bsat },{ 347, 3.41, bsat },{ 0, 3.875, 0 }
+	//{ 96, 2.9375, bsat },{ 283, 3.875, bsat },
+	//{ 55, 3.125, bsat },{ 241, 3.5, bsat },{ 347, 2.75, bsat },{ 167, 4.25, bsat },
+	//{ 129, 3.125, bsat },{ 148, 2.75, bsat },{ 96, 3.5, bsat },{ 0, 2.9375, 0 },
+	//{ 0, 3.41, 0 },{ 241, 4.25, bsat },{ 347, 3.41, bsat },{ 0, 3.875, 0 }
+	// measured from a C64C direct composite picture shot
+	{ 100, 2.9, bsat },{ 280, 4.1, bsat },
+	{ 47, 3.2, bsat },{ 227, 3.68, bsat },{ 343, 2.75, bsat },{ 163, 4.70, bsat },
+	{ 123, 3.2, bsat },{ 143, 2.75, bsat },{ 103, 3.68, bsat },{ 0, 2.9, 0 },
+	{ 0, 3.5, 0 },{ 233, 4.70, bsat },{ 343, 3.5, bsat },{ 0, 4.1, 0 }
 #endif
 #endif
 #else // 6569R1
@@ -352,24 +363,30 @@ void Vic2mem::soundReset()
 		sidCard->reset();
 }
 
-void Vic2mem::changeCharsetBank()
+unsigned int Vic2mem::getVicBaseAddress()
 {
 	const unsigned int vicBank = (((cia[1].pra | ~cia[1].ddra) ^ 0xFF) & 3) << 14;
+	return vicBank;
+}
 
-	vicBase = Ram + vicBank;
+void Vic2mem::changeCharsetBank()
+{
+	const unsigned int vicBaseAddr = getVicBaseAddress();
+
+	vicBase = Ram + vicBaseAddr;
 	// video matrix base address
 	const unsigned int vmOffset = ((vicReg[0x18] & 0xF0) << 6);
 	VideoBase = vicBase + vmOffset;
 	// character bitmap data
 	const unsigned int cSetOffset = ((vicReg[0x18] & 0x0E) << 10);
-	charrambank = vicBase + cSetOffset;
 
-	cset = (!(vicBank & 0x4000) && ((cSetOffset & 0x3000) == 0x1000)) // 4 or 6
-		? charrombank + (cSetOffset & 0x0800) : charrambank;
+	cset = (!(vicBaseAddr & 0x4000) && ((cSetOffset & 0x3000) == 0x1000)) // 4 or 6
+		? charrombank + (cSetOffset & 0x0800) : vicBase + cSetOffset;
 	grbank = vicBase + ((vicReg[0x18] & 8) << 10);
 #if 0
 	fprintf(stderr, "VIC bank: %04X, grbank:%04X matrix:%04X cset:%04X(%u) in line:%03i pra:%02X ddra:%02X vic18:%02X\n",
-		vicBank, (vicReg[0x18] & 8) << 10, vmOffset, cSetOffset, cset != charrambank, beamy, cia[1].pra, cia[1].ddra, vicReg[0x18]);
+		vicBaseAddr, (vicReg[0x18] & 8) << 10, vmOffset, cSetOffset, cset != (vicBase + cSetOffset), 
+		beamy, cia[1].pra, cia[1].ddra, vicReg[0x18]);
 #endif
 }
 
@@ -456,8 +473,8 @@ void Vic2mem::doDelayedDMA()
 				} else {
 					dmaCount = 0;
 				}
-				//fprintf(stderr, "Delayed DMA:%02i count:%i @ XSCR=%i X=%i Y=%i(%02X) YSCR=%0X @ PC=%04X\n", delay,
-				//        dmaCount, hshift, beamx, beamy,  beamy, vshift, cpuptr->getPC());
+				/*fprintf(stderr, "Delayed DMA:%02i count:%i @ XSCR=%i X=%i Y=%i(%02X) YSCR=%0X @ PC=%04X\n", delay,
+				        dmaCount, hshift, beamx, beamy,  beamy, vshift, cpuptr->getPC());*/
 			} else {
 				//fprintf(stderr, "Bad line (DMAdelay:%i) @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", delayedDMA,
 				//	hshift, beamx, beamy, beamy, cpuptr->getPC());
@@ -582,6 +599,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 					case 0xD7:
 						if (sidCard) {
 							flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
+							//sidCard->catchUpOnState(CycleCounter);
 							return sidCard->read(addr & 0x1F);
 						}
 						return 0xD4;
@@ -647,8 +665,12 @@ unsigned char Vic2mem::Read(unsigned int addr)
 						/*fprintf(stderr, "CIA2(%02X) read:%02X @ PC=%04X @ cycle=%lli\n", addr & 0x1f, cia[1].read(addr & 0xf),
 								cpuptr->getPC(), CycleCounter);*/
 						return cia[1].read(addr);
+					case 0xDF:
+						if (reu) {
+							return reu->Read(addr);
+						}
 					default: // open address space
-						return cpuptr->getcins();// beamy ^ beamx;//actram[addr & 0xFFFF];
+						return readFloatingBus(addr); // cpuptr->getcins();
 				}
 			}
 	}
@@ -679,6 +701,10 @@ skip:
 				}
 			}
 			return;
+		case 0xF000:
+			if (reu && addr == 0xFF00) {
+				reu->startDMA();
+			}
 		default:
 			actram[addr & 0xFFFF] = value;
 			return;
@@ -874,6 +900,7 @@ skip:
 					case 0xD6:
 					case 0xD7:
 						if (sidCard) {
+							//sidCard->catchUpOnState(CycleCounter);
 							flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
 							sidCard->write(addr & 0x1f, value);
 						}
@@ -925,6 +952,11 @@ skip:
 						}
 						//fprintf(stderr, "CIA2(%02X) write: %02X @ PC=%04X\n", addr & 0x0f, value, cpuptr->getPC());
 						cia[1].write(addr, value);
+						return;
+					case 0xDF:
+						if (reu) {
+							reu->Write(addr, value);
+						}
 						return;
 					default: // $DExx/$DFxx open I/O
 						//actram[addr & 0xFFFF] = value;
@@ -992,6 +1024,10 @@ inline void Vic2mem::newLine()
 			VBlanking = true;
 			break;
 
+		case 261:
+			CharacterPositionReload = 0; // preliminary docs
+			break;
+
 		case 0:
 		case 512:
 		case 312: // Vertical retrace
@@ -999,7 +1035,7 @@ inline void Vic2mem::newLine()
 				endOfScreen = true;
 			}
 			beamy = 0;
-			CharacterPositionReload = 0;
+			//CharacterPositionReload = 0;
 			doVRetrace();
 			// CIA ToD count @ 50/60 Hz
 			cia[0].todUpdate();
@@ -1287,9 +1323,22 @@ inline unsigned char Vic2mem::readFloatingBus(unsigned int adr)
 	unsigned char c = cycleLookup[BadLine][prevcycle];
 	switch (c) {
 	default:
-	case 'p':
+		{
+			const unsigned int addrMask = (scrattr & EXTCOLOR) ? 0x39FF : 0x3FFF;
+			//unsigned int matrixAddr = (CharacterPosition + x) > 0x3FF ? 0 : (CharacterPosition + x);
+			const unsigned int matrixPos = (CharacterPosition + x);
+			const unsigned int addr = (matrixPos > 0x03FF) ? 0x1FFF : ((matrixPos << 3) | vertSubCount);
+			/*fprintf(stderr, "X=%u Y=%u PC=%04X: Floating bus read from addr %04X -> %02X\n", beamx, beamy,
+				cpuptr->getPC(), addr, grbank[addr]);*/
+			if (scrattr & GRAPHMODE) {
+				return grbank[addr & addrMask];
+			} else {
+				unsigned int chr = chrbuf[x];
+				return cset[((chr << 3) & addrMask) | vertSubCount];
+			}
+		}
+	case 'c':
 		return cpuptr->getcins();
-		break;
 	}
 }
 
@@ -1847,4 +1896,251 @@ inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
 			spriteCollisions[i] = 0;
 		}
 	}
+}
+
+void Vic2mem::enableREU(unsigned int sizekb)
+{
+	if (sizekb) {
+		if (reu)
+			delete reu;
+		reu = new REU(sizekb, this);
+		reuSizeKb = sizekb;
+	}
+	else if (reu && !sizekb) {
+		delete reu;
+		reu = NULL;
+		reuSizeKb = 0;
+	}
+}
+
+//#define LOG_REU
+
+void Vic2mem::REU::doTransfer(unsigned int type)
+{
+	unsigned int i;
+	
+	i = (transferLen - 1) & 0xFFFF;
+
+	switch (type) {
+	// 00 = transfer Machine -> REU
+	default:
+#ifdef LOG_REU
+		fprintf(stderr, "$%04X : Transfer %04X bytes from Machine (%04X) to REU (%010X)\n", machine->cpuptr->getPC(), transferLen,
+			machineBaseAddress, ((bank << 16) | baseAddress) & memMask);
+#endif
+		do {
+			ram[(((bank << 16) | baseAddress) + i) & memMask] = machine->Read((machineBaseAddress + i) & 0xFFFF);
+		} while (i--);
+		break;
+	// 01 = transfer REU -> Machine
+	case 0x01:
+		do {
+			machine->Write((machineBaseAddress + i) & 0xFFFF, ram[(((bank << 16) | baseAddress) + i) & memMask]);
+		} while (i--);
+		break;
+	// 10 = swap Machine <-> REU
+	case 0x02:
+#ifdef LOG_REU
+		fprintf(stderr, "$%04X : Swapping %04X bytes bw Machine (%04X) and REU (%010X)\n", machine->cpuptr->getPC(), transferLen,
+			machineBaseAddress, ((bank << 16) | baseAddress) & memMask);
+#endif
+		do {
+			unsigned int machineMemAddr = (machineBaseAddress + i) & 0xFFFF;
+			unsigned int reuMemAddr = (((bank << 16) | baseAddress) + i) & memMask;
+			unsigned char tmp = machine->Read(machineMemAddr);
+			machine->Write(machineMemAddr, ram[reuMemAddr]);
+			ram[reuMemAddr] = tmp;
+		} while (i--);
+		break;
+	// 11 = compare Machine -- REU
+	case 0x03:
+#ifdef LOG_REU
+		fprintf(stderr, "$%04X : Comparing %04X bytes bw Machine (%04X) and REU (%010X)\n", machine->cpuptr->getPC(), transferLen,
+			machineBaseAddress, ((bank << 16) | baseAddress) & memMask);
+#endif
+		regs[0] &= ~0x20;
+		do {
+			unsigned int machineMemAddr = (machineBaseAddress + i) & 0xFFFF;
+			unsigned int reuMemAddr = (((bank << 16) | baseAddress) + i) & memMask;
+			if (machine->Read(machineMemAddr) != ram[reuMemAddr]) {
+				// set error
+				regs[0] |= 0x20;
+				break;
+			}
+		} while (i--);
+		break;
+	}
+	if (regs[0] & 0x20) {// autoload
+		baseAddress += transferLen;
+		machineBaseAddress += transferLen;
+		transferLen = 1;
+	}
+	xferReady = 1;
+	command &= ~0x80;
+}
+
+void Vic2mem::REU::doCommand(unsigned int cmd)
+{
+	command = cmd;
+	if (cmd & 0x80) {
+		// start immediately?
+		if (cmd & 0x10) {
+			doTransfer(command & 3);
+			if (imr & 0x80)
+				irqFlag = 1;
+		}
+	}
+}
+
+void Vic2mem::REU::Write(unsigned int addr, unsigned char data)
+{
+	addr &= 0x0F;
+	switch (addr) {
+	case 1:
+		doCommand(data);
+		break;
+	case 2:
+		machineBaseAddress = (machineBaseAddress & 0xFF00) | data;
+		break;
+	case 3:
+		machineBaseAddress = (data << 8)|(machineBaseAddress & 0xFF);
+		break;
+	case 4:
+		baseAddress = (baseAddress & 0xFF00) | data;
+		break;
+	case 5:
+		baseAddress = ((data) << 8) | (baseAddress & 0xFF);
+		break;
+	case 6:
+		bank = data & bankMask;
+		break;
+	case 7:
+		transferLen = (transferLen & 0xFF00) | data;
+		if (!transferLen) transferLen = 0x10000;
+		break;
+	case 8:
+		transferLen = (data << 8) | (transferLen & 0xFF);
+		if (!transferLen) transferLen = 0x10000;
+		break;
+	case 9:
+		imr = (imr & ~0xE0) | (data & 0xE0);
+		break;
+	default:;
+	}
+#ifdef LOG_REU
+	fprintf(stderr, "$%04X : REU reg(%02X) written: %02X\n", machine->cpuptr->getPC(), addr, data);
+#endif
+	regs[addr] = data;
+}
+
+unsigned char Vic2mem::REU::Read(unsigned int addr)
+{
+	unsigned char rv;
+	addr &= 0x0F;
+	switch (addr) {
+	default:
+		rv = regs[addr];
+		break;
+	case 0:
+		rv |= (sizeKb >= 256) ? 0x10 : 0x00;
+		rv |= xferReady ? 0x40 : 0x00;
+		rv |= irqFlag ? 0x80 : 0x00;
+		xferReady = 0;
+		break;
+	case 1:
+		rv = command & ~0x4C;
+		break;
+	case 4:
+		rv = baseAddress & 0xFF;
+		break;
+	case 5:
+		rv = baseAddress >> 8;
+		break;
+	case 6:
+		rv = bank | ~0x03;
+		break;
+	case 7:
+		rv = transferLen & 0xFF;
+		break;
+	case 8:
+		rv = (transferLen >> 8) & 0xFF;
+		break;
+	case 9:
+		rv = imr | 0x1F;
+		break;
+	case 0xA:
+		rv = regs[10] | 0x3F;
+		break;
+	}
+#ifdef LOG_REU
+	fprintf(stderr, "$%04X : REU reg(%02X) read: %02X\n", machine->cpuptr->getPC(), addr, rv);
+#endif
+	return rv;
+}
+
+void Vic2mem::REU::startDMA()
+{
+	if (!(command & 0x10)) //  && (command & 0x80)
+		doTransfer(command & 3);
+}
+
+void Vic2mem::REU::Reset() 
+{
+	command = 0;
+	xferReady = 0;
+	regs[0] = 0;
+	machineBaseAddress = 0;
+	baseAddress = 0;
+	transferLen = 1;
+	memset(ram, 0, sizeInBytes);
+}
+
+void Vic2mem::REU::initRam(unsigned int sizekb)
+{
+	sizeKb = sizekb;
+	sizeInBytes = sizekb * 1024;
+	memMask = sizeInBytes - 1;
+	bankMask = (sizekb - 1) >> 6;
+	if (ram)
+		delete[] ram;
+	ram = new unsigned char[sizeInBytes];
+}
+
+Vic2mem::REU::REU(unsigned int sizekb, TED *machine_) : ram(0)
+{
+	setId("REU0");
+	initRam(sizekb);
+	machine = machine_;
+	Reset();
+}
+
+void Vic2mem::REU::dumpState()
+{
+	unsigned int i;
+
+	saveVar(&sizeInBytes, sizeof(sizeInBytes));
+	saveVar(ram, sizeInBytes);
+	for (i = 0; i < 16; i++)
+		saveVar(regs + i, sizeof(regs[i]));
+}
+
+void Vic2mem::REU::readState()
+{
+	unsigned int i;
+
+	readVar(&sizeInBytes, sizeof(sizeInBytes));
+	initRam(sizeInBytes >> 10);
+	readVar(ram, sizeInBytes);
+	// discard first two registers
+	readVar(regs, sizeof(regs[0]));
+	readVar(regs + 1, sizeof(regs[1]));
+	for (i = 2; i < 16; i++) {
+		readVar(regs + i, sizeof(regs[i]));
+		Write(i, regs[i]);
+	}
+}
+
+Vic2mem::REU::~REU()
+{
+	delete[] ram;
 }

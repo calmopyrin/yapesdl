@@ -16,17 +16,17 @@ struct Color;
 class Vic2mem : public TED
 {
     public:
-        Vic2mem();
-        virtual ~Vic2mem();
+		Vic2mem();
+		virtual ~Vic2mem();
 		virtual KEYS *getKeys() { return (KEYS*) keys64; }
 		virtual void loadroms();
-        virtual void Reset(bool clearmem);
-        virtual void soundReset();
-        // read memory through memory decoder
-        virtual unsigned char Read(unsigned int addr);
-        virtual void Write(unsigned int addr, unsigned char value);
+		virtual void Reset(unsigned int resetLevel);
+		virtual void soundReset();
+		// read memory through memory decoder
+		virtual unsigned char Read(unsigned int addr);
+		virtual void Write(unsigned int addr, unsigned char value);
 		virtual void poke(unsigned int addr, unsigned char data) { Ram[addr & 0xffff] = data; }
-        virtual void ted_process(const unsigned int continuous);
+		virtual void ted_process(const unsigned int continuous);
 		virtual void setCpuPtr(CPU *cpu);
 		//virtual unsigned int getColorCount() { return 256; };
 		virtual Color getColor(unsigned int ix);
@@ -47,6 +47,7 @@ class Vic2mem : public TED
 		virtual void dumpState();
 		virtual void readState();
 		virtual void loadromfromfile(int nr, const char fname[512], unsigned int offset);
+		virtual void enableREU(unsigned int sizekb);
 
     protected:
 		void doHRetrace();
@@ -119,6 +120,42 @@ class Vic2mem : public TED
 		void changeMemoryBank(unsigned int port, unsigned int ex, unsigned int game);
 		unsigned char *mem_8000_9fff;
 		unsigned char *mem_1000_3fff; // for Ultimax mode
+		unsigned int getVicBaseAddress();
+		// REU
+		class REU : public MemoryHandler, public SaveState {
+			REU(unsigned int sizekb, TED *machine_);
+			~REU();
+			void initRam(unsigned int sizekb);
+			unsigned int sizeKb;
+			unsigned int sizeInBytes;
+			unsigned int memMask;
+			unsigned char status;
+			unsigned char command;
+			unsigned int xferReady;
+			unsigned int bank;
+			unsigned int bankMask;
+			unsigned int baseAddress;
+			unsigned int machineBaseAddress;
+			unsigned int transferLen;
+			unsigned char imr;
+			unsigned char acr;
+			unsigned char regs[16];
+			unsigned char* ram;
+			void doCommand(unsigned int cmd);
+			void doTransfer(unsigned int type);
+			virtual void Write(unsigned int addr, unsigned char data);
+			virtual unsigned char Read(unsigned int addr);
+			virtual void Reset();
+			// inherited from SaveState
+			virtual void dumpState();
+			virtual void readState();
+			//
+			void startDMA();
+			TED *machine;
+			
+			friend Vic2mem;
+		};
+		REU* reu;
 };
 
 #endif // VIC2MEM_H

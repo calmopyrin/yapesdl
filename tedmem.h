@@ -53,8 +53,8 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	TAP	*tap;
 	virtual KEYS *getKeys() { return keys; }
 	virtual void UpdateSerialState(unsigned char portval);
-	virtual void Reset(bool clearmem);
-	virtual void Reset() { Reset(true); };
+	virtual void Reset(unsigned int resetLevel);
+	virtual void Reset() { Reset(3); };
 	void soundReset();
 	// read memory through memory decoder
   	virtual unsigned char Read(unsigned int addr);
@@ -69,8 +69,10 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	static unsigned int getRamMask(void) { return RAMMask;}
 	// are the ROMs disabled?
   	bool RAMenable;
-	// indicates whether 256K RAM is on
-	static unsigned int bigram, bramsm;
+	// RAM expansions
+	static unsigned int reuSizeKb;
+	static void flipRamExpansion(void* none);
+	virtual void enableREU(unsigned int sizekb);
 	// /ram/rom path/load variables
 	virtual void loadroms(void);
 	virtual void loadromfromfile(int nr, const char fname[512], unsigned int offset);
@@ -152,8 +154,14 @@ protected:
 	unsigned char *actromlo, *actromhi;
 	unsigned char *mem_8000_bfff, *mem_c000_ffff, *mem_fc00_fcff;
   	static unsigned int RAMMask;
-	unsigned char RamExt[4][RAMSIZE];	// Ram slots for 256 K RAM
 	unsigned char *actram;
+	unsigned char* actramBelow4000;
+	// Ram expansion
+	unsigned char* ramExt;
+	unsigned int reuBank;
+	unsigned int reuMemMask;
+	void reuWrite(unsigned char value);
+	// I/O ports
 	unsigned char prp, prddr;
 	unsigned char pio1;
 	// indicates if screen blank is off

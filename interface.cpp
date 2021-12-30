@@ -34,7 +34,7 @@ extern bool openZipDisk(const char *fname, bool autostart);
 extern void machineDoSomeFrames(unsigned int frames);
 extern void machineEnable1551(bool enable);
 extern bool machineIsTrueDriveEnabled(unsigned int dn);
-extern void machineReset(bool hardreset);
+extern void machineReset(unsigned int resetlevel);
 extern void setMainLoop(int looptype);
 
 #define COLOR(COL, SHADE) ((SHADE<<4)|COL|0x80)
@@ -319,7 +319,7 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 		if (fileFoundName && strcmp(fileFoundName, ".") && strcmp(fileFoundName, "..")) {
 			ft = ad_return_current_filetype();
 			// fprintf(stderr,"Parsed: %s\n", ad_return_current_filename());
-			if (ft != FT_FILE) {
+			if (ft != FT_FILE && nf < sizeof(menu->element)/sizeof(menu->element[0])) {
 				strcpy(menu->element[nf].name, ad_return_current_filename());
 				menu->element[nf].menufunction = (ft == FT_DIR ? UI_DIR_ITEM : UI_DRIVE_ITEM);
 				++nf;
@@ -545,12 +545,13 @@ bool UI::handle_menu_command( struct element_t *element)
 				unsigned int rbank = ix >> 1;
 				unsigned int roffset = (ix & 1) ? 0x4000 : 0;
 				ted8360->loadromfromfile(rbank, storedPath, roffset);
-				machineReset(true);
+				machineReset(1);
 				curr_menu = bank_selection_menu.parent;
 			}
 			break;
 
 		case UI_FRE_ITEM:
+			fprintf(stderr, "Loading emulator state from %s.\n", element->name);
 			SaveState::openSnapshot(element->name, false);
 			//clear(0, 0);
 			break;
@@ -613,7 +614,7 @@ bool UI::handle_menu_command( struct element_t *element)
 			void ();
 			return true;
 		case UI_EMULATOR_RESET:
-			machineReset(true);
+			machineReset(1);
 			return true;
 		case UI_EMULATOR_EXIT:
 			exit(1);

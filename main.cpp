@@ -176,11 +176,9 @@ inline static void DebugInfo()
 
 //-----------------------------------------------------------------------------
 
-void machineReset(bool hardreset)
+void machineReset(unsigned int resetlevel)
 {
-	if (hardreset) {
-		ted8360->Reset(hardreset);
-	}
+	ted8360->Reset(resetlevel);
 	machine->Reset();
 	CTrueDrive::ResetAllDrives();
 }
@@ -190,6 +188,8 @@ void machineDoSomeFrames(unsigned int frames)
 	ted8360->getKeys()->block(true);
 	while (frames--) {
 		ted8360->ted_process(1);
+		if (g_inDebug)
+			DebugInfo();
 		frameUpdate();
 	}
 	ted8360->getKeys()->block(false);
@@ -319,6 +319,7 @@ bool start_file(const char *szFile, bool autostart = true)
 			return true;
 		}
 		if (!strcmp(fileext, ".yss")) {
+			fprintf(stderr, "Loading emulator state from %s.\n", lastSnapshotName);
 			return SaveState::openSnapshot(szFile, false);
 		}
 		return false;
@@ -469,7 +470,7 @@ bool SaveSettings(char *inifileName)
 		fprintf(ini,"ActiveJoystick = %d\n", KEYS::activejoy);
 		rammask = ted8360->getRamMask();
 		fprintf(ini,"RamMask = %x\n",rammask);
-		fprintf(ini,"256KBRAM = %x\n",ted8360->bigram);
+		fprintf(ini,"256KBRAM = %u\n",ted8360->reuSizeKb);
 		fprintf(ini,"SaveSettingsOnExit = %x\n",g_bSaveSettings);
 
 		for (i = 0; i<4; i++) {
@@ -517,8 +518,13 @@ bool LoadSettings(char *inifileName)
 					sscanf( value, "%04x", &rammask);
 					ted8360->setRamMask( rammask );
 				}
-				else if (!strcmp(keyword, "256KBRAM"))
-					ted8360->bigram = !!atoi(value);
+				else if (!strcmp(keyword, "256KBRAM")) {
+					rammask = atoi(value);
+					if (rammask == 128 || rammask == 256 || rammask == 512) {
+						ted8360->enableREU(rammask);
+					} else
+						ted8360->enableREU(0);
+				}
 				else if (!strcmp(keyword, "SaveSettingsOnExit"))
 					g_bSaveSettings = !!atoi(value);
 				else if (!strcmp(keyword, "ROMC0LOW"))
@@ -786,7 +792,7 @@ static void toggleCrtEmulation(void *none)
 static const char *machineTypeLabel()
 {
 	const char *label[] = { "ACCURATE +4", "FAST +4", "COMMODORE 64" };
-	return label[g_iEmulationLevel % 3];
+	return label[g_iEmulationLevel % (sizeof(label)/sizeof(label[0]))];
 }
 
 static void flipMachineType(char *name, int dir)
@@ -867,7 +873,7 @@ inline static void poll_events(void)
 									PopupMsg(" WINDOW SIZE: %ux ", mult);
 								}
 								break;
-							case SDLK_e:
+
 							case SDLK_l:
 								{
 									char name[64];
@@ -892,8 +898,6 @@ inline static void poll_events(void)
 							case SDLK_r:
 								ted8360->Reset(false);
 								machineReset((event.key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT)) != 0);
-								printf("Resetting...\n");
-								PopupMsg(" RESET ");
 								break;
 							case SDLK_s:
 								toggleShowSpeed(NULL);
@@ -937,8 +941,9 @@ inline static void poll_events(void)
 						g_bActive = 0;
 						machineDoSomeFrames(1);
 						break;
-                    case SDLK_PRINTSCREEN:
-                        machine->triggerNmi();
+                    case SDLK_INSERT:
+						if (ted8360->getEmulationLevel() == 2)
+							machine->triggerNmi();
                         break;
 					case SDLK_F5 :
 					case SDLK_F6 :
@@ -985,14 +990,10 @@ inline static void poll_events(void)
                         break;
 					case SDLK_F11 :
 						g_bActive = true;
-						if (event.key.keysym.mod & (KMOD_LSHIFT|KMOD_RSHIFT) ) {
-							machineReset(true);
-							break;
-						}
-						if (event.key.keysym.mod & (KMOD_LCTRL|KMOD_RCTRL) ) {
-							ted8360->Reset(false);
-						}
-						machineReset(false);
+						machineReset( 
+							((event.key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT)) ? 2 : 0)
+							|((event.key.keysym.mod & (KMOD_LCTRL | KMOD_RCTRL)) ? 1 : 0)
+							);
 						break;
 						default:
 							;
@@ -1225,6 +1226,18 @@ void setMainLoop(int looptype)
 #endif
 }
 
+static void printSpecialKeys()
+{
+	printf("\nSpecial keys:\n");
+	printf("CLR/HOME     : %s\n", SDL_GetKeyName(SDLK_HOME));
+	printf("C=           : %s\n", SDL_GetKeyName(SDLK_LCTRL));
+	printf("CONTROL      : %s\n", SDL_GetKeyName(SDLK_RCTRL));
+	printf("INST/DEL     : %s\n", SDL_GetKeyName(SDLK_BACKSPACE));
+	printf("RUN/STOP     : %s\n", SDL_GetKeyName(SDLK_TAB));
+	printf("POUND        : %s\n", SDL_GetKeyName(SDLK_END));
+	printf("RESTORE      : %s\n", SDL_GetKeyName(SDLK_INSERT));
+}
+
 /* ---------- MAIN ---------- */
 int main(int argc, char *argv[])
 {
@@ -1294,9 +1307,11 @@ int main(int argc, char *argv[])
 	printf("LALT + F6    : load emulator snapshot\n");
 	printf("ESC          : enter/leave menu\n");
 	printf("PAUSE        : suspend/resume emulation\n");
+	printSpecialKeys();
 	printf("Joystick buttons are the arrow keys and SPACE. You can change it in the menu under 'Options...'\n");
 	setMainLoop(1);
 #else
+	printSpecialKeys();
 	ad_vsync_init();
 	for (;;) {
 		mainLoop();

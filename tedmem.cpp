@@ -57,7 +57,7 @@ TED *TED::instance_;
 unsigned int TED::retraceScanLine;
 char TED::romlopath[4][260];
 char TED::romhighpath[4][260];
-unsigned int TED::bigram, TED::bramsm;
+unsigned int TED::reuSizeKb;
 // 64 kbytes of memory allocated by default
 unsigned int TED::RAMMask = 0xFFFF;
 unsigned int TED::sidCardEnabled;
@@ -73,7 +73,7 @@ rvar_t TED::tedSettings[] = {
 	//{ "rom c1 hi", "ROMC1HIGH", NULL, TED::romhighpath[1], RVAR_STRING },
 	//{ "rom c2 hi", "ROMC2HIGH", NULL, TED::romhighpath[2], RVAR_STRING },
 	{ "C264 RAM mask", "RamMask", TED::flipRamMask, &TED::RAMMask, RVAR_HEX, NULL },
-	//{ "C264 RAM expansion", "256KBRAM", TED::bigram, &TED::bigram, RVAR_TOGGLE },
+	{ "RAM expansion (REU) in kB", "256KBRAM", TED::flipRamExpansion, &TED::reuSizeKb, RVAR_INT, NULL },
 	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };
 
@@ -91,7 +91,7 @@ enum {
 	TRFSHDELAY = 1 << 11
 };
 
-TED::TED() : SaveState(), sidCard(0), crsrphase(0), clockDivisor(10)
+TED::TED() : SaveState(), sidCard(0), crsrphase(0), clockDivisor(10), ramExt(0), reuBank(3)
 {
 	unsigned int i;
 
@@ -112,6 +112,7 @@ TED::TED() : SaveState(), sidCard(0), crsrphase(0), clockDivisor(10)
 
 	// actual ram bank pointer default setting
 	actram=Ram;
+	Reset(3);
 
 	// setting screen memory pointer
 	scrptr=screen;
@@ -159,13 +160,12 @@ TED::TED() : SaveState(), sidCard(0), crsrphase(0), clockDivisor(10)
 	if (enableSidCard(true, 0)) {
 		//sidCard->setModel(SID8580DB);
 	}
+	enableREU(reuSizeKb);
 }
 
 void TED::flipRamMask(void *none)
 {
-	if (RAMMask == 0xFFFF) RAMMask = 0x3FFF;
-	else if (RAMMask == 0x7FFF) RAMMask = 0xFFFF;
-	else RAMMask = 0x7FFF;
+	RAMMask = (RAMMask + (RAMMask == 0x7FFF ? 0x8000 : 0x4000)) & 0xFFFF;
 	TED *ted = instance_;
 	// only reset if C264
 	if (ted->getCyclesPerRow() == SCR_HSIZE) {
@@ -179,16 +179,22 @@ void TED::soundReset()
 	if (sidCard) sidCard->reset();
 }
 
-void TED::Reset(bool clearmem)
+void TED::Reset(unsigned int resetLevel)
 {
-	RAMenable = false;
-	loadroms();
-	ChangeMemBankSetup();
-	// clear RAM with powerup pattern
-	if (clearmem)
-		for (int i=0;i<RAMSIZE;Ram[i] = (i>>1)<<1==i ? 0 : 0xFF, i++);
 	soundReset();
 	fastmode = 2;
+	// reset memory banks
+	if (resetLevel & 1) {
+		reuBank = 0;
+		RAMenable = false;
+		actram = actramBelow4000 = Ram;
+		ChangeMemBankSetup();
+	}
+	// clear RAM with powerup pattern and reload ROM's
+	if (resetLevel & 2) {
+		for (int i = 0; i < RAMSIZE; Ram[i] = (i >> 1) << 1 == i ? 0 : 0xFF, i++);
+		loadroms();
+	}
 }
 
 void TED::showled(int x, int y, unsigned char onoff)
@@ -352,13 +358,13 @@ unsigned char TED::Read(unsigned int addr)
 						return (prp & prddr)|(retval & ~prddr);
 					}
 				default:
-					return actram[addr&0xFFFF];
+					return Ram[addr&0xFFFF];
 			}
 			break;
 		case 0x1000:
 		case 0x2000:
 		case 0x3000:
-			return actram[addr&0xFFFF];
+			return actramBelow4000[addr&0xFFFF];
 		case 0x4000:
 		case 0x5000:
 		case 0x6000:
@@ -427,7 +433,11 @@ unsigned char TED::Read(unsigned int addr)
 						case 0xFD0: // RS232
 							return 0xFD;
 						case 0xFD1: // User port, PIO & 256 RAM expansion
-							return (tap->IsButtonPressed()<<2)^0xFF;
+						{
+							if (!reuSizeKb || addr == 0xFD10)
+								return (tap->IsButtonPressed() << 2) ^ 0xFF;
+							return Ram[addr];
+						}
 						case 0xFD2: // Speech hardware
 							return addr >> 8;
 						case 0xFD4: // SID Card
@@ -496,15 +506,13 @@ void TED::changeCharsetBank()
 		tmp = 0xFC00 & RAMMask;
 	}
 	unsigned int offset = (Ram[0xFF13] << 8) & tmp;
-	charrombank = rom[0] + (offset & 0x7C00);
 	charrambank = Ram + offset;
+	charrombank = rom[0] + (charbank & (0x7800 | (tmp & 0x0400)));
 	cset = charrom ? charrombank : charrambank;
 }
 
 void TED::Write(unsigned int addr, unsigned char value)
 {
-	unsigned int tmp;
-
 	switch (addr&0xF000) {
 		case 0x0000:
 			switch ( addr & 0xFFFF ) {
@@ -517,13 +525,13 @@ void TED::Write(unsigned int addr, unsigned char value)
 					UpdateSerialState(prddr & ~prp);
 					return;
 				default:
-					actram[addr & 0xFFFF] = value;
+					Ram[addr & 0xFFFF] = value;
 			}
 			return;
 		case 0x1000:
 		case 0x2000:
 		case 0x3000:
-			actram[addr&0xFFFF] = value;
+			actramBelow4000[addr&0xFFFF] = value;
 			return;
 		case 0xD000:
 		case 0x4000:
@@ -621,6 +629,12 @@ void TED::Write(unsigned int addr, unsigned char value)
 											clockingState = TDMADELAY;
 									} else if (beamx<111 && beamx>=86) {
 										// FIXME this breaks on FF1E writes
+										if (!(BadLine & 1) && beamx < 94)
+										{
+											unsigned char* tmpbuf = clrbuf;
+											clrbuf = tmpClrbuf;
+											tmpClrbuf = tmpbuf;
+										}
 										BadLine |= 1;
 									}
 								} else if (BadLine & 1) {
@@ -761,10 +775,8 @@ void TED::Write(unsigned int addr, unsigned char value)
 									}
 								}
 							}
-							(ecmode || rvsmode) ? tmp=(0xF800)&RAMMask : tmp=(0xFC00)&RAMMask;
-							charbank = ((value)<<8)&tmp;
-							charrambank=Ram+charbank;
-							charrombank=rom[0] + (charbank & 0x7C00);
+							charbank = value << 8;
+							changeCharsetBank();
 							if (charrom && value<0x80)
 								scrattr|=ILLEGAL;
 							else {
@@ -804,6 +816,8 @@ void TED::Write(unsigned int addr, unsigned char value)
 						case 0xFF1D:
 							//log(0xff1d, value);
 							beamy=(beamy&0x0100)|value;
+							if (beamx == 113)
+								ff1d_latch = beamy;
 							return;
 						case 0xFF1E:
 							{
@@ -850,8 +864,13 @@ void TED::Write(unsigned int addr, unsigned char value)
 					switch (addr>>4) {
 						default:
 						case 0xFD0: // RS232
-						case 0xFD1: // User port, PIO & 256 RAM expansion
 						case 0xFD2: // Speech hardware
+							return;
+						case 0xFD1: // User port, PIO & Hannes RAM expansion
+							if (ramExt && addr == 0xFD16) {
+								reuWrite(value);
+								Ram[addr] = value;
+							}
 							return;
 						case 0xFD3:
 							Ram[0xFD30] = value;
@@ -1662,6 +1681,49 @@ bool TED::enableSidCard(bool enable, unsigned int disableMask)
 SIDsound *TED::getSidCard()
 {
     return sidCard;
+}
+
+void TED::enableREU(unsigned int sizekb)
+{
+	if (sizekb) {
+		if (ramExt)
+			delete[] ramExt;
+		unsigned int size = sizekb * 1024 * 1024;
+		ramExt = new unsigned char[size];
+		reuSizeKb = sizekb;
+		reuMemMask = 3 << 26;// size - 1;
+		Ram[0xFD16] = 3;
+		reuWrite(0);
+	}
+	else { 
+		reuSizeKb = reuMemMask = 0;
+		delete[] ramExt;
+		ramExt = NULL;
+	}
+}
+
+void TED::flipRamExpansion(void* none)
+{
+	TED* m = instance_;
+	reuSizeKb = (reuSizeKb + (reuSizeKb <= 128 ? 128 : 256)) % 768;
+	m->enableREU(reuSizeKb);
+}
+
+void TED::reuWrite(unsigned char value)
+{
+	// bank register bits are inverted
+	value ^= 3;
+	// first 2 bits (originally) bank number
+	reuBank = value & (reuMemMask >> 26);
+	// when 7th bit is set area below $4000 is normal RAM
+	// FIXME: bit 6 is indicating a TED DMA bank
+	if (reuBank & 3) {
+		actram = ramExt + (reuBank << 16);
+		actramBelow4000 = (value & 0x80) ? Ram : actram;
+	} else
+		actram = actramBelow4000 = Ram;
+	
+	ChangeMemBankSetup();
 }
 
 Color TED::getColor(unsigned int ix)

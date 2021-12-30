@@ -78,7 +78,7 @@ struct element_t {
 struct menu_t {
 	char title[MAX_PATH];
 	char subtitle[MAX_PATH];
-	struct element_t element[256];
+	struct element_t element[512];
 	menu_t *parent;
 	int nr_of_elements;
 	int curr_sel;
