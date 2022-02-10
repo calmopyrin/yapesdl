@@ -40,7 +40,7 @@ bool TED::SideBorderFlipFlop, TED::CharacterWindow;
 unsigned int TED::BadLine;
 unsigned int	TED::clockingState;
 unsigned int	TED::CharacterCount = 0, TED::CharacterCountReload;
-bool TED::VertSubActive;
+bool TED::VertSubActive; // indicates whether the chip is in a non-idle state
 unsigned int	TED::CharacterPosition;
 unsigned int	TED::CharacterPositionReload;
 unsigned int	TED::TVScanLineCounter;
@@ -422,11 +422,15 @@ unsigned char TED::Read(unsigned int addr)
 					}
 					break;
 				case 0xFE:
-					if (((addr >> 4) & 0xFEE) != 0xFE8) {
-						if (tcbmbus)
-							return tcbmbus->Read(addr);
-						else
-							return addr >> 8; // FIXME
+					switch (addr >> 4)  {
+						case 0xFEC: // U9
+						case 0xFED:
+						case 0xFEE: // U8
+						case 0xFEF:
+							if (tcbmbus)
+								return tcbmbus->Read(addr);
+						default:
+								return addr >> 8; // FIXME
 					}
 				case 0xFD:
 					switch (addr>>4) {
@@ -440,17 +444,15 @@ unsigned char TED::Read(unsigned int addr)
 						}
 						case 0xFD2: // Speech hardware
 							return addr >> 8;
+						case 0xFD3:
+							return Ram[0xFD30];
 						case 0xFD4: // SID Card
 						case 0xFD5:
-						case 0xFE8: // FIXME never taken
-						case 0xFE9:
 							if (sidCard) {
 								flushBuffer(CycleCounter, TED_SOUND_CLOCK);
 								return sidCard->read(addr & 0x1f);
 							}
 							return 0xFD;
-						case 0xFD3:
-							return Ram[0xFD30];
 						case 0xFD8: // Joyport on SID-card
 							if (sidCard) {
 								return keys->readSidcardJoyport();

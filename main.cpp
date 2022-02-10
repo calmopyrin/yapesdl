@@ -319,7 +319,7 @@ bool start_file(const char *szFile, bool autostart = true)
 			return true;
 		}
 		if (!strcmp(fileext, ".yss")) {
-			fprintf(stderr, "Loading emulator state from %s.\n", lastSnapshotName);
+			fprintf(stderr, "Loading emulator state from %s.\n", szFile);
 			return SaveState::openSnapshot(szFile, false);
 		}
 		return false;

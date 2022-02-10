@@ -119,7 +119,7 @@ USAGE
   of keyboard shortcuts:
   
   F12 or ESCAPE : exits the emulator
-  F11		: soft reset
+  F11 or Alt+R  : soft reset
   LCTRL + F11	: forced reset (memory remains intact)
   SHIFT + F11	: hard reset (clear memory, reloads ROMs, rewinds tape)
   
@@ -173,11 +173,15 @@ KEYBOARD MAPPINGS
   There are a few keys that need to be mapped to the emulator keyboard
   differently. These are:
   
-  Commodore       emulator
+  Real C=     Emulator
   ------------------------
-  Pound 	= END
-  Clr/Home	= HOME
-  Restore   = PRINT SCREEN
+  Pound 	= End
+  Clr/Home	= Home
+  Restore   = Insert
+  C=        = Left Ctrl
+  CONTROL   = Right Ctrl
+  INST/DEL  = Backspace
+  RUN/STOP  = TAB
 
 FEATURES
 ========
@@ -196,13 +200,14 @@ FEATURES
   - PRG, P00, T64, D64 and TAP file format support
   - partial CRT emulation
   - serial IEC disk LOAD/SAVE to the file system
+  - REU 1700/1750/1764 and Hannes 256kB memory expansion support
   - snapshots / savestates
 
 LINKS
 =====
 
-  https://github.com/calmopyrin/yapesdl : source repository for yape/SDL
-  http://yape.plus4.net                 : Yape homepage
+  https://github.com/calmopyrin/yapesdl : official source repository for yape/SDL
+  http://yape.homeserver.hu             : Yape homepage
   http://plus4world.powweb.com          : Commodore +4 World (games, tape images, scans etc.)
   http://c64.rulez.org	                : Commodore plus/4 FTP archive
-  http://gaia.atilia.eu                 : My emulator page
+  http://gaia.atilia.eu                 : My 8-bit emulator page

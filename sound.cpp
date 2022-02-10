@@ -128,7 +128,7 @@ static void audioCallback(void *userdata, Uint8 *stream, int len)
 #endif
 }
 
-void updateAudio(unsigned int nrsamples)
+static void updateAudio(unsigned int nrsamples)
 {
 	// SDL openaudio failed?
 	if (!sndWriteBufferPtr)
