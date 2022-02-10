@@ -21,26 +21,26 @@
 	}
 
 #define MOB_DO_PIXEL(X, COLOR) \
-    do { \
-        if (!(out[X] & 0x80)) { \
-            if (!(out[X] & 0x40)) { \
+	do { \
+		if (!(out[X] & 0x80)) { \
+			if (!(out[X] & 0x40)) { \
 				if (!spriteBckgCollReg) { \
 					vicReg[0x19] |= ((vicReg[0x1A] & 2) << 6) | 2; \
 					checkIRQflag(); \
 				} \
 				spriteBckgCollReg |= six; \
-                if (!priority) out[X] = COLOR; \
-            } else \
-                out[X] = 0x40 | COLOR;\
-        } \
-    } while(0);
+				if (!priority) out[X] = COLOR; \
+			} else \
+				out[X] = 0x40 | COLOR;\
+		} \
+	} while(0);
 
 #define STOP_SPRITE_DMA(X) \
-    do { \
-        spriteDMAmask &= ~(1 << X); \
-        if (!spriteDMAmask) \
-            vicBusAccessCycleStart = 0; \
-    } while(0);
+	do { \
+		spriteDMAmask &= ~(1 << X); \
+		if (!spriteDMAmask) \
+			vicBusAccessCycleStart = 0; \
+	} while(0);
 
 #if NEWSDMA
 #define DO_SPRITE_DMA(X) \
@@ -67,6 +67,8 @@ static unsigned char cycleLookup[][128] = {
 //     coordinate:                                                                                    111111111111111111111111111111
 // 0000000000111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999000000000011111111112222222222
 // 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
+// first cycles:
+// 0102030405060708091011121314151617181920....................................................................555657585960616263
 //     beamX:
 // 11111111111111111111111111
 // 000000000011111111112222220000000000111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999
@@ -83,7 +85,7 @@ static unsigned char prevY;
 
 Vic2mem::Vic2mem() : gamepin(1), exrom(1), reu(0)
 {
-    instance_ = this;
+	instance_ = this;
 	setId("VIC2");
 	if (!sidCard)
 		enableSidCard(true, 0);
@@ -452,11 +454,12 @@ void Vic2mem::doDelayedDMA()
 				int delay;
 				int illegalRead;
 
-				vicBusAccessCycleStart = CycleCounter;
-				BadLine = 1;
-				if (!VertSubActive) {
+				if (!vicBusAccessCycleStart)
+					vicBusAccessCycleStart = CycleCounter;
+				//BadLine = 1;
+				if (/*!VertSubActive*/1) {
 					// FIXME one cycle delay
-					VertSubActive = true;
+					//VertSubActive = true;
 					delay = (beamx <= 86) ? ((beamx) >> 1) + 0 : (beamx - 124) >> 0;
 				} else {
 					delay = 0;
@@ -471,19 +474,18 @@ void Vic2mem::doDelayedDMA()
 						memcpy(chrbuf, VideoBase + CharacterPosition, dmaCount);
 					}
 				} else {
-					dmaCount = 0;
+					if (!VertSubActive)
+						dmaCount = 0;
 				}
-				/*fprintf(stderr, "Delayed DMA:%02i count:%i @ XSCR=%i X=%i Y=%i(%02X) YSCR=%0X @ PC=%04X\n", delay,
-				        dmaCount, hshift, beamx, beamy,  beamy, vshift, cpuptr->getPC());*/
-			} else {
-				//fprintf(stderr, "Bad line (DMAdelay:%i) @ XSCR=%i X=%i Y=%i(%02X) @ PC=%04X\n", delayedDMA,
-				//	hshift, beamx, beamy, beamy, cpuptr->getPC());
-				BadLine = 1;
-				VertSubActive = true;
 			}
+			/*fprintf(stderr, "Bad line (DMAdelay:%i) @ XSCR=%i X=%i Y=%i(%02X) VSC=%u CP=%04u DMAC=%i @ PC=%04X\n", delayedDMA,
+				hshift, beamx, beamy, beamy, vertSubCount, CharacterPosition, dmaCount, cpuptr->getPC());*/
+			VertSubActive = true;
+			BadLine = 1;
 		} else {
 			BadLine = 0;
-			//fprintf(stderr, "Bad line stopped @ XSCR=%i X=%i Y=%i(%02X) VSC=%02X DMAC=%i @ PC=%04X\n", 
+			//if (BadLine) 
+			// fprintf(stderr, "Bad line stopped @ XSCR=%i X=%i Y=%i(%02X) VSC=%02X DMAC=%i @ PC=%04X\n", 
 			//		hshift, beamx, beamy, beamy, vertSubCount, dmaCount, cpuptr->getPC());
 		}
 	}
@@ -758,7 +760,8 @@ skip:
 									ScreenOn = false;
 								}
 								doDelayedDMA();
-								//fprintf(stderr, "d011: %02X @ X=%03i @ Y=%03i($%03X) PC=%04X\n", value, beamx, beamy, beamy, cpuptr->getPC());
+								/*fprintf(stderr, "d011: %02X @ X=%03i @ Y=%03i($%03X) BL=%u VSUB=%u DMA=%u CP=%04X PC=%04X\n", value, 
+									beamx, beamy, beamy, BadLine, vertSubCount, dmaCount, CharacterPosition, cpuptr->getPC());*/
 								break;
 							case 0x16:
 								// check for narrow screen (38 columns)
@@ -1094,7 +1097,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				checkSpriteDMA(5);
 				break;
 
-            case 104:
+			case 104:
 				MOB_READ_ADDRESS(4);
 				DO_SPRITE_DMA(4);
 				STOP_SPRITE_DMA(3);
@@ -1104,7 +1107,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				checkSpriteDMA(6);
 				break;
 
-            case 108:
+			case 108:
 				MOB_READ_ADDRESS(5);
 				DO_SPRITE_DMA(5);
 				STOP_SPRITE_DMA(4);
@@ -1114,25 +1117,28 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				checkSpriteDMA(7);
 				break;
 
-            case 112:
+			case 112:
 				MOB_READ_ADDRESS(6);
 				DO_SPRITE_DMA(6);
 				STOP_SPRITE_DMA(5);
 				break;
 
-            case 116:
+			case 116:
 				MOB_READ_ADDRESS(7);
 				DO_SPRITE_DMA(7);
 				STOP_SPRITE_DMA(6);
+				//dmaCount = 0;
 				break;
 
-            case 120:
+			case 120:
 				// Stop sprite DMA
-				vicBusAccessCycleStart = 0;
-                spriteDMAmask = 0;
+				if (!BadLine)
+					vicBusAccessCycleStart = 0;
+				spriteDMAmask = 0;
 				for (unsigned int i = 0; i < 8; i++) {
 					mob[i].sdb[1].dwSrDmaBuf = mob[i].sdb[0].dwSrDmaBuf;
 				}
+				CharacterPosition = CharacterPositionReload;
 				break;
 
 			case 122:
@@ -1140,7 +1146,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				if (beamy == 247) {
 					attribFetch = false;
 				}
-				if (BadLine)
+				if (BadLine && !vicBusAccessCycleStart)
 					vicBusAccessCycleStart = CycleCounter;
 				//fprintf(stderr, "Line %03i - AttribFetch:%i Badline:%i VSA:%i VSC:%i Screen:%i Y=%03X YSCR=%X\n", beamy, attribFetch,
 				//	BadLine, VertSubActive, vertSubCount, ScreenOn, beamy, vshift);
@@ -1152,7 +1158,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				if (BadLine && !delayedDMA) {
 					vertSubCount = 0;
 				}
-				CharacterPosition = CharacterPositionReload;
 				break;
 
 			case 2:
@@ -1168,7 +1173,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
 			case 4:
-				stopSpriteDMA();
+				stopSpriteDMA(); // FIXME cycle 0
 				break;
 
 			case 6:
@@ -1179,8 +1184,8 @@ void Vic2mem::ted_process(const unsigned int continuous)
 						if (hshift)
 							doXscrollChange(0, hshift);
 					}
-					x = 0;
 				}
+				x = 0;
 				break;
 
 			case 8:
@@ -1192,7 +1197,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case 82:
 				checkSpriteEnable();
 				// On bad line with sprite 0 on, all CPU cycles are stolen
-				if (!checkSpriteDMA(0))
+				if (!checkSpriteDMA(0) /*&& !BadLine*/)
 					vicBusAccessCycleStart = 0;
 				break;
 
@@ -1216,9 +1221,9 @@ void Vic2mem::ted_process(const unsigned int continuous)
 					VertSubActive = false;
 				}
 				if (BadLine) {
-                    BadLine = 0;
-                    delayedDMA = false;
-                    VertSubActive = true;
+					BadLine = 0;
+					delayedDMA = false;
+					VertSubActive = true;
 				}
 				if (VertSubActive)
 					vertSubCount = (vertSubCount + 1) & 7;
@@ -1232,7 +1237,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				checkSpriteDMA(2);
 				break;
 
-            case 92:
+			case 92:
 				MOB_READ_ADDRESS(1);
 				DO_SPRITE_DMA(1);
 				STOP_SPRITE_DMA(0);
@@ -1242,7 +1247,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				checkSpriteDMA(3);
 				break;
 
-            case 96:
+			case 96:
 				MOB_READ_ADDRESS(2);
 				DO_SPRITE_DMA(2);
 				STOP_SPRITE_DMA(1);
@@ -1265,7 +1270,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			if (SideBorderFlipFlop) {
 				// call the relevant rendering function
 				render();
-				x = (x + 1) & 0x3F;
+				x += 1;
 			}
 			if (!CharacterWindow) {
 				// we are on the border area, so use the frame color
@@ -1887,11 +1892,11 @@ inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
 	// check collisions
 	for(i = 0; i < VIC_PIXELS_PER_ROW; i++) {
 		if (spriteCollisions[i]) {
-            const unsigned char newReg = spriteCollisionReg | collisionLookup[spriteCollisions[i]];
-            if (!spriteCollisionReg && newReg) {
-                vicReg[0x19] |= ((vicReg[0x1A] & 4) << 5) | 4;
-                checkIRQflag();
-            }
+			const unsigned char newReg = spriteCollisionReg | collisionLookup[spriteCollisions[i]];
+			if (!spriteCollisionReg && newReg) {
+				vicReg[0x19] |= ((vicReg[0x1A] & 4) << 5) | 4;
+				checkIRQflag();
+			}
 			spriteCollisionReg = newReg;
 			spriteCollisions[i] = 0;
 		}
