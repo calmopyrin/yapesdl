@@ -133,10 +133,10 @@ Everything else falls under **[GPLv2][License]**.
 [YAPE]: http://yape.homeserver.hu/
 [C64]: http://c64.rulez.org
 
-[Changelog]: docs/Changelog.md
-[Building]: docs/Build.md
+[Changelog]: Documentation/Changelog.md
+[Building]: Documentation/Build.md
 [License]: LICENSE
-[Usage]: docs/Usage.md
+[Usage]: Documentation/Usage.md
 
 
 <!----------------------------------[ Badges ]--------------------------------->

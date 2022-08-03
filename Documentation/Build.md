@@ -7,12 +7,10 @@ If your system supports both **[SDL]** and **[GCC]**, <br>
 *Even porting to `Android` is possible*
 
 <br>
+<br>
 
----
-
-**⸢ [Source Code] ⸥ ⸢ [Releases] ⸥**
-
----
+[![Button Source]][Source]   
+[![Button Releases]][Releases]
 
 <br>
 
@@ -120,18 +118,26 @@ to avoid crashes caused by the **DX9** driver.
 
 - **Non-VS** solutions require the prebuilt **[SDL2][Emscripten Prebuilt]** files.
 
+<br>
+
+
+
 <!----------------------------------------------------------------------------->
 
-[Source Code]: https://github.com/calmopyrin/yapesdl
-[Releases]: https://github.com/calmopyrin/yapesdl/releases
-
-[Arguments]: Usage.md
-
-[SDL]: http://libsdl.org
-[GCC]: https://gcc.gnu.org/
-
 [Emscripten Installation]: https://emscripten.org/docs/getting_started/downloads.html
+[Emscripten Prebuilt]: https://buildbot.libsdl.org/sdl-builds/sdl-emscripten/?C=M;O=D
 [Toolchain Extension]: https://github.com/nokotan/VSExtForEmscripten
 [Emscripten A]: https://github.com/kripken/emscripten
 [Emscripten B]: https://github.com/emscripten-ports/SDL2
-[Emscripten Prebuilt]: https://buildbot.libsdl.org/sdl-builds/sdl-emscripten/?C=M;O=D
+[Releases]: https://github.com/calmopyrin/yapesdl/releases
+[SDL]: http://libsdl.org
+[GCC]: https://gcc.gnu.org/
+
+[Arguments]: Usage.md
+[Source]: ../Source
+
+
+<!---------------------------------[ Buttons ]--------------------------------->
+
+[Button Releases]: https://img.shields.io/badge/Releases-ED1965?style=for-the-badge&logoColor=white&logo=GitLFS
+[Button Source]: https://img.shields.io/badge/Source_Code-2088FF?style=for-the-badge&logoColor=white&logo=BookStack
