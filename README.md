@@ -1,19 +1,30 @@
-# YapeSDL
 
-**Version:** `0.71.1`
+<br>
+
+<div align = center>
+
+[![Badge License]][License]   
+![Badge Version]
+
+<br>
+
+# YapeSDL
 
 This is a **SDL** port of the **[YAPE]** emulator, <br>
 developed by [`Attila Grósz`][Attilia] since the<br>
 the year **2000** till the present day.  
 
 <br>
+<br>
 
----
+[![Button Demo]][Demo]   
+[![Button Usage]][Usage]   
+[![Button Building]][Building]   
+[![Button Changelog]][Changelog]
 
-**⸢ [Demo] ⸥ ⸢ [How To Use] ⸥ ⸢ [Build From Source] ⸥ ⸢ [Changelog] ⸥**
+</div>
 
----
-
+<br>
 <br>
 
 ## Features
@@ -109,19 +120,35 @@ FTP Archive
 The `ROM` file header used belong to <br>
 **Commodore Business Machines**.
 
-Everything else falls under **[GPLv2]**.
+Everything else falls under **[GPLv2][License]**.
+
+<br>
+
 
 <!----------------------------------------------------------------------------->
 
-[GPLv2]: LICENSE
-
-[YAPE]: http://yape.homeserver.hu/
 [Attilia]: http://gaia.atilia.eu/
-
-[Demo]: http://gaia.atilia.eu/download/wip/YapeSDL.html
-[Build From Source]: docs/Build.md
-[How To Use]: docs/Usage.md
-[Changelog]: docs/Changelog.md
-
 [+4World]: http://plus4world.powweb.com/
+[Demo]: http://gaia.atilia.eu/download/wip/YapeSDL.html
+[YAPE]: http://yape.homeserver.hu/
 [C64]: http://c64.rulez.org
+
+[Changelog]: docs/Changelog.md
+[Building]: docs/Build.md
+[License]: LICENSE
+[Usage]: docs/Usage.md
+
+
+<!----------------------------------[ Badges ]--------------------------------->
+
+[Badge License]: https://img.shields.io/badge/License-GPL2-015d93.svg?style=for-the-badge&labelColor=blue
+[Badge Version]: https://img.shields.io/github/v/release/calmopyrin/yapesdl?style=for-the-badge&labelColor=569A31&color=407225
+
+
+<!---------------------------------[ Buttons ]--------------------------------->
+
+[Button Changelog]: https://img.shields.io/badge/Changelog-389EAC?style=for-the-badge&logoColor=white&logo=AzureArtifacts
+[Button Building]: https://img.shields.io/badge/Building-734F96?style=for-the-badge&logoColor=white&logo=GoogleSearchConsole
+[Button Usage]: https://img.shields.io/badge/Usage-blue?style=for-the-badge&logoColor=white&logo=GitBook
+[Button Demo]: https://img.shields.io/badge/Demo-569A31?style=for-the-badge&logoColor=white&logo=AppleArcade
+
