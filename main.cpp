@@ -1223,6 +1223,8 @@ void setMainLoop(int looptype)
 		uinterface->drawMenu();
 		emscripten_set_main_loop_arg((em_arg_callback_func) interfaceLoop, uinterface, 0, 1);
 	}
+	// lock browser keys with inline JS
+	EM_ASM({ document.onkeydown = KeyCheck; }, 0);
 #endif
 }
 

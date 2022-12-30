@@ -21,6 +21,7 @@ static struct {
 	{ "<dummy>", 0, "Dummy" },
 	//	{ "b [<address>]", MON_CMD_BREAKPOINT, "List all or set breakpoint to <address>.") },
 	{ "> [<address>] [<arg1>] [<arg2>] .. [<arg#>]", MON_CMD_CHANGEMEM, "Show/change memory from <address>." },
+	{ "c <address1> <address2> <address3>", MON_CMD_COMPAREMEM, "Compare memory between <address1> and <address2> with <address3>." },
 	{ "d [<address>]", MON_CMD_DISASS, "Disassemble (from <address>)." },
 	{ "f <src_from> <src_to> <value>", MON_CMD_FILLMEM, "Fill memory range with <value>." },
 	{ "g [<address>]", MON_CMD_GO, "Set PC (to [<address>])." },
@@ -335,6 +336,22 @@ void executeCmd(unsigned int cmd, vector<string> &args, char *wholeLine)
 				while (argval[0] <= argval[1]) {
 					debugContext->getMem().Write(argval[0]++, argval[2]);
 				}
+			}
+			break;
+
+		case MON_CMD_COMPAREMEM:
+			if (argCount == 3) {
+				unsigned int mismatches = 0;
+				while (argval[0] <= argval[1]) {
+					unsigned short addr = argval[0]++;
+					unsigned char readval1 = debugContext->getMem().Read(addr);
+					unsigned char readval2 = debugContext->getMem().Read(argval[2]++);
+					if (readval1 != readval2) {
+						printf("%04X: %02X %02X\n", addr, readval1, readval2);
+						mismatches++;
+					}
+				}
+				printf("\n%u mismatches found.\n", mismatches);
 			}
 			break;
 

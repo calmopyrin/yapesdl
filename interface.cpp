@@ -502,6 +502,9 @@ bool UI::handle_menu_command( struct element_t *element)
                     else
                         prgLoadFromT64(element->name, 0, ted8360);
 				}
+#ifndef __EMSCRIPTEN__
+				SDL_ResetKeyboard();
+#endif
 			}
 			clear (0, 0);
             break;
