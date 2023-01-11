@@ -11,7 +11,7 @@
 	(c) 2005 VENESZ Roland
 */
 
-#define NAME    "Yape/SDL 0.71.1"
+#define NAME    "Yape/SDL 0.71.2"
 #define WINDOWX SCREENX
 #define WINDOWY SCREENY
 
@@ -1099,7 +1099,7 @@ static void app_close()
 	if (g_bSaveSettings)
 		SaveSettings(inifile);
 	if (inifile) {
-		delete [] inifile;
+		delete[] inifile;
 		inifile = NULL;
 	}
 	delete uinterface;
@@ -1144,7 +1144,8 @@ static void app_initialise()
 
 	SDL_GetVersion(&sdlv);
 	printf("SDL version detected: %d.%d.%d\n", sdlv.major, sdlv.minor, sdlv.patch);
-
+	// very important for performance reasons
+	SDL_SetHint(SDL_HINT_EMSCRIPTEN_ASYNCIFY, "0");
     if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) < 0 ) {
         fprintf(stderr, "Unable to init SDL with controller support: %s\n", SDL_GetError());
 		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
@@ -1257,6 +1258,9 @@ int main(int argc, char *argv[])
 	}
 
 	inifile = new char[strlen(inipath) + 16];
+	if (!inifile)
+		return 1;
+
 	strcpy(inifile, inipath);
 	SDL_free(inipath);
 	strcat(inifile, "yape.conf");
@@ -1285,8 +1289,17 @@ int main(int argc, char *argv[])
 			setEmulationLevel(2);
 		autostart_file(argv[2], true);
 #else
+		char *pathBackup = new char[4096];
+		char* exePath = SDL_GetBasePath();
+		// switch back to the application folder
+		int r = ad_get_curr_dir(pathBackup);
+		ad_set_curr_dir(exePath);
 		// and then try to load the parameter as file
 		autostart_file(argv[1], true);
+		// revert to working directory (TODO: to be overriden with CL switch)
+		ad_set_curr_dir(pathBackup);
+		SDL_free(exePath);
+		delete[] pathBackup;
 #endif
 	}
 #ifdef __EMSCRIPTEN__
