@@ -530,7 +530,8 @@ void monitorEnter(CPU *cpu)
 	do {
 		command = MON_CMD_NONE;
 		strcpy(buffer, "");
-		fgets(buffer, 256, stdin);
+		if (!fgets(buffer, 256, stdin))
+			break;
 		parseLine(buffer, command);
 	} while (command != MON_CMD_EXIT);
 }
