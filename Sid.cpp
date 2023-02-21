@@ -72,7 +72,11 @@ inline int SIDsound::waveNoise(unsigned int shiftReg)
 void SIDsound::setModel(unsigned int model)
 {
 	int i;
-	double temp[2048];
+	double *temp = NULL;
+
+	temp = new double[2048];
+	if (!temp)
+        return;
 
 	switch (model) {
 		case SID8580DB:
@@ -133,6 +137,7 @@ void SIDsound::setModel(unsigned int model)
 		const double freqDomainDivCoeff = 2 * M_PI * 1.048576;
 		cutOffFreq[i] = int(temp[i] * freqDomainDivCoeff);
 	}
+	delete [] temp;
 	setFilterCutoff();
 	model_ = model;
 }
@@ -333,7 +338,7 @@ unsigned char SIDsound::read(unsigned int adr)
 
 		// Voice 3 EG readout
 		case 0x1C:
-			/*fprintf(stderr, "cycle: %010llu envcount : %04X state: %02X level: %02X\n", 
+			/*fprintf(stderr, "cycle: %010llu envcount : %04X state: %02X level: %02X\n",
 				lastUpdate, voice[2].envCounter, voice[2].egState, voice[2].envCurrLevel);*/
  			return (unsigned char)(voice[2].envCurrLevel);
 
@@ -662,7 +667,7 @@ inline void SIDsound::updateState(unsigned int cyclesToDo)
 	voice[0].applySync();
 	voice[1].applySync();
 	voice[2].applySync();
-	// Remember last value for OSC3 readout 
+	// Remember last value for OSC3 readout
 	voice[2].lastWaveFormOutput = getWaveSample(voice[2]);
 	// Envelope generators
 	voice[0].doEnvelopeGenerator(cyclesToDo);
@@ -767,27 +772,31 @@ void SIDsound::calcSamples(short* buf, unsigned int count)
 
 int cycleCountForSample = 0;
 
+void SIDsound::updateLastCycleCount(ClockCycle currCycle)
+{
+	lastUpdate = currCycle;
+}
+
 void SIDsound::catchUpOnState(ClockCycle currCycle)
 {
 	int todo = (int)(currCycle - lastUpdate);
 
 	if (todo > 0) {
 		int cyclesLeft = todo;
-		cycleCountForSample += todo;
-		while (cycleCountForSample > lastCount) {
-			lastCount = clock();
-			if (sampleUpdatePointer >= sizeof(interimBuffer) / 2)
-				return;
-			updateState(lastCount);
-			interimBuffer[sampleUpdatePointer++] = (short)(getOutput(lastCount) >> 11);
-			cycleCountForSample -= lastCount;
-			cyclesLeft -= lastCount;
-		}
-		if (cyclesLeft > 0)
-			updateState(cyclesLeft);
-		else
+		//cycleCountForSample += todo;
+		//while (cycleCountForSample > lastCount) {
+		//	lastCount = clock();
+		//	if (sampleUpdatePointer >= sizeof(interimBuffer) / 2)
+		//		return;
+		//	updateState(lastCount);
+		//	interimBuffer[sampleUpdatePointer++] = (short)(getOutput(lastCount) >> 11);
+		//	cycleCountForSample -= lastCount;
+		//	cyclesLeft -= lastCount;
+		//}
+		if (cyclesLeft <= 0)
 			return;
-		lastUpdate = currCycle;
+		updateState(cyclesLeft);
+		updateLastCycleCount(currCycle);
 	}
 }
 

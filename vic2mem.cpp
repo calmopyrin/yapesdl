@@ -147,7 +147,8 @@ void Vic2mem::Reset(unsigned int resetLevel)
 	}
 	// clear RAM with powerup pattern and reload ROM's
 	if (resetLevel & 2) {
-		for (int i = 0; i < RAMSIZE; Ram[i] = (i >> 1) << 1 == i ? 0 : 0xFF, i++);
+		for (int i = 0; i < RAMSIZE; i++)
+			Ram[i] = (i >> 1) << 1 == i ? 0 : 0xFF;
 		loadroms();
 	}
 	// empty collision buffers
@@ -457,9 +458,9 @@ void Vic2mem::doDelayedDMA()
 				if (!vicBusAccessCycleStart)
 					vicBusAccessCycleStart = CycleCounter;
 				//BadLine = 1;
-				if (/*!VertSubActive*/1) {
+				if (!VertSubActive) {
 					// FIXME one cycle delay
-					//VertSubActive = true;
+					VertSubActive = true;
 					delay = (beamx <= 86) ? ((beamx) >> 1) + 0 : (beamx - 124) >> 0;
 				} else {
 					delay = 0;
@@ -600,8 +601,8 @@ unsigned char Vic2mem::Read(unsigned int addr)
 					case 0xD6:
 					case 0xD7:
 						if (sidCard) {
-							flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
-							//sidCard->catchUpOnState(CycleCounter);
+							//flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
+							sidCard->catchUpOnState(CycleCounter);
 							return sidCard->read(addr & 0x1F);
 						}
 						return 0xD4;
@@ -904,6 +905,7 @@ skip:
 					case 0xD7:
 						if (sidCard) {
 							//sidCard->catchUpOnState(CycleCounter);
+							sidCard->updateLastCycleCount(CycleCounter);
 							flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
 							sidCard->write(addr & 0x1f, value);
 						}
@@ -1072,6 +1074,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				doHRetrace();
 				newLine();
 				flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
+				sidCard->updateLastCycleCount(CycleCounter);
 				if (attribFetch) {
 					BadLine = (vshift == (beamy & 7));
 					if (BadLine) {

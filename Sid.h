@@ -33,6 +33,7 @@ public:
 	//
 	inline void updateState(unsigned int cyclesToDo);
 	inline int getOutput(int cyclesToDo);
+	void updateLastCycleCount(ClockCycle currCycle);
 	void catchUpOnState(ClockCycle currCycle);
 	void calcSamplesCycleBased(short* buf, unsigned int count);
 	static void setModel(unsigned int model);

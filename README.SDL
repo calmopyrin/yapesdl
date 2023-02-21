@@ -2,13 +2,13 @@ README.SDL
 
 This is the README for the SDL port of Yape/SDL (Yet Another Plus/4 Emulator)
 
-Current version is 0.71.1
+Current version is 0.71.2
 
 LEGAL
 =====
 
   Yape for SDL is 
-  (C) 2000,2001,2004,2007,2008,2015-2021 Attila Grósz (gyros@freemail.hu)
+  (C) 2000,2001,2004,2007,2008,2015-2023 Attila Grósz (gyros@freemail.hu)
   http://yape.plus4.net
 
   This program is free software; you can redistribute it and/or
@@ -44,7 +44,7 @@ COMPILE
   
   To be able to compile on Linux, you must have the latest SDL
   package from http://libsdl.org. The recent stable release as of time of
-  this writing is 2.0.16. You will also need the development libraries.
+  this writing is 2.26.x. You will also need the development libraries.
   
   The provided makefile is written for the GNU C++ compiler but can also
   be easily adjusted for other compilers.

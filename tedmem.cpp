@@ -192,7 +192,8 @@ void TED::Reset(unsigned int resetLevel)
 	}
 	// clear RAM with powerup pattern and reload ROM's
 	if (resetLevel & 2) {
-		for (int i = 0; i < RAMSIZE; Ram[i] = (i >> 1) << 1 == i ? 0 : 0xFF, i++);
+		for (int i = 0; i < RAMSIZE; i++)
+			Ram[i] = (i >> 1) << 1 == i ? 0 : 0xFF;
 		loadroms();
 	}
 }
