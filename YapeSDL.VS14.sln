@@ -17,6 +17,9 @@ Global
 		Release|Emscripten = Release|Emscripten
 		Release|Win32 = Release|Win32
 		Release|x64 = Release|x64
+		ReleaseEmbedPrg|Emscripten = ReleaseEmbedPrg|Emscripten
+		ReleaseEmbedPrg|Win32 = ReleaseEmbedPrg|Win32
+		ReleaseEmbedPrg|x64 = ReleaseEmbedPrg|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.Debug|Emscripten.ActiveCfg = Debug|Emscripten
@@ -31,6 +34,12 @@ Global
 		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.Release|Win32.Build.0 = Release|Win32
 		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.Release|x64.ActiveCfg = Release|x64
 		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.Release|x64.Build.0 = Release|x64
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.ReleaseEmbedPrg|Emscripten.ActiveCfg = ReleaseEmbedPrg|Emscripten
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.ReleaseEmbedPrg|Emscripten.Build.0 = ReleaseEmbedPrg|Emscripten
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.ReleaseEmbedPrg|Win32.ActiveCfg = ReleaseEmbedPrg|Win32
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.ReleaseEmbedPrg|Win32.Build.0 = ReleaseEmbedPrg|Win32
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.ReleaseEmbedPrg|x64.ActiveCfg = ReleaseEmbedPrg|x64
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.ReleaseEmbedPrg|x64.Build.0 = ReleaseEmbedPrg|x64
 		{E4BB004B-BC89-4195-9879-B952073907F9}.Debug|Emscripten.ActiveCfg = Debug|Emscripten
 		{E4BB004B-BC89-4195-9879-B952073907F9}.Debug|Emscripten.Build.0 = Debug|Emscripten
 		{E4BB004B-BC89-4195-9879-B952073907F9}.Debug|Win32.ActiveCfg = Debug|Win32
@@ -41,6 +50,12 @@ Global
 		{E4BB004B-BC89-4195-9879-B952073907F9}.Release|Emscripten.Build.0 = Release|Emscripten
 		{E4BB004B-BC89-4195-9879-B952073907F9}.Release|Win32.ActiveCfg = Release|Win32
 		{E4BB004B-BC89-4195-9879-B952073907F9}.Release|x64.ActiveCfg = Release|x64
+		{E4BB004B-BC89-4195-9879-B952073907F9}.ReleaseEmbedPrg|Emscripten.ActiveCfg = ReleaseEmbedPrg|Emscripten
+		{E4BB004B-BC89-4195-9879-B952073907F9}.ReleaseEmbedPrg|Emscripten.Build.0 = ReleaseEmbedPrg|Emscripten
+		{E4BB004B-BC89-4195-9879-B952073907F9}.ReleaseEmbedPrg|Win32.ActiveCfg = ReleaseEmbedPrg|Win32
+		{E4BB004B-BC89-4195-9879-B952073907F9}.ReleaseEmbedPrg|Win32.Build.0 = ReleaseEmbedPrg|Win32
+		{E4BB004B-BC89-4195-9879-B952073907F9}.ReleaseEmbedPrg|x64.ActiveCfg = ReleaseEmbedPrg|x64
+		{E4BB004B-BC89-4195-9879-B952073907F9}.ReleaseEmbedPrg|x64.Build.0 = ReleaseEmbedPrg|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

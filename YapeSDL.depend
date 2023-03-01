@@ -1515,3 +1515,361 @@
 	"begin_code.h"
 	"close_code.h"
 
+1674806012 source:c:\users\attila\source\repos\yapesdl\1541mem.cpp
+	"1541mem.h"
+	"FdcGcr.h"
+
+1674859474 c:\users\attila\source\repos\yapesdl\1541mem.h
+	"mem.h"
+	"Via.h"
+	"serial.h"
+	"SaveState.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\mem.h
+	"types.h"
+
+1616677746 c:\users\attila\source\repos\yapesdl\types.h
+	<SDL2/SDL.h>
+	<SDL/SDL.h>
+	<SDL2/SDL.h>
+
+1672438962 c:\users\attila\source\repos\yapesdl\via.h
+	"types.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\serial.h
+	<stdio.h>
+
+1567928812 c:\users\attila\source\repos\yapesdl\savestate.h
+	<cstdio>
+	"types.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\fdcgcr.h
+	<stdio.h>
+	"types.h"
+	"SaveState.h"
+
+1629644550 source:c:\users\attila\source\repos\yapesdl\archdep.cpp
+	"archdep.h"
+	<stdio.h>
+	<stdio.h>
+	<unistd.h>
+	<glob.h>
+	<dirent.h>
+	<ctype.h>
+	<string.h>
+	<stdlib.h>
+	<signal.h>
+	<sys/stat.h>
+	<sys/types.h>
+	"zlib/unzip.h"
+
+1611178350 c:\users\attila\source\repos\yapesdl\archdep.h
+	"types.h"
+	<unistd.h>
+	<windows.h>
+
+1672939615 source:c:\users\attila\source\repos\yapesdl\cia.cpp
+	"Cia.h"
+	<cstdio>
+	"cpu.h"
+	"tedmem.h"
+
+1668757702 c:\users\attila\source\repos\yapesdl\cia.h
+	"types.h"
+
+1611267595 source:c:\users\attila\source\repos\yapesdl\cpu.cpp
+	<stdio.h>
+	<stdlib.h>
+	<memory.h>
+	"cpu.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\cpu.h
+	"types.h"
+	"mem.h"
+	"SaveState.h"
+
+1596466573 source:c:\users\attila\source\repos\yapesdl\dis.cpp
+	"cpu.h"
+	"mnemonic.h"
+	"types.h"
+	"tedmem.h"
+	<stdio.h>
+	<string.h>
+
+1567928812 c:\users\attila\source\repos\yapesdl\mnemonic.h
+
+1640221411 c:\users\attila\source\repos\yapesdl\tedmem.h
+	"types.h"
+	"mem.h"
+	"serial.h"
+	"sound.h"
+	"SaveState.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\sound.h
+	"types.h"
+
+1639867095 source:c:\users\attila\source\repos\yapesdl\diskfs.cpp
+	"device.h"
+	"iec.h"
+	"diskfs.h"
+	<string.h>
+	<ctype.h>
+
+1567928812 c:\users\attila\source\repos\yapesdl\device.h
+	"types.h"
+	<string.h>
+
+1567928812 c:\users\attila\source\repos\yapesdl\iec.h
+	"types.h"
+	"device.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\diskfs.h
+	<stdio.h>
+	"archdep.h"
+	"device.h"
+
+1567928812 source:c:\users\attila\source\repos\yapesdl\dos.cpp
+	<ctype.h>
+	<stdio.h>
+	"device.h"
+
+1567928812 source:c:\users\attila\source\repos\yapesdl\drive.cpp
+	"drive.h"
+	"device.h"
+	"diskfs.h"
+	"iec.h"
+	"tcbm.h"
+	"FdcGcr.h"
+	"1541rom.h"
+	"1541mem.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\drive.h
+	<cstddef>
+	"Clockable.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\clockable.h
+	"mem.h"
+	"cpu.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\tcbm.h
+	"types.h"
+	"mem.h"
+	"iec.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\1541rom.h
+	"types.h"
+
+1639778742 source:c:\users\attila\source\repos\yapesdl\fdcgcr.cpp
+	<memory.h>
+	<string.h>
+	<stdio.h>
+	"FdcGcr.h"
+
+1639483710 source:c:\users\attila\source\repos\yapesdl\iec.cpp
+	"iec.h"
+
+1673434289 source:c:\users\attila\source\repos\yapesdl\interface.cpp
+	<string.h>
+	<stdlib.h>
+	<stdio.h>
+	"types.h"
+	"monitor.h"
+	"tedmem.h"
+	"interface.h"
+	"archdep.h"
+	"prg.h"
+	"tape.h"
+	"drive.h"
+	"roms.h"
+	"SaveState.h"
+
+1670306972 c:\users\attila\source\repos\yapesdl\monitor.h
+
+1640209520 c:\users\attila\source\repos\yapesdl\interface.h
+	"archdep.h"
+
+1596147585 c:\users\attila\source\repos\yapesdl\prg.h
+
+1567928812 c:\users\attila\source\repos\yapesdl\tape.h
+	"types.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\roms.h
+
+1634671664 source:c:\users\attila\source\repos\yapesdl\keyboard.cpp
+	<memory.h>
+	<stdio.h>
+	"keyboard.h"
+
+1633893121 c:\users\attila\source\repos\yapesdl\keyboard.h
+	"types.h"
+
+1633893115 source:c:\users\attila\source\repos\yapesdl\keys64.cpp
+	<stdio.h>
+	"keys64.h"
+
+1633893101 c:\users\attila\source\repos\yapesdl\keys64.h
+	"keyboard.h"
+
+1672941822 source:c:\users\attila\source\repos\yapesdl\main.cpp
+	<stdlib.h>
+	<string.h>
+	<ctype.h>
+	<math.h>
+	"keyboard.h"
+	"cpu.h"
+	"tedmem.h"
+	"tape.h"
+	"sound.h"
+	"Sid.h"
+	"archdep.h"
+	"iec.h"
+	"device.h"
+	"tcbm.h"
+	"diskfs.h"
+	"monitor.h"
+	"prg.h"
+	"interface.h"
+	"video.h"
+	"drive.h"
+	"FdcGcr.h"
+	"icon.h"
+	"vic2mem.h"
+	"SaveState.h"
+	"keyoverlay.h"
+	<emscripten.h>
+	<emscripten/html5.h>
+
+1644963971 c:\users\attila\source\repos\yapesdl\sid.h
+	"sound.h"
+	"SaveState.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\video.h
+
+1567928812 c:\users\attila\source\repos\yapesdl\icon.h
+
+1640512944 c:\users\attila\source\repos\yapesdl\vic2mem.h
+	"tedmem.h"
+	"Cia.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\keyoverlay.h
+
+1670312447 source:c:\users\attila\source\repos\yapesdl\monitor.cpp
+	<ctype.h>
+	<stdio.h>
+	<stdlib.h>
+	<cstring>
+	<vector>
+	<string>
+	"cpu.h"
+	"monitor.h"
+	"prg.h"
+
+1639483010 source:c:\users\attila\source\repos\yapesdl\prg.cpp
+	<stdio.h>
+	<string.h>
+	"tedmem.h"
+	"types.h"
+
+1567928812 source:c:\users\attila\source\repos\yapesdl\savestate.cpp
+	<cstring>
+	"SaveState.h"
+
+1639988729 source:c:\users\attila\source\repos\yapesdl\serial.cpp
+	"serial.h"
+	"iec.h"
+	"tedmem.h"
+	"tcbm.h"
+
+1676967259 source:c:\users\attila\source\repos\yapesdl\sid.cpp
+	<math.h>
+	"Sid.h"
+
+1640519335 source:c:\users\attila\source\repos\yapesdl\sound.cpp
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<math.h>
+	"sound.h"
+
+1611272559 source:c:\users\attila\source\repos\yapesdl\tape.cpp
+	"tape.h"
+	"tedmem.h"
+	"cpu.h"
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+
+1567928812 source:c:\users\attila\source\repos\yapesdl\tcbm.cpp
+	<stdio.h>
+	"tcbm.h"
+
+1676588510 source:c:\users\attila\source\repos\yapesdl\tedmem.cpp
+	<stdio.h>
+	<string.h>
+	<ctype.h>
+	<stdlib.h>
+	<ctype.h>
+	"tedmem.h"
+	"Sid.h"
+	"sound.h"
+	"cpu.h"
+	"keyboard.h"
+	"tape.h"
+	"roms.h"
+	"tcbm.h"
+	"Clockable.h"
+	"video.h"
+
+1567928812 source:c:\users\attila\source\repos\yapesdl\tedsound.cpp
+	"sound.h"
+	"tedmem.h"
+
+1672591471 source:c:\users\attila\source\repos\yapesdl\via.cpp
+	"Via.h"
+	<cstdio>
+
+1676760690 source:c:\users\attila\source\repos\yapesdl\vic2mem.cpp
+	<stdio.h>
+	<string.h>
+	<memory.h>
+	"vic2mem.h"
+	"c64rom.h"
+	"Sid.h"
+	"Clockable.h"
+	"video.h"
+	"keys64.h"
+	"sound.h"
+	"tape.h"
+
+1567928812 c:\users\attila\source\repos\yapesdl\c64rom.h
+
+1567928812 source:c:\users\attila\source\repos\yapesdl\video.cpp
+	<math.h>
+	"tedmem.h"
+	"video.h"
+
+1414541462 c:\users\attila\source\repos\yapesdl\zlib\unzip.h
+	"zlib.h"
+	"ioapi.h"
+	"bzlib.h"
+
+1414541462 c:\users\attila\source\repos\yapesdl\zlib\zlib.h
+	"zconf.h"
+
+1414541462 c:\users\attila\source\repos\yapesdl\zlib\zconf.h
+	<windows.h>
+	<limits.h>
+	<sys/types.h>
+	<stdarg.h>
+	<stddef.h>
+	<unistd.h>
+	<unixio.h>
+
+1414541462 c:\users\attila\source\repos\yapesdl\zlib\ioapi.h
+	<stdio.h>
+	<stdlib.h>
+	"zlib.h"
+	<stdint.h>
+	"mz64conf.h"
+	"stdint.h"
+

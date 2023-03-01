@@ -19,26 +19,27 @@
 			<Target title="Release">
 				<Option output="bin/Release/YapeSDL" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Release/" />
-				<Option type="0" />
+				<Option type="1" />
 				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
 				<Compiler>
 					<Add option="-march=pentium-m" />
-					<Add option="-O3" />
 					<Add option="-std=c++11" />
+					<Add option="-O4" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
-					<Add library="libSDL2" />
-					<Add library="libSDL2main" />
+					<Add option="-static-libgcc" />
+					<Add option="-static-libstdc++" />
 				</Linker>
 			</Target>
 			<Target title="ReleaseX64">
 				<Option output="bin/Release/YapeSDL" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Release/" />
-				<Option type="0" />
+				<Option type="1" />
 				<Option compiler="gnu_gcc_compiler_64-bit" />
+				<Option use_console_runner="0" />
 				<Compiler>
-					<Add option="-march=pentium4" />
 					<Add option="-fomit-frame-pointer" />
 					<Add option="-fexpensive-optimizations" />
 					<Add option="-flto" />
@@ -50,8 +51,8 @@
 					<Add option="-flto" />
 					<Add option="-s" />
 					<Add option="-m64" />
-					<Add library="libSDL2" />
-					<Add library="libSDL2main" />
+					<Add option="-static-libgcc" />
+					<Add option="-static-libstdc++" />
 				</Linker>
 				<MakeCommands>
 					<Build command="" />
