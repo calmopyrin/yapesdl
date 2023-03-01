@@ -54,6 +54,7 @@ static CPU *cpuptr;
 static int disAssPc, memDumpPc;
 static unsigned int command;
 static Debuggable *debugContext = 0;
+extern unsigned int		g_bActive;
 
 inline static char** new2d(int rows, int cols)
 {
@@ -519,6 +520,9 @@ void monitorEnter(CPU *cpu)
 {
 	char buffer[256];
 
+	unsigned int wasActive = g_bActive;
+	g_bActive = 0;
+
 	cpuptr = cpu;
 	if (!debugContext)
 		debugContext = debugContext->cycleToNext(0);
@@ -530,8 +534,9 @@ void monitorEnter(CPU *cpu)
 	do {
 		command = MON_CMD_NONE;
 		strcpy(buffer, "");
-		if (!fgets(buffer, 256, stdin))
-			break;
-		parseLine(buffer, command);
+		if (fgets(buffer, 256, stdin))
+			parseLine(buffer, command);
 	} while (command != MON_CMD_EXIT);
+
+	g_bActive = wasActive;
 }

@@ -77,8 +77,8 @@ static bool mouseBtnHeld = 0;
 
 ////////////////
 // Supplementary
-static unsigned int		g_TotFrames = 0;
 
+// Core
 static TED				*ted8360 = NULL;
 static CPU				*machine = NULL;
 static CTCBM			*tcbm = NULL;
@@ -92,7 +92,7 @@ static char				textout[128];
 static char				*inipath;
 static char				*inifile;
 
-static unsigned int		g_bActive = true;
+unsigned int		g_bActive = true;
 static unsigned int		g_inDebug = false;
 static unsigned int		g_FrameRate = true;
 static unsigned int		g_50Hz = true;
@@ -691,8 +691,6 @@ static void toggleFullThrottle(void *none)
 #endif
 	}
 	PopupMsg(textout);
-	// restart counter
-	g_TotFrames = 0;
 }
 
 static void setEmulationLevel(unsigned int level)
@@ -765,7 +763,6 @@ static void setEmulationLevel(unsigned int level)
 
 static void toggleShowSpeed(void *none)
 {
-	g_TotFrames = 0;
 	g_FrameRate = !g_FrameRate;
 }
 

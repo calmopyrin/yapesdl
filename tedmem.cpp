@@ -982,6 +982,7 @@ void TED::readState()
 	charrambank=Ram+charbank;
 	charrombank = rom[0] + (charbank & 0x7C00);
 	(charrom) ? cset = charrombank : cset = charrambank;
+	ChangeMemBankSetup();
 }
 
 // when multi and extended color modes are all on the screen is blank
