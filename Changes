@@ -1,4 +1,28 @@
-Changes in v0.70.2
+Changes in v0.71.2
+==================
+
+- more robust error handling on startup in Emscripten builds
+- implement Hannes 256 kb memory expansions
+- SID (card) paddle support
+- optimized (unrolled) SID emulation core
+- added native un-ZIP support (via Minizip)
+- support for loading compressed TAP files
+- compare memory with command 'C' in external monitor 
+- somewhat improved VICII core (sprite, badline)
+- implement REU (256/512 kB)
+- snapshot save menu item added
+- added menu item for attaching ROM images
+- added distinct soft reset and hard reset
+- lock Fn keys when run in a browser
+- minor CPU regression for SHY fixed
+- fixed transmitting of last byte after an EOI in IEC mode
+- ROM banking fix
+- unmapped memory read fix
+- fixed tape play/stop in the menu
+- better menu navigation with game controllers
+- fixed loading files of a relative path from the command line
+
+Changes in v0.70.2 (Emscripten only binary)
 ==================
 
 - tape loading in WAV format and MTAP support in C64 mode added

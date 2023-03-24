@@ -34,9 +34,9 @@ unsigned char CFakeTCBM::Read(unsigned int addr)
 			return tia.ddrc;
 		case 6:
 		    return tia.cr;
-        default:
+		default:
 		case 7:
-			return 0xFF;
+			return 0x00;
 	}
 }
 
