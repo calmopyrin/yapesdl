@@ -72,22 +72,22 @@ void TED::calcSamples(short *buffer, unsigned int nrsamples)
 	} else {
 		for (;nrsamples--;) {
 			// Channel 1
-			if ((oscCount[0] += oscStep) >= OSCRELOADVAL) {
-				if (OscReload[0] != (0x3FF << PRECISION)) {
+			if (OscReload[0] != (0x3FF << PRECISION)) {
+				if ((oscCount[0] += oscStep) >= OSCRELOADVAL) {
 					FlipFlop ^= 0x10;
 					cachedSoundSample[0] = volumeTable[Volume | (FlipFlop & channelStatus[0])];
+					oscCount[0] = OscReload[0] + (oscCount[0] - OSCRELOADVAL);
 				}
-				oscCount[0] = OscReload[0] + (oscCount[0] - OSCRELOADVAL);
 			}
 			// Channel 2
-			if ((oscCount[1] += oscStep) >= OSCRELOADVAL) {
-				if (OscReload[1] != (0x3FF << PRECISION)) {
+			if (OscReload[1] != (0x3FF << PRECISION)) {
+				if ((oscCount[1] += oscStep) >= OSCRELOADVAL) {
 					FlipFlop ^= 0x20;
 					if (++NoiseCounter == 256)
 						NoiseCounter = 0;
 					cachedSoundSample[1] = volumeTable[Volume | (FlipFlop & channelStatus[1]) | (noise[NoiseCounter] & SndNoiseStatus)];
+					oscCount[1] = OscReload[1] + (oscCount[1] - OSCRELOADVAL);
 				}
-				oscCount[1] = OscReload[1] + (oscCount[1] - OSCRELOADVAL);
 			}
 			*buffer++ = cachedSoundSample[0] + cachedSoundSample[1];
 		}   // for
