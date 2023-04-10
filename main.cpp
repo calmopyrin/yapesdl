@@ -482,7 +482,6 @@ bool SaveSettings(char *inifileName)
 		fprintf(ini, "CRTEmulation = %u\n", g_bUseOverlay);
 		fprintf(ini, "WindowMultiplier = %u\n", g_iWindowMultiplier);
 		fprintf(ini, "EmulationLevel = %u\n", g_iEmulationLevel);
-		fprintf(ini, "JoystickKeySet = %u\n", KEYS::joystickScanCodeIndex);
 		fprintf(ini, "JoystickKeysIndex = %u\n", KEYS::joystickScanCodeIndex);
 
 		fclose(ini);
@@ -556,8 +555,6 @@ bool LoadSettings(char *inifileName)
 					g_iWindowMultiplier = number ? (number & 3) : 1;
 				else if (!strcmp(keyword, "EmulationLevel"))
 					g_iEmulationLevel = atoi(value);
-				else if (!strcmp(keyword, "JoystickKeySet"))
-					KEYS::joystickScanCodeIndex = atoi(value);
 				else if (!strcmp(keyword, "JoystickKeysIndex"))
 					KEYS::joystickScanCodeIndex = atoi(value) % 3;
 			}
