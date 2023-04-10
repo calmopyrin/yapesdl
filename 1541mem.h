@@ -2,6 +2,7 @@
 #define _1541MEM_H
 
 #include "mem.h"
+#include "Via.h"
 #include "serial.h"
 #include "SaveState.h"
 
@@ -30,9 +31,6 @@ public:
 	// This is for parallelized 1541 drives
 	virtual void UpdateParallelState(unsigned char value) {};
 	virtual unsigned char ReadParallelState() { return 0xFF; };
-	// Set DATA after ATN low
-	void ATNlow();
-
 	inline unsigned char *get_via2pcr() { return &(via[1].pcr); };
 	virtual unsigned char getLED() { return (via[1].prb&0x0C); };
 	// this is for the FRE support
@@ -50,16 +48,14 @@ protected:
 	// Pointer to ROM
 	unsigned char *rom;
 	FdcGcr *fdc;		// Pointer to drive _fdc object
-
-	struct VIA {
-		unsigned char pra, ddra, prb, ddrb;
-		unsigned short t1c, t1l, t2c, t2l;
-		unsigned char sr, acr, pcr, ifr, ier;
-		unsigned char reg[16];
-	} via[2];
-	bool via2_t2to_enable;		// VIA 2 timer 2 timeout IRQ enable
+	Via via[2];
 	unsigned char oldAtnIn;
 	unsigned char ppIn; // Parallel cable input
+	static void checkIrq(void* cptr, unsigned char m)
+	{
+		DRIVEMEM* mh = reinterpret_cast<DRIVEMEM*>(cptr);
+		mh->SetIRQflag(m);
+	}
 };
 
 /*
@@ -67,16 +63,7 @@ protected:
 */
 inline void DRIVEMEM::SetIRQflag( unsigned int mask )
 {
-	mask & 0x7F ? irqFlag = 1 : irqFlag = 0;
-}
-
-/*
-   Interrupt on 1 -> 0 transition (negative edge) of ATN on serial IEC bus
-*/
-inline void DRIVEMEM::ATNlow()
-{
-	via[0].ifr |= 0x02;
-	SetIRQflag(via[0].ifr & via[0].ier);
+	irqFlag = (mask & 0x7F) ? 1 : 0;
 }
 
 class MEM1541P :
