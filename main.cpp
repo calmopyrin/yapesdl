@@ -482,6 +482,7 @@ bool SaveSettings(char *inifileName)
 		fprintf(ini, "CRTEmulation = %u\n", g_bUseOverlay);
 		fprintf(ini, "WindowMultiplier = %u\n", g_iWindowMultiplier);
 		fprintf(ini, "EmulationLevel = %u\n", g_iEmulationLevel);
+		fprintf(ini, "JoystickKeySet = %u\n", KEYS::joystickScanCodeIndex);
 
 		fclose(ini);
 		return true;
@@ -507,8 +508,9 @@ bool LoadSettings(char *inifileName)
 				int number = atoi(value);
 				if (!strcmp(keyword, "DisplayFrameRate")) {
 					g_FrameRate = !!atoi(value);
-					fprintf( stderr, "Display frame rate: %i\n", g_FrameRate);
-				} else if (!strcmp(keyword, "DisplayQuickDebugInfo"))
+					fprintf(stderr, "Display frame rate: %i\n", g_FrameRate);
+				}
+				else if (!strcmp(keyword, "DisplayQuickDebugInfo"))
 					g_inDebug = !!atoi(value);
 				else if (!strcmp(keyword, "50HzTimerActive"))
 					g_50Hz = !!atoi(value);
@@ -517,6 +519,8 @@ bool LoadSettings(char *inifileName)
 				else if (!strcmp(keyword, "RamMask")) {
 					sscanf( value, "%04x", &rammask);
 					ted8360->setRamMask( rammask );
+					sscanf(value, "%04x", &rammask);
+					ted8360->setRamMask(rammask);
 				}
 				else if (!strcmp(keyword, "256KBRAM")) {
 					rammask = atoi(value);
@@ -551,6 +555,8 @@ bool LoadSettings(char *inifileName)
 					g_iWindowMultiplier = number ? (number & 3) : 1;
 				else if (!strcmp(keyword, "EmulationLevel"))
 					g_iEmulationLevel = atoi(value);
+				else if (!strcmp(keyword, "JoystickKeySet"))
+					KEYS::joystickScanCodeIndex = atoi(value);
 			}
 		}
 		fclose(ini);
@@ -877,6 +883,8 @@ inline static void poll_events(void)
 									int dir = (event.key.keysym.mod & KMOD_SHIFT) ? -1 : 1;
 									flipMachineType(name, dir);
 									sprintf(textout, " EMULATION : %s ", name);
+									g_iEmulationLevel = (g_iEmulationLevel + dir) % 3;
+									sprintf(textout, " EMULATION : %s ", machineTypeLabel());
 									PopupMsg(textout);
 								}
 								break;
@@ -993,6 +1001,8 @@ inline static void poll_events(void)
 							);
 						break;
 						default:
+							if (!(event.key.keysym.mod & KMOD_ALT))
+								setEmulationLevel(g_iEmulationLevel);
 							;
 				}
 				break;
@@ -1293,6 +1303,8 @@ int main(int argc, char *argv[])
 		ad_set_curr_dir(exePath);
 		// and then try to load the parameter as file
 		autostart_file(argv[1], true);
+		if (!autostart_file(argv[1], true))
+			fprintf(stderr, "Failed loading: %s\n", argv[1]);
 		// revert to working directory (TODO: to be overriden with CL switch)
 		ad_set_curr_dir(pathBackup);
 		SDL_free(exePath);
