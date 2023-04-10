@@ -100,3 +100,14 @@ Emscripten/Release/favicon.ico
 *.lib
 /Emscripten/EmbeddedFiles/YapeSDL.html
 Emscripten/Release/YapeSDL.html
+*.db-shm
+*.db-wal
+Emscripten/Debug/YapeSDL.html
+*.symbols
+*.unsuccessfulbuild
+*.txt
+*.wasm
+*.map
+*.a
+Emscripten/Release/Index.html
+Emscripten/ReleaseEmbedPrg/YapeSDL.html
