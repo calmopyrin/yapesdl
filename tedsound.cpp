@@ -75,7 +75,7 @@ void TED::calcSamples(short *buffer, unsigned int nrsamples)
 			if (OscReload[0] != (0x3FF << PRECISION)) {
 				if ((oscCount[0] += oscStep) >= OSCRELOADVAL) {
 					FlipFlop ^= 0x10;
-					cachedSoundSample[0] = volumeTable[Volume | (FlipFlop & channelStatus[0])];
+					cachedSoundSample[0] = Volume | (FlipFlop & channelStatus[0]);
 					oscCount[0] = OscReload[0] + (oscCount[0] - OSCRELOADVAL);
 				}
 			}
@@ -85,11 +85,11 @@ void TED::calcSamples(short *buffer, unsigned int nrsamples)
 					FlipFlop ^= 0x20;
 					if (++NoiseCounter == 256)
 						NoiseCounter = 0;
-					cachedSoundSample[1] = volumeTable[Volume | (FlipFlop & channelStatus[1]) | (noise[NoiseCounter] & SndNoiseStatus)];
+					cachedSoundSample[1] = Volume | (FlipFlop & channelStatus[1]) | (noise[NoiseCounter] & SndNoiseStatus);
 					oscCount[1] = OscReload[1] + (oscCount[1] - OSCRELOADVAL);
 				}
 			}
-			*buffer++ = cachedSoundSample[0] + cachedSoundSample[1];
+			*buffer++ = volumeTable[cachedSoundSample[0] | cachedSoundSample[1]];
 		}   // for
 	}
 }
@@ -99,9 +99,9 @@ inline void setFreq(unsigned int channel, int freq)
 	if (freq == 0x3FE) {
 		FlipFlop |= 0x10 << channel;
 		if (!channel)
-			cachedSoundSample[0] = volumeTable[Volume | (channelStatus[0])];
+			cachedSoundSample[0] = Volume | (channelStatus[0]);
 		else
-			cachedSoundSample[1] = volumeTable[Volume | (channelStatus[1] | (SndNoiseStatus >> 1))];
+			cachedSoundSample[1] = Volume | (channelStatus[1] | (SndNoiseStatus >> 1));
 	}
 	OscReload[channel] = ((freq + 1) & 0x3FF) << PRECISION;
 }
@@ -135,8 +135,8 @@ void TED::writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value)
 			channelStatus[0] = value & 0x10;
 			channelStatus[1] = value & 0x20;
 			SndNoiseStatus = ((value & 0x40) >> 1) & (channelStatus[1] ^ 0x20);
-			cachedSoundSample[0] = volumeTable[Volume | (FlipFlop & channelStatus[0])];
-			cachedSoundSample[1] = volumeTable[Volume | (FlipFlop & channelStatus[1]) | (noise[NoiseCounter] & SndNoiseStatus)];
+			cachedSoundSample[0] = Volume | (FlipFlop & channelStatus[0]);
+			cachedSoundSample[1] = Volume | (FlipFlop & channelStatus[1]) | (noise[NoiseCounter] & SndNoiseStatus);
 			break;
 		case 4:
 			Freq[0] = (Freq[0] & 0xFF) | (value << 8);
