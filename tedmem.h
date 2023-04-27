@@ -134,6 +134,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual unsigned int getHorizontalCount() { return ((98 + beamx) << 1) % 228; }
 	virtual unsigned int getVerticalCount() { return beamy; }
 	virtual unsigned short getEndLoadAddressPtr() { return 0x9D; };
+	virtual unsigned short getKbBufferSizePtr() { return 0xEF; };
 	virtual void calcSamples(short *buffer, unsigned int nrsamples);
 	virtual void setFrequency(unsigned int sid_frequency);
 	virtual void setSampleRate(unsigned int sampleRate_);

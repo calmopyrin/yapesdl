@@ -29,7 +29,7 @@ typedef unsigned __int64 ClockCycle;
 typedef struct _MEM_PATCH {
 	unsigned int addr;
 	unsigned char byte;
-} mem_patch;
+} mem_patch_t;
 
 enum RvarTypes {
 	RVAR_NULL,

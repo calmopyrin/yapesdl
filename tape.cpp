@@ -218,9 +218,8 @@ inline void TAP::readWavData(unsigned int elapsed)
 
 unsigned char TAP::readCSTIn(ClockCycle cycle)
 {
-	int elapsed = int(cycle - lastCycle);
-
 	if (motorOn && tapeBuffer) {
+		int elapsed = int(cycle - lastCycle);
 		switch (tapeFormat) {
 			case TAPE_FORMAT_MTAP1:
 			case TAPE_FORMAT_MTAP2:

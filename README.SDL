@@ -177,7 +177,7 @@ KEYBOARD MAPPINGS
   ------------------------
   Pound 	= End
   Clr/Home	= Home
-  Restore   = Insert
+  Restore   = PageUp
   C=        = Left Ctrl
   CONTROL   = Right Ctrl
   INST/DEL  = Backspace

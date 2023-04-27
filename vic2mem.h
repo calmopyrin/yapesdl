@@ -31,6 +31,7 @@ class Vic2mem : public TED
 		//virtual unsigned int getColorCount() { return 256; };
 		virtual Color getColor(unsigned int ix);
 		virtual unsigned int getCyclesPerRow() const { return 504; }
+		virtual unsigned short getKbBufferSizePtr() { return 0xC6; };
 		void latchCounters();
 		virtual void copyToKbBuffer(const char *text, unsigned int length = 0);
 		virtual unsigned int getSoundClock() { return VIC_SOUND_CLOCK; }
