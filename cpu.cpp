@@ -3724,6 +3724,7 @@ void CPU::process()
 		case 0xF2 : // ABS, JAM, KIL or whatever - jams the machine
 			cycle = 0;
 			PC = (PC-1)&0xFFFF;
+			IRQcount = 0; // don't allow IRQ
 			bp_reached = bp_active = cpu_jammed = true;
 			break;
 
