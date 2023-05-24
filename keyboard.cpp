@@ -201,9 +201,7 @@ unsigned char KEYS::keyReadMatrixRow(unsigned int r)
 
 unsigned char KEYS::feedkey(unsigned char latch)
 {
-	static unsigned char tmp;
-
-	tmp = 0xFF;
+	unsigned char tmp = 0xFF;
 
 	if ((latch&0x01)==0) tmp&=keyReadMatrixRow(0);
 	if ((latch&0x02)==0) tmp&=keyReadMatrixRow(1);

@@ -99,14 +99,14 @@ unsigned char KEYS64::keyReadMatrixRow(unsigned int r)
 
 		case 6:
 			tmp = ~
-				((kbstate[SDL_SCANCODE_END]<<0)
-				|(kbstate[SDL_SCANCODE_BACKSLASH]<<1)
+				((kbstate[SDL_SCANCODE_INSERT]<<0)
+				|(kbstate[SDL_SCANCODE_RIGHTBRACKET]<<1)
 				|(kbstate[SDL_SCANCODE_KP_MULTIPLY]<<1)
 				|(kbstate[SDL_SCANCODE_APOSTROPHE]<<2)
 				|(kbstate[SDL_SCANCODE_HOME]<<3)
 				|(kbstate[SDL_SCANCODE_RSHIFT]<<4)
-				|(kbstate[SDL_SCANCODE_RIGHTBRACKET]<<5)
-				|(kbstate[SDL_SCANCODE_PAGEUP]<<6)
+				|(kbstate[SDL_SCANCODE_BACKSLASH]<<5)
+				|(kbstate[SDL_SCANCODE_END]<<6)
 				|(kbstate[SDL_SCANCODE_SLASH]<<7)
 				|(kbstate[SDL_SCANCODE_KP_DIVIDE]<<7));  /* numeric / */
 				if (kbstate[SDL_SCANCODE_LEFT] || kbstate[SDL_SCANCODE_UP])

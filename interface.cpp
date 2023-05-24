@@ -1000,6 +1000,27 @@ unsigned char UI::asc2pet(char c)
 	return c;
 }
 
+unsigned char* UI::stringToPETSCII(unsigned char* asciiStr, unsigned int count, bool useCaps)
+{
+	unsigned char* origPtr = asciiStr;
+	while (asciiStr && *asciiStr && count--) {
+		unsigned char c = *asciiStr;
+		if ((c == 0x0A) || (c == 0x0D))
+			c = 0x0D;
+		else if (c == 0x09)
+			c = 32;
+		else if (c >= 0x00 && c <= 0x1A)
+			c ^= 0x00;
+		else if (c >= 'A' && c <= 'Z')
+			c += useCaps ? 0x20 : 0;
+		else if (c >= 'a' && c <= 'z')
+			c -= 0x20;
+		*asciiStr = c;
+		asciiStr++;
+	}
+	return origPtr;
+}
+
 UI::~UI()
 {
 	delete []pixels;

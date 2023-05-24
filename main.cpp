@@ -517,8 +517,6 @@ bool LoadSettings(char *inifileName)
 				else if (!strcmp(keyword, "ActiveJoystick"))
 					KEYS::activejoy = atoi(value) & 3;
 				else if (!strcmp(keyword, "RamMask")) {
-					sscanf( value, "%04x", &rammask);
-					ted8360->setRamMask( rammask );
 					sscanf(value, "%04x", &rammask);
 					ted8360->setRamMask(rammask);
 				}
@@ -792,10 +790,15 @@ static void toggleCrtEmulation(void *none)
     PopupMsg(" CRT emulation %s ", g_bUseOverlay ? "ON" : "OFF");
 }
 
-static const char *machineTypeLabel()
+static const char *machineTypeLabel(unsigned int index)
 {
-	const char *label[] = { "ACCURATE +4", "FAST +4", "COMMODORE 64" };
-	return label[g_iEmulationLevel % (sizeof(label)/sizeof(label[0]))];
+	const char* label[] = { "ACCURATE +4", "FAST +4", "COMMODORE 64" };
+	return label[index % (sizeof(label)/sizeof(label[0]))];
+}
+
+static const char* machineTypeLabel()
+{
+	return machineTypeLabel(g_iEmulationLevel);
 }
 
 static void flipMachineType(char *name, int dir)
@@ -819,6 +822,65 @@ static void flipWindowScale(void *none)
 {
 	g_iWindowMultiplier = (g_iWindowMultiplier % 3) + 1;
 	setWindowScale(g_iWindowMultiplier);
+}
+
+static void confirmEmulationLevelChange(unsigned int shiftPressed)
+{
+	int dir = shiftPressed ? -1 : 1;
+#ifndef __EMSCRIPTEN__
+	int buttonid;
+
+	sprintf(textout, "Switch to %s emulation and lose data in current session?", machineTypeLabel(g_iEmulationLevel + dir));
+	const SDL_MessageBoxButtonData buttons[] = {
+		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 1, "No" },
+		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "Yes" },
+	};
+	const SDL_MessageBoxData messageboxdata = {
+		SDL_MESSAGEBOX_INFORMATION,
+		sdlWindow,
+		"Confirmation required",
+		textout,
+		SDL_arraysize(buttons),
+		buttons,
+		NULL
+	};
+
+	if (SDL_ShowMessageBox(&messageboxdata, &buttonid) < 0)
+		SDL_Log("error opening window");
+	else if (buttonid == 0) 
+#endif
+	{
+		char name[64];
+		flipMachineType(name, dir);
+		sprintf(textout, " EMULATION : %s ", name);
+		PopupMsg(textout);
+	}
+}
+
+static void pasteFromClipboard()
+{
+	if (SDL_HasClipboardText()) {
+		char* lptstr = SDL_GetClipboardText();
+		size_t origSize = strlen(lptstr);
+		size_t t = origSize;
+		char bufferdata[16];
+
+		while (t) {
+			unsigned int chunkSize = (unsigned int)MIN(10, t);
+			strncpy(bufferdata, lptstr, chunkSize);
+			UI::stringToPETSCII((unsigned char*)bufferdata, chunkSize);
+			bufferdata[chunkSize] = 0;
+			ted8360->copyToKbBuffer(bufferdata, chunkSize);
+			unsigned int maxFrames = 200;
+			while (ted8360->Read(ted8360->getKbBufferSizePtr()) != 0 && --maxFrames) {
+				ted8360->ted_process(1);
+				frameUpdate();
+			}
+			lptstr += chunkSize;
+			t -= chunkSize;
+		}
+		//SDL_free((void*)lptstr);
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -878,15 +940,7 @@ inline static void poll_events(void)
 								break;
 
 							case SDLK_l:
-								{
-									char name[64];
-									int dir = (event.key.keysym.mod & KMOD_SHIFT) ? -1 : 1;
-									flipMachineType(name, dir);
-									sprintf(textout, " EMULATION : %s ", name);
-									g_iEmulationLevel = (g_iEmulationLevel + dir) % 3;
-									sprintf(textout, " EMULATION : %s ", machineTypeLabel());
-									PopupMsg(textout);
-								}
+								confirmEmulationLevelChange(event.key.keysym.mod & KMOD_SHIFT);
 								break;
 							case SDLK_i :
 								doSwapJoy();
@@ -906,6 +960,10 @@ inline static void poll_events(void)
 								break;
 							case SDLK_s:
 								toggleShowSpeed(NULL);
+								break;
+
+							case SDLK_v:
+								pasteFromClipboard();
 								break;
 
 							case SDLK_w :
@@ -946,7 +1004,7 @@ inline static void poll_events(void)
 						g_bActive = 0;
 						machineDoSomeFrames(1);
 						break;
-                    case SDLK_INSERT:
+                    case SDLK_PAGEUP:
 						if (ted8360->getEmulationLevel() == 2)
 							machine->triggerNmi();
                         break;
@@ -966,6 +1024,7 @@ inline static void poll_events(void)
 					case SDLK_ESCAPE:
 					case SDLK_F8:
 					case SDLK_DELETE:
+						SDL_ShowCursor(1);
 						enterMenu();
 						break;
 					case SDLK_F9 :
@@ -1001,8 +1060,8 @@ inline static void poll_events(void)
 							);
 						break;
 						default:
-							if (!(event.key.keysym.mod & KMOD_ALT))
-								setEmulationLevel(g_iEmulationLevel);
+							/*if (!(event.key.keysym.mod & KMOD_ALT))
+								setEmulationLevel(g_iEmulationLevel);*/
 							;
 				}
 				break;
@@ -1312,7 +1371,7 @@ int main(int argc, char *argv[])
 #endif
 	}
 #ifdef __EMSCRIPTEN__
-	printf("%s - Javascript build using Emscripten.\n", NAME);
+	printf("%s - Javascript/WASM build using Emscripten.\n", NAME);
 	printf("Type DIRECTORY (or LOAD\"$\",8 and then LIST) and press ENTER to see disk contents. Type LOAD\"filename*\",8 to load a specific file!\n");
 	printf("Or enter the menu by pressing ESC and shift+ENTER to autostart games from there.\n");
 	printf("Commodore +4 games start with uppercase, C64 ones with lowercase.\n");

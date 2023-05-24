@@ -18,6 +18,9 @@ public:
 		IRQM_CA1 = 2,
 		IRQM_CA2 = 1
 	};
+	enum viaPins {
+		INPUTA = 0, INPUTB, INPUTCA1, INPUTCA2, INPUTCB1, INPUTCB2
+	};
 	unsigned char pra, ddra, prb, ddrb;
 	unsigned short t1c, t1l, t2c, t2l, t1t, t2t, t1r, t2r;
 	unsigned char sr, acr, pcr, ifr, ier;

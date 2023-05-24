@@ -60,11 +60,13 @@ bool SaveState::openSnapshot(const char *fname, bool isWrite)
 			char id[8];
 			// read chunk header & find it
 			// keep reading if not found (should be 4-byte aligned)
-			fread(id, 4, 1, ssfp);
-			SaveState *ss = findId(id);
-			if (ss) {
-				fprintf(stderr, "Snapshot chunk %.*s found.\n", 4, id);
-				ss->readState();
+			size_t r = fread(id, 4, 1, ssfp);
+			if (r) {
+				SaveState* ss = findId(id);
+				if (ss) {
+					fprintf(stderr, "Snapshot chunk %.*s found.\n", 4, id);
+					ss->readState();
+				}
 			}
 		} while (!feof(ssfp));
 	}

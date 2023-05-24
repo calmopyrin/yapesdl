@@ -110,9 +110,9 @@ void CPU::regDump(char *line, int rowcount)
 	} else if (rowcount == 1) {
 		char txt[][5] = {"HI","LO"};
 		flagmask = bytetobin( REG_ST );
-		sprintf( line, "IRQ(%s)|HC($%02X)|VC($%03X)|CPU:%s   |FL:%08i\n",
+		sprintf( line, "IRQ(%s)|HC($%02X)|VC($%03X)|CPU:%s   |FL:%08i|Cycle: %llu\n",
           txt[*irq_register ? 1 : 0], theTed->getHorizontalCount(), theTed->getVerticalCount(), getName(),
-		  flagmask);
+		  flagmask, theTed->GetClockCount());
 	}
 }
 

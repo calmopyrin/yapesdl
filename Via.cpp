@@ -10,6 +10,7 @@ void Via::write(unsigned int r, unsigned char value)
 		prb = value;
 		break;
 	case 1:
+	case 0xF: // same as #1, no handshake
 		ifr &= ~IRQM_CA1;
 		pra = value;
 		break;
@@ -80,15 +81,16 @@ void Via::write(unsigned int r, unsigned char value)
 		break;
 	case 0xD:
 		ifr &= ~(value | 0x80);
+		checkIrqCallback(callBackParam, ifr & ier & 0x7F);
 		break;
 	case 0xE:
 		if (value & 0x80)
 			ier |= value & 0x7F;
 		else
 			ier &= ~value;
+		checkIrqCallback(callBackParam, ifr & ier & 0x7F);
 		break;
 	default:
-	case 0xF:
 		break;
 	}
 }
@@ -101,7 +103,7 @@ unsigned char Via::read(unsigned int r)
 			ifr &= ~IRQM_CB2;
 		// Clear CB1 IRQ flag
 		ifr &= ~IRQM_CB1;
-		//checkIrqCallback(callBackParam, ifr & ier);
+		checkIrqCallback(callBackParam, ifr & ier);
 		return prb | ~ddrb; // & ~(acr & 0x80)) | (pb7 & 0x80 && ddrb);
 	default:
 	case 1:
@@ -110,7 +112,7 @@ unsigned char Via::read(unsigned int r)
 			ifr &= ~IRQM_CA2;
 		// Clear CA1 IRQ flag
 		ifr &= ~IRQM_CA1;
-		//checkIrqCallback(callBackParam, ifr & ier);
+		checkIrqCallback(callBackParam, ifr & ier);
 		return pra | ~ddra;
 	case 2:
 		return ddrb;

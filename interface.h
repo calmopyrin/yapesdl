@@ -124,7 +124,8 @@ class UI {
 		UI(class TED *ted);
 		~UI();
 		char pet2asc(char c);
-		unsigned char asc2pet(char c);
+		static unsigned char asc2pet(char c);
+		static unsigned char* stringToPETSCII(unsigned char* asciiStr, unsigned int count, bool useCaps = false);
 		char *petstr2ascstr(char *string);
 		int enterMenu();
 		void drawMenu();

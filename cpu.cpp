@@ -55,6 +55,9 @@ void CPU::dumpState()
    	saveVar(&Y,sizeof(Y));
 	saveVar(&IRQcount, sizeof(IRQcount));
 	saveVar(&irq_sequence, sizeof(irq_sequence));
+	saveVar(&nmiLevel, sizeof(nmiLevel));
+	saveVar(&irqVector, sizeof(irqVector));
+	saveVar(&cpu_jammed, sizeof(cpu_jammed));
 }
 
 void CPU::readState()
@@ -73,6 +76,9 @@ void CPU::readState()
    	readVar(&Y,sizeof(Y));
 	readVar(&IRQcount, sizeof(IRQcount));
 	readVar(&irq_sequence, sizeof(irq_sequence));
+	readVar(&nmiLevel, sizeof(nmiLevel));
+	readVar(&irqVector, sizeof(irqVector));
+	readVar(&cpu_jammed, sizeof(cpu_jammed));
 }
 
 // reset keeps all except for PC
