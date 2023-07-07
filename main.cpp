@@ -1210,8 +1210,10 @@ static void app_initialise()
 
 	SDL_GetVersion(&sdlv);
 	printf("SDL version detected: %d.%d.%d\n", sdlv.major, sdlv.minor, sdlv.patch);
+#ifdef __EMSCRIPTEN__
 	// very important for performance reasons
 	SDL_SetHint(SDL_HINT_EMSCRIPTEN_ASYNCIFY, "0");
+#endif
     if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) < 0 ) {
         fprintf(stderr, "Unable to init SDL with controller support: %s\n", SDL_GetError());
 		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
