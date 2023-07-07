@@ -23,6 +23,7 @@ tape.o \
 tcbm.o \
 tedmem.o \
 tedsound.o \
+Via.o \
 vic2mem.o \
 video.o
 
@@ -124,12 +125,15 @@ tedsound.o : tedsound.cpp
 vic2mem.o : vic2mem.cpp vic2mem.h
 	$(CC) $(cflags) -c $<
 
+Via.o : Via.cpp Via.h
+	$(CC) $(cflags) -c $<
+
 video.o : video.cpp
 	$(CC) $(cflags) -c $<
 
 clean :
 	rm -f ./*.o
-	rm ./$(EXENAME)
+	rm -f ./$(EXENAME)
 
 tgz :
 	tar -czf $(SRCPACKAGENAME).tar.gz $(sourcefiles) Makefile COPYING README.SDL Changes
