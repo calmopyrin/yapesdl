@@ -149,3 +149,15 @@ YapeSDL.layout
 *.layout
 *.layout
 >>>>>>> Stashed changes
+
+Build/
+
+DerivedData/
+
+Index/
+
+yapesdl.xcodeproj/project.xcworkspace/
+
+yapesdl.xcodeproj/xcshareddata/
+
+yapesdl.xcodeproj/xcuserdata/
