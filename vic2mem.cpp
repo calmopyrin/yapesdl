@@ -138,6 +138,16 @@ Vic2mem::~Vic2mem()
 	delete keys64;
 }
 
+void Vic2mem::triggerNMI()
+{
+	cia[1].icr |= 0x10;
+	cpuptr->triggerNmi();
+	if (cia[1].icr & cia[1].irq_mask & 0x7F) {
+		cia[1].icr |= 0x80;
+		//cpuptr->clearNmi();
+	}
+}
+
 void Vic2mem::Reset(unsigned int resetLevel)
 {
 	// reset memory banks

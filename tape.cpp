@@ -183,7 +183,7 @@ inline void TAP::readMtapData(unsigned int elapsed)
 
 inline void TAP::readWavData(unsigned int elapsed)
 {
-	const unsigned int fastClockFreq = mem->getRealSlowClock() << 1;
+	const unsigned int fastClockFreq = mem->getRealSlowClock() << 2;
 	static int prevSample = 0;
 
 	while (elapsed--) {
@@ -251,7 +251,7 @@ inline unsigned int TAP::readNextTapDelay()
 	} else {
 		delay <<= 3;
 	}
-	unsigned int tapClockFreq = mem->getRealSlowClock() >> 4;
+	unsigned int tapClockFreq = mem->getRealSlowClock() >> 3;
 	// machine clock frequency different from MTAP one? then adjust...
 	if (tapeImageSampleRate != tapClockFreq) {
 		const double frqMult = double(tapClockFreq) / double(tapeImageSampleRate);

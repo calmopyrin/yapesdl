@@ -167,8 +167,8 @@ void TED::flipRamMask(void *none)
 {
 	RAMMask = (RAMMask + (RAMMask == 0x7FFF ? 0x8000 : 0x4000)) & 0xFFFF;
 	TED *ted = instance_;
-	// only reset if C264
-	if (ted->getCyclesPerRow() == SCR_HSIZE) {
+	// only reset if not C64
+	if (ted->getEmulationLevel() != 2) {
 		ted->cpuptr->Reset();
 		ted->Reset(true);
 	}

@@ -526,6 +526,7 @@
     <ClInclude Include="keyboard.h" />
     <ClInclude Include="keyoverlay.h" />
     <ClInclude Include="keys64.h" />
+    <ClInclude Include="keysvic.h" />
     <ClInclude Include="mem.h" />
     <ClInclude Include="mnemonic.h" />
     <ClInclude Include="monitor.h" />
@@ -540,7 +541,9 @@
     <ClInclude Include="tedmem.h" />
     <ClInclude Include="types.h" />
     <ClInclude Include="Via.h" />
+    <ClInclude Include="vic20rom.h" />
     <ClInclude Include="vic2mem.h" />
+    <ClInclude Include="vicmem.h" />
     <ClInclude Include="video.h" />
   </ItemGroup>
   <ItemGroup>
@@ -557,6 +560,7 @@
     <ClCompile Include="interface.cpp" />
     <ClCompile Include="keyboard.cpp" />
     <ClCompile Include="keys64.cpp" />
+    <ClCompile Include="keysvic.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="monitor.cpp" />
     <ClCompile Include="prg.cpp" />
@@ -570,6 +574,7 @@
     <ClCompile Include="tedsound.cpp" />
     <ClCompile Include="Via.cpp" />
     <ClCompile Include="vic2mem.cpp" />
+    <ClCompile Include="vicmem.cpp" />
     <ClCompile Include="video.cpp" />
   </ItemGroup>
   <ItemGroup>

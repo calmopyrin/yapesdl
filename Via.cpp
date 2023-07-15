@@ -88,7 +88,6 @@ void Via::write(unsigned int r, unsigned char value)
 			ier |= value & 0x7F;
 		else
 			ier &= ~value;
-		checkIrqCallback(callBackParam, ifr & ier & 0x7F);
 		break;
 	default:
 		break;

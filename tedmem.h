@@ -126,18 +126,22 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual unsigned int getColorCount() { return 128; };
 	virtual Color getColor(unsigned int ix);
 	virtual unsigned int getCyclesPerRow() const { return SCR_HSIZE; }
+	virtual unsigned int getCanvasX() const { return SCR_HSIZE; }
 	virtual unsigned char *getIrqReg() { return &irqFlag; }
 	virtual unsigned int getSoundClock() { return TED_SOUND_CLOCK; }
-	virtual unsigned int getRealSlowClock() { return TED_REAL_CLOCK_M10 / clockDivisor; }
+	virtual unsigned int getRealSlowClock() { return TED_REAL_CLOCK_M10 / clockDivisor / 2; }
 	virtual unsigned int getEmulationLevel() { return 0; }
 	virtual unsigned int getAutostartDelay() { return 70; }
 	virtual unsigned int getHorizontalCount() { return ((98 + beamx) << 1) % 228; }
 	virtual unsigned int getVerticalCount() { return beamy; }
 	virtual unsigned short getEndLoadAddressPtr() { return 0x9D; };
 	virtual unsigned short getKbBufferSizePtr() { return 0xEF; };
+	virtual unsigned short getRamSize() { return (RAMMask + 1) / 1024; };
+	virtual void setRamSize(unsigned short) { };
 	virtual void calcSamples(short *buffer, unsigned int nrsamples);
 	virtual void setFrequency(unsigned int sid_frequency);
 	virtual void setSampleRate(unsigned int sampleRate_);
+	virtual void triggerNMI() { /* no NMI */ };
 	void setClockStep(unsigned int originalFreq, unsigned int samplingFreq);
 	//
 	static unsigned int sidCardEnabled;
@@ -233,6 +237,11 @@ protected:
 	void doHRetrace();
 	void doVRetrace();
 	void newLine();
+	void setAlignedWrite(unsigned char* addr, unsigned char value) {
+		aligned_write = true;
+		aw_addr_ptr = addr;
+		aw_value = value;
+	}
 	unsigned int clockDivisor;
 	//
 	void updateSerialDevices(unsigned char newAtn);

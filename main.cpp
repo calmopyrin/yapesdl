@@ -38,6 +38,7 @@
 #include "FdcGcr.h"
 #include "icon.h"
 #include "vic2mem.h"
+#include "vicmem.h"
 #include "SaveState.h"
 #include "keyoverlay.h"
 
@@ -122,6 +123,7 @@ rvar_t *settings[] = {
 	SIDsound::sidSettings,
 	archDepSettings,
 	TED::tedSettings,
+	Vicmem::vicSettings,
 	videoSettings,
 	NULL
 };
@@ -137,7 +139,7 @@ inline static void ShowFrameRate(unsigned int show)
 	if (show) {
 		sprintf(fpstxt, "%u%%/%ufps", speed, fps);
 		unsigned int s = (unsigned int) strlen(fpstxt) << 3;
-		ted8360->texttoscreen((ted8360->getCyclesPerRow() == VIC_PIXELS_PER_ROW ? 472 : 408) - s, 34, fpstxt);
+		ted8360->texttoscreen((ted8360->getCyclesPerRow() >= VIC_PIXELS_PER_ROW ? 472 : 408) - s, 34, fpstxt);
 	}
 }
 
@@ -202,7 +204,7 @@ void machineEnable1551(bool enable)
 			delete drive1541;
 			drive1541 = NULL;
 		}
-		if (ted8360->getEmulationLevel() != 2) {
+		if (ted8360->getEmulationLevel() < 2) {
 			ted8360->HookTCBM(tcbm);
 		} else {
 			fsd1541 = new FakeSerialDrive(8);
@@ -403,7 +405,7 @@ static void showKeyboardOverlay()
 	SDL_RenderCopy(sdlRenderer, texture, NULL, &rc);
 }
 
-static unsigned int pixels[512 * SCR_VSIZE * 2];
+static unsigned int pixels[568 * SCR_VSIZE * 2];
 
 void frameUpdate(unsigned char *src, unsigned int *target)
 {
@@ -483,6 +485,7 @@ bool SaveSettings(char *inifileName)
 		fprintf(ini, "WindowMultiplier = %u\n", g_iWindowMultiplier);
 		fprintf(ini, "EmulationLevel = %u\n", g_iEmulationLevel);
 		fprintf(ini, "JoystickKeysIndex = %u\n", KEYS::joystickScanCodeIndex);
+		fprintf(ini, "Vic20RamExpSize = %u\n", Vicmem::ramExpSizeKb);
 
 		fclose(ini);
 		return true;
@@ -555,6 +558,8 @@ bool LoadSettings(char *inifileName)
 					g_iEmulationLevel = atoi(value);
 				else if (!strcmp(keyword, "JoystickKeysIndex"))
 					KEYS::joystickScanCodeIndex = atoi(value) % 3;
+				else if (!strcmp(keyword, "Vic20RamExpSize"))
+					Vicmem::ramExpSizeKb = atoi(value);
 			}
 		}
 		fclose(ini);
@@ -733,9 +738,12 @@ static void setEmulationLevel(unsigned int level)
             case 2:
                 ted8360 = new Vic2mem;
 				break;
+			case 3:
+				ted8360 = new Vicmem;
+				break;
 		}
 		uinterface->setNewMachine(ted8360);
-		unsigned int newCpr = ted8360->getCyclesPerRow();
+		unsigned int newCpr = ted8360->getCanvasX();
 		//ted8360->Reset();
 		machine->setMem(ted8360, ted8360->getIrqReg(), &(ted8360->Ram[0x0100]));
 		ted8360->HookTCBM(tcbm);
@@ -792,10 +800,9 @@ static void toggleCrtEmulation(void *none)
 
 static const char *machineTypeLabel(unsigned int index)
 {
-	const char* label[] = { "ACCURATE +4", "FAST +4", "COMMODORE 64" };
+	const char *label[] = { "ACCURATE +4", "FAST +4", "COMMODORE 64", "COMMODORE VIC20"};
 	return label[index % (sizeof(label)/sizeof(label[0]))];
 }
-
 static const char* machineTypeLabel()
 {
 	return machineTypeLabel(g_iEmulationLevel);
@@ -803,7 +810,7 @@ static const char* machineTypeLabel()
 
 static void flipMachineType(char *name, int dir)
 {
-	g_iEmulationLevel = (g_iEmulationLevel + dir) % 3;
+	g_iEmulationLevel = (g_iEmulationLevel + dir) % 4;
 	setEmulationLevel(g_iEmulationLevel);
 	strcpy(name, machineTypeLabel());
 }
@@ -1005,8 +1012,7 @@ inline static void poll_events(void)
 						machineDoSomeFrames(1);
 						break;
                     case SDLK_PAGEUP:
-						if (ted8360->getEmulationLevel() == 2)
-							machine->triggerNmi();
+						ted8360->triggerNMI();
                         break;
 					case SDLK_F5 :
 					case SDLK_F6 :

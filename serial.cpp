@@ -80,7 +80,7 @@ CSerial::~CSerial()
 #define DATA_HI 0x80
 #define CLK_HI 0x40
 
-#define IEC_DEBUG 0
+//#define IEC_DEBUG 0
 
 enum {
 	IEC_STATE_IDLE = 0,

@@ -32,10 +32,12 @@ class Vic2mem : public TED
 		virtual Color getColor(unsigned int ix);
 		virtual unsigned int getCyclesPerRow() const { return 504; }
 		virtual unsigned short getKbBufferSizePtr() { return 0xC6; };
+		virtual unsigned short getRamSize() { return 64; };
+		virtual unsigned int getCanvasX() const { return 580; }
 		void latchCounters();
 		virtual void copyToKbBuffer(const char *text, unsigned int length = 0);
 		virtual unsigned int getSoundClock() { return VIC_SOUND_CLOCK; }
-		virtual unsigned int getRealSlowClock() { return VIC_REAL_CLOCK_M10 / 10; }
+		virtual unsigned int getRealSlowClock() { return VIC_REAL_CLOCK_M10 / 10 / 2; }
 		virtual unsigned int getEmulationLevel() { return 2; }
 #if !FAST_BOOT
 		virtual unsigned int getAutostartDelay() { return 175; }
@@ -49,6 +51,7 @@ class Vic2mem : public TED
 		virtual void readState();
 		virtual void loadromfromfile(int nr, const char fname[512], unsigned int offset);
 		virtual void enableREU(unsigned int sizekb);
+		virtual void triggerNMI();
 
     protected:
 		void doHRetrace();

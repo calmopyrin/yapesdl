@@ -53,7 +53,31 @@ bool PrgLoad(const char *fname, int loadaddress, TED *mem)
 		if (fsize < 2)
 			return false;
         fsize -= 2;
-        prgLoadFromBuffer(loadaddr, fsize, lpBufPtr + 2, mem);
+
+        // Some VIC20 PRG's are actually cartridges
+        if (mem->getEmulationLevel() == 3) {
+            if (loadaddr == 0xA000)
+                mem->loadromfromfile(1, fname, 0);
+            else {
+                const unsigned short currMemSize = mem->getRamSize();
+                if (currMemSize < 8 && loadaddr == 0x1201)
+                    mem->setRamSize(3 + 16);
+                else if (currMemSize != 3 && loadaddr == 0x1001)
+                    mem->setRamSize(3);
+                else if (currMemSize != 6 && loadaddr == 0x0401)
+                    mem->setRamSize(6);
+                if (currMemSize != mem->getRamSize()) {
+                    mem->Reset(2);
+                    unsigned int frames = mem->getAutostartDelay();
+                    while (frames--)
+                        mem->ted_process(1);
+                    fprintf(stderr, "RAM size changed to %u kB\n", mem->getRamSize());
+                }
+                prgLoadFromBuffer(loadaddr, fsize, lpBufPtr + 2, mem);
+            }
+        }
+        else
+            prgLoadFromBuffer(loadaddr, fsize, lpBufPtr + 2, mem);
 	}
 	fprintf( stderr, "Loaded: %s at $%04X-$%04X\n", fname, loadaddr, loadaddr + fsize);
 	return true;

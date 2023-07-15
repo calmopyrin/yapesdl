@@ -9,6 +9,29 @@ KEYS64::~KEYS64()
 {
 }
 
+/*
+	Write to VIA1 Port A ($DC00) row
+	Read from VIA1 Port B ($DC01) column
+
+	  7   6   5   4   3   2   1   0
+	--------------------------------
+  7| STP  /   ,   N   V   X  LSH CDN    STP=RUN/STOP, LSH=Left SHIFT, CDN=CRSR-Down
+   |
+  6|  Q  UPA  @   O   U   T   E  F5     UPA=Up Arrow
+   |
+  5| CBM  =   :   K   H   F   S  F3     CBM=Commodore logo
+   |
+  4| SPC RSH  .   M   B   C   Z  F1     RSH=Right SHIFT
+   |
+  3|  2  HOM  -   0   8   6   4  F7     HOM=CLR/HOME
+   |
+  2| CTL  ;   L   J   G   D   A  CRT    CTL=CTRL, CRT=CRSR-Right
+   |
+  1| LFA  *   P   I   Y   R   W  RET    LFA=Left Arrow, RET=RETURN
+   |
+  0|  1  BP   +   9   7   5   3  DEL    BP=British Pound
+*/
+
 unsigned char KEYS64::keyReadMatrixRow(unsigned int r)
 {
 	const Uint8 *kbstate = SDL_GetKeyboardState(NULL);

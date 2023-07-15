@@ -189,7 +189,7 @@ inline unsigned char DRIVEMEM::ReadVIA(unsigned int adr)
 		case 0x1801:
 		case 0x180F:
 			via[0].ifr &= 0xFD;
-			SetIRQflag( via[0].ier & via[0].ifr );
+			//SetIRQflag( via[0].ier & via[0].ifr );
 			return (via[0].pra & via[0].ddra) | (ppIn & ~via[0].ddra);
 				// |0x01 1541C ROM check (track 0 sensor)
 		case 0x1804:
@@ -227,7 +227,7 @@ inline unsigned char DRIVEMEM::ReadVIA(unsigned int adr)
 		case 0x1C0A:
 			{
 				unsigned char retval = via[1].read(adr);
-				SetIRQflag(via[1].ier & via[1].ifr);
+				//SetIRQflag(via[1].ier & via[1].ifr);
 				return retval;
 			}
 		case 0x1C02:
@@ -289,7 +289,7 @@ void DRIVEMEM::Write(unsigned int addr, unsigned char value)
 			case 0x180D:
 			case 0x180E:
 				via[0].write(addr, value);
-				SetIRQflag(via[0].ier & via[0].ifr);
+				//SetIRQflag(via[0].ier & via[0].ifr);
 				break;
 			case 0x1803:
 			case 0x1804:
@@ -353,7 +353,7 @@ void DRIVEMEM::Write(unsigned int addr, unsigned char value)
 			case 0x1C0D:
 			case 0x1C0E:
 				via[1].write(addr, value);
-				SetIRQflag(via[1].ier & via[1].ifr);
+				//SetIRQflag(via[1].ier & via[1].ifr);
 				break;
 
 			case 0x1C0F:

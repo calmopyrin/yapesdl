@@ -40,7 +40,7 @@ extern void setMainLoop(int looptype);
 #define COLOR(COL, SHADE) ((SHADE<<4)|COL|0x80)
 #define MAX_LINES 25
 #define MAX_INDEX (MAX_LINES - 1)
-#define LISTOFFSET (ted8360->getCyclesPerRow() == 456 ? 52 : 114)
+#define LISTOFFSET (ted8360->getCyclesPerRow() != 456 ? 114 : 52)
 
 // TODO this is ugly and kludgy like hell but I don't have time for better
 static menu_t main_menu = {
@@ -166,7 +166,7 @@ static rvar_t *findRVar(char *name)
 UI::UI(class TED *ted) :
 	display(ted->screen), charset(kernal + 0x1400), ted8360(ted)
 {
-	pixels = new unsigned int[512 * 312 * 2];
+	pixels = new unsigned int[568 * 312 * 2];
 	// Link menu structure
 	main_menu.element[0].child = &file_menu;
 	main_menu.element[1].child = &d64_list;
@@ -212,15 +212,16 @@ UI::UI(class TED *ted) :
 
 void UI::screen_update()
 {
+	const int offset[] = { 8, 8, -68, -4 };
+	const unsigned int ix = ted8360->getEmulationLevel();
 	const unsigned int cyclesPerRow = ted8360->getCyclesPerRow();
-	const int offset = cyclesPerRow == 504 ? -68 : 8;
 
-	frameUpdate(display + (cyclesPerRow - offset - 384) / 2 + 10 * cyclesPerRow, pixels);
+	frameUpdate(display + (cyclesPerRow - offset[ix] - 384) / 2 + 10 * cyclesPerRow, pixels);
 }
 
 void UI::clear(char color, char shade)
 {
-	memset(display, COLOR(color, shade), 512 * SCR_VSIZE);
+	memset(display, COLOR(color, shade), 568 * SCR_VSIZE);
 	screen_update();
 }
 
@@ -358,7 +359,7 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 				ftypes[0].menufunction = UI_D64_ITEM;
 				strcpy(ftypes[1].name, "*.zip");
 				ftypes[1].menufunction = UI_ZIP_ITEM;
-#ifdef WIN32
+#ifdef _WIN32
 				nrOfExts = 2;
 #else
                 nrOfExts = 3;
@@ -374,10 +375,12 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 				strcpy(ftypes[0].name, "*.crt");
 				strcpy(ftypes[1].name, "*.rom");
 				strcpy(ftypes[2].name, "*.bin");
+				strcpy(ftypes[3].name, "*.prg");
 				ftypes[0].menufunction = 
 				ftypes[1].menufunction =
-				ftypes[2].menufunction = UI_CRT_ITEM;
-				nrOfExts = 3;
+				ftypes[2].menufunction = 
+				ftypes[3].menufunction = UI_CRT_ITEM;
+				nrOfExts = ted8360->getEmulationLevel() == 3 ? 4 : 3;
 				break;
 			case UI_DRIVE_SET_DIR:
 				menu->nr_of_elements = nf;
@@ -589,6 +592,7 @@ bool UI::handle_menu_command( struct element_t *element)
 				return false;
 			}
 			ted8360->loadromfromfile(1, "", 0);
+			ted8360->Reset();
 			break;
 		case UI_FILE_LOAD_FRE:
 			show_file_list(&fre_list, UI_FRE_ITEM);
@@ -630,7 +634,7 @@ bool UI::handle_menu_command( struct element_t *element)
 
 void UI::show_title(menu_t * menu)
 {
-	const unsigned int CPR = ted8360->getCyclesPerRow() == 504 ? 580 : 456;
+	const unsigned int CPR = ted8360->getCanvasX();
 
 	size_t titlen = strlen( menu->title ) << 3;
 	set_color( COLOR(8,7), COLOR(7,0) );
