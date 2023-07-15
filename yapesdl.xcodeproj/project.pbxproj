@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A52258662A62C4F100E049AE /* keysvic.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A52258602A62C4F000E049AE /* keysvic.cpp */; };
+		A52258672A62C4F100E049AE /* vicmem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A52258642A62C4F100E049AE /* vicmem.cpp */; };
+		A52258682A62C4F100E049AE /* Via.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A52258652A62C4F100E049AE /* Via.cpp */; };
 		A53DF10A22BCA61B0033D6E2 /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5CA5BDC1DFDAB99006AD19D /* SDL2.framework */; };
 		A53DF10B22BCA68B0033D6E2 /* 1541mem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAA1DFDAB1F006AD19D /* 1541mem.cpp */; };
 		A53DF10C22BCA68B0033D6E2 /* archdep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BAB1DFDAB1F006AD19D /* archdep.cpp */; };
@@ -53,6 +56,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A522585F2A62C4F000E049AE /* Via.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Via.h; sourceTree = "<group>"; };
+		A52258602A62C4F000E049AE /* keysvic.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = keysvic.cpp; sourceTree = "<group>"; };
+		A52258612A62C4F000E049AE /* vicmem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vicmem.h; sourceTree = "<group>"; };
+		A52258622A62C4F100E049AE /* keysvic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keysvic.h; sourceTree = "<group>"; };
+		A52258632A62C4F100E049AE /* vic20rom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vic20rom.h; sourceTree = "<group>"; };
+		A52258642A62C4F100E049AE /* vicmem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vicmem.cpp; sourceTree = "<group>"; };
+		A52258652A62C4F100E049AE /* Via.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Via.cpp; sourceTree = "<group>"; };
 		A53DF0F222BCA3880033D6E2 /* Cia.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Cia.cpp; sourceTree = SOURCE_ROOT; };
 		A53DF0F322BCA3880033D6E2 /* Cia.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Cia.h; sourceTree = SOURCE_ROOT; };
 		A53DF0F922BCA5B30033D6E2 /* yapeSDL.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = yapeSDL.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -143,6 +153,13 @@
 		A54FE70A22BCB01E0008C12D /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				A52258602A62C4F000E049AE /* keysvic.cpp */,
+				A52258622A62C4F100E049AE /* keysvic.h */,
+				A52258652A62C4F100E049AE /* Via.cpp */,
+				A522585F2A62C4F000E049AE /* Via.h */,
+				A52258632A62C4F100E049AE /* vic20rom.h */,
+				A52258642A62C4F100E049AE /* vicmem.cpp */,
+				A52258612A62C4F000E049AE /* vicmem.h */,
 				A5CA5B8C1DFDAB1F006AD19D /* 1541rom.h */,
 				A5CA5B8E1DFDAB1F006AD19D /* c64rom.h */,
 				A53DF0F322BCA3880033D6E2 /* Cia.h */,
@@ -303,6 +320,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A52258672A62C4F100E049AE /* vicmem.cpp in Sources */,
 				A53DF10F22BCA68B0033D6E2 /* dis.cpp in Sources */,
 				A53DF12122BCA68B0033D6E2 /* tedmem.cpp in Sources */,
 				A53DF11A22BCA68B0033D6E2 /* prg.cpp in Sources */,
@@ -329,6 +347,8 @@
 				A53DF10C22BCA68B0033D6E2 /* archdep.cpp in Sources */,
 				A53DF11022BCA68B0033D6E2 /* diskfs.cpp in Sources */,
 				A53DF11422BCA68B0033D6E2 /* iec.cpp in Sources */,
+				A52258682A62C4F100E049AE /* Via.cpp in Sources */,
+				A52258662A62C4F100E049AE /* keysvic.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
