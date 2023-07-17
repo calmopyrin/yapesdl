@@ -12,6 +12,7 @@ iec.o \
 interface.o		\
 keyboard.o \
 keys64.o \
+keysvic.o \
 main.o \
 monitor.o 	\
 prg.o \
@@ -24,6 +25,7 @@ tcbm.o \
 tedmem.o \
 tedsound.o \
 Via.o \
+vicmem.o \
 vic2mem.o \
 video.o
 
