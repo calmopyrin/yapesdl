@@ -33,12 +33,11 @@ void TED::tedSoundInit(unsigned int mixingFreq)
 	DAStatus = cachedDigiSample = 0;
 	cachedSoundSample[0] = cachedSoundSample[1] = 0;
 
-	/* initialise im with 0xa8 */
-	int im = 0xa8;
-    for (int i=0; i<256; i++) {
-		noise[i] = (im & 1) * 0x20;
-		im = (im<<1)+(1^((im>>7)&1)^((im>>5)&1)^((im>>4)&1)^((im>>1)&1));
-    }
+	unsigned char im = 0xff;
+    for (int i=0; i < 256; i++) {
+		im = (im << 1)|(((im >> 7) ^ (im >> 5) ^ (im >> 4) ^ (im >> 1)) & 1);
+		noise[i] = (im & 1) << 5;
+	}
 	for (int i = 0; i < 64; i++) {
 		int chdbl = (i & 0x30) == 0x30;
 		int vol = ((i & 0x0F) < 9 ? (i & 0x0F) : 8);
@@ -87,9 +86,9 @@ void TED::calcSamples(short *buffer, unsigned int nrsamples)
 			if (OscReload[1] != (0x3FF << PRECISION)) {
 				if ((oscCount[1] += oscStep) >= OSCRELOADVAL) {
 					FlipFlop ^= 0x20;
+					cachedSoundSample[1] = Volume | (FlipFlop & channelStatus[1]) | (noise[NoiseCounter] & SndNoiseStatus);
 					if (++NoiseCounter == 256)
 						NoiseCounter = 0;
-					cachedSoundSample[1] = Volume | (FlipFlop & channelStatus[1]) | (noise[NoiseCounter] & SndNoiseStatus);
 					oscCount[1] = OscReload[1] + (oscCount[1] - OSCRELOADVAL);
 				}
 			}
@@ -132,7 +131,7 @@ void TED::writeSoundReg(ClockCycle cycle, unsigned int reg, unsigned char value)
 				FlipFlop = 0x30;
 				oscCount[0] = OscReload[0];
 				oscCount[1] = OscReload[1];
-				NoiseCounter = 0xFF;
+				NoiseCounter = 0;
 				cachedDigiSample = volumeTable[value & 0x3F];
 			}
 			Volume = value & 0x0F;
