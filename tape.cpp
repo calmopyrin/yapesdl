@@ -45,7 +45,7 @@ static unsigned char mtap_header_default[]={
 };
 
 const char tapeFormatStr[][32] = {
-	"MTAP1", "MTAP2", "PCM WAV 8-bit", "PCM WAV 16-bit", "Unknown"
+	"MTAP1", "MTAP2", "PCM WAV 8-bit", "PCM WAV 16-bit", "PCM WAV 1-bit", "Unknown"
 };
 
 TAP::TAP() : tapeFileSize(0), tapeBuffer(NULL), lastCycle(0), edge(0), buttonPressed(0), tapeSoFar(0)
@@ -94,14 +94,27 @@ bool TAP::attachTape(const char *fname)
 			// mono?
 			if (wavh->nChannels != 1)
 				return false;
-			tapeFormat = wavh->nBitsPerSample == 8 ? TAPE_FORMAT_PCM8 : TAPE_FORMAT_PCM16;
+			switch (wavh->nBitsPerSample) {
+				case 1:
+					tapeFormat = TAPE_FORMAT_PCM1;
+					bitcount = 0;
+					break;
+				case 8:
+					tapeFormat = TAPE_FORMAT_PCM8;
+					break;
+				default:
+				case 16:
+					tapeFormat = TAPE_FORMAT_PCM16;
+					break;
+			}
+			tapeDelay = 0;
 		// if no match, assume it is a 44.1 kHz sample
 		} else {
 			tapeImageHeaderSize = tapeSoFar = 0;
 			tapeImageSampleRate = 44100;
 			tapeFormat = TAPE_FORMAT_PCM8;
 		}
-		motorOn = buttonPressed = false;
+		//motorOn = buttonPressed = false;
 		// close the file, it's in the memory now...
 		fclose(tapfile);
 		fprintf(stderr, "Tape attached    : %s\n", tapefilename);
@@ -146,6 +159,7 @@ bool TAP::detachTape()
 		tapeBuffer = NULL;
 	}
 	tapeSoFar = 0;
+	tapeDelay = 0;
 	return false;
 }
 
@@ -158,6 +172,7 @@ void TAP::rewind()
 		tapeDelay = 0;
 	} else
 		edge = 0x00;
+	bitcount = 0;
 }
 
 void TAP::changewave(bool wholewave)
@@ -183,32 +198,56 @@ inline void TAP::readMtapData(unsigned int elapsed)
 
 inline void TAP::readWavData(unsigned int elapsed)
 {
-	const unsigned int fastClockFreq = mem->getRealSlowClock() << 2;
+	const unsigned int fastClockFreq = mem->getRealSlowClock() << 1;
 	static int prevSample = 0;
 
 	while (elapsed--) {
 		if (tapeSoFar >= tapeFileSize)
 			return;
 		if ((tapeDelay += tapeImageSampleRate) >= fastClockFreq) {
-			int sample = tapeBuffer[tapeSoFar++];
-
-			if (tapeFormat == TAPE_FORMAT_PCM16) {
-				sample += tapeBuffer[tapeSoFar++] << 8;
-				int change = short(sample) - prevSample;
-				if (sample > 0 && change > 0) {
-					edge = 0x10;
-				} else if (sample <= 0 && change < 0) {
-					edge = 0x00;
-					fallingEdge = true;
-				}
-			} else {
-				int change = sample - prevSample;
-				if (sample > 0x80 && change > 0) {
-					edge = 0x10;
-				} else if (sample <= 0x7F && change < 0) {
-					edge = 0x00;
-					fallingEdge = true;
-				}
+			int sample;
+			switch (tapeFormat) {
+				case TAPE_FORMAT_PCM16:
+					{
+						sample = tapeBuffer[tapeSoFar++];
+						sample += tapeBuffer[tapeSoFar++] << 8;
+						int change = short(sample) - prevSample;
+						if (sample > 0 && change > 0) {
+							edge = 0x10;
+						}
+						else if (sample <= 0 && change < 0) {
+							fallingEdge = !!edge;
+							edge = 0x00;
+						}
+					}
+					break;
+				case TAPE_FORMAT_PCM8:
+					{
+						sample = tapeBuffer[tapeSoFar++];
+						int change = sample - prevSample;
+						if (sample > 0x80 && change > 0) {
+							edge = 0x10;
+						}
+						else if (sample <= 0x7F && change < 0) {
+							fallingEdge = !!edge;
+							edge = 0x00;
+						}
+					}
+					break;
+				case TAPE_FORMAT_PCM1:
+					{
+						if (!bitcount--) {
+							bitcount = 7;
+							sample = tapeBuffer[tapeSoFar++];
+						} else
+							sample = prevSample;
+						int newEdge = (sample & 0x80) ? 0x10 : 0;
+						fallingEdge = !newEdge && edge;
+						edge = newEdge;
+						sample <<= 1;
+					}
+					break;
+				default:; // should not happen
 			}
 			prevSample = sample;
 			tapeDelay -= fastClockFreq;
@@ -225,7 +264,9 @@ unsigned char TAP::readCSTIn(ClockCycle cycle)
 			case TAPE_FORMAT_MTAP2:
 				readMtapData(elapsed);
 				break;
+			case TAPE_FORMAT_PCM1:
 			case TAPE_FORMAT_PCM8:
+			case TAPE_FORMAT_PCM16:
 				readWavData(elapsed);
 				break;
 			case TAPE_FORMAT_NONE:

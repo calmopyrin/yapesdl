@@ -26,6 +26,7 @@ enum TapeFormat {
 	TAPE_FORMAT_MTAP2,
 	TAPE_FORMAT_PCM8,
 	TAPE_FORMAT_PCM16,
+	TAPE_FORMAT_PCM1,
 	TAPE_FORMAT_NONE
 };
 
@@ -46,6 +47,7 @@ class TAP {
 		unsigned int readNextTapDelay();
 		TapeFormat tapeFormat;
 		bool fallingEdge;
+		unsigned int bitcount;
 		unsigned char *tapeHeaderRead;
 		unsigned int tapeImageHeaderSize;
 		unsigned int tapeImageSampleRate;
