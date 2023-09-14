@@ -48,6 +48,8 @@
 		<Unit filename="SaveState.h" />
 		<Unit filename="Sid.cpp" />
 		<Unit filename="Sid.h" />
+		<Unit filename="Via.cpp" />
+		<Unit filename="Via.h" />
 		<Unit filename="archdep.cpp" />
 		<Unit filename="archdep.h" />
 		<Unit filename="cb.bmp" />
@@ -69,6 +71,7 @@
 		<Unit filename="keyboard.h" />
 		<Unit filename="keys64.cpp" />
 		<Unit filename="keys64.h" />
+		<Unit filename="keysvic.cpp" />
 		<Unit filename="main.cpp" />
 		<Unit filename="mem.h" />
 		<Unit filename="mnemonic.h" />
@@ -91,12 +94,11 @@
 		<Unit filename="types.h" />
 		<Unit filename="vic2mem.cpp" />
 		<Unit filename="vic2mem.h" />
+		<Unit filename="vicmem.cpp" />
+		<Unit filename="vicmem.h" />
 		<Unit filename="video.cpp" />
 		<Unit filename="video.h" />
 		<Extensions>
-			<code_completion />
-			<envvars />
-			<debugger />
 			<lib_finder disable_auto="1" />
 		</Extensions>
 	</Project>
