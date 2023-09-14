@@ -11,7 +11,7 @@
 	(c) 2005 VENESZ Roland
 */
 
-#define NAME    "Yape/SDL 0.71.2"
+#define NAME    "Yape/SDL 0.80.1"
 #define WINDOWX SCREENX
 #define WINDOWY SCREENY
 
@@ -311,7 +311,7 @@ bool start_file(const char *szFile, bool autostart = true)
 				return true;
 			}
 		}
-		if (!strcmp(fileext,".tap") || !strcmp(fileext,".TAP")) {
+		if (!strcmp(fileext,".tap") || !strcmp(fileext,".TAP") || !strcmp(fileext, ".wav") || !strcmp(fileext, ".WAV")) {
 			ted8360->tap->detachTape();
 			ted8360->tap->attachTape(szFile);
 			if (autostart) {
@@ -1216,8 +1216,10 @@ static void app_initialise()
 
 	SDL_GetVersion(&sdlv);
 	printf("SDL version detected: %d.%d.%d\n", sdlv.major, sdlv.minor, sdlv.patch);
+#ifdef __EMSCRIPTEN__
 	// very important for performance reasons
 	SDL_SetHint(SDL_HINT_EMSCRIPTEN_ASYNCIFY, "0");
+#endif
     if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) < 0 ) {
         fprintf(stderr, "Unable to init SDL with controller support: %s\n", SDL_GetError());
 		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
