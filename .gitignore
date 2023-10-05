@@ -161,3 +161,5 @@ yapesdl.xcodeproj/project.xcworkspace/
 yapesdl.xcodeproj/xcshareddata/
 
 yapesdl.xcodeproj/xcuserdata/
+*.vsidx
+*.lock

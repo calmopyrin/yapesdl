@@ -2,7 +2,7 @@ README.SDL
 
 This is the README for the SDL port of Yape/SDL (Yet Another Plus/4 Emulator)
 
-Current version is 0.71.2
+Current version is 0.80.1
 
 LEGAL
 =====
@@ -132,7 +132,7 @@ USAGE
   F10		: save current settings to user's home directory
 
   LALT + 1-3   : set window size
-  LALT + L	   : switch among emulators (C+4 cycle based; C+4 line based; C64 cycle based)
+  LALT + L	   : switch among emulators (C+4 cycle based; C+4 line based; C64 cycle based; VIC20 cycle based)
   LALT + I	   : switch emulated joystick port
   LALT + M     : enter console based external monitor and disassembler
   LALT + P	   : toggle CRT emulation
@@ -191,11 +191,13 @@ FEATURES
   - full, cycle exact MOS 6502/6510/7501/8501 CPU emulation
   - almost full MOS 7360/8360 aka 'TED' chip emulation
   - almost complete MOS 6569 aka 'VIC-II' chip emulation
+  - almost complete MOS 6561 aka 'VIC' chip emulation
   - reasonable MOS 6581/8580 aka 'SID' chip emulation
-  - somewhat incomplete CIA 6526 aka 'CIA' emulation
+  - somewhat incomplete MOS 6526 aka 'CIA' emulation
+  - somewhat incomplete MOS 6522 aka 'VIA' emulation
   - real 1541 drive emulation (Read/Write)
   - full ROM banking on +4
-  - almost full tape emulation
+  - almost full tape emulation (MTAP, WAV images)
   - joystick emulation via cursor keys and gamepads
   - PRG, P00, T64, D64 and TAP file format support
   - partial CRT emulation

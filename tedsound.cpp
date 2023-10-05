@@ -87,7 +87,7 @@ void TED::calcSamples(short *buffer, unsigned int nrsamples)
 				if ((oscCount[1] += oscStep) >= OSCRELOADVAL) {
 					FlipFlop ^= 0x20;
 					cachedSoundSample[1] = Volume | (FlipFlop & channelStatus[1]) | (noise[NoiseCounter] & SndNoiseStatus);
-					if (++NoiseCounter == 256)
+					if (++NoiseCounter == 255)
 						NoiseCounter = 0;
 					oscCount[1] = OscReload[1] + (oscCount[1] - OSCRELOADVAL);
 				}

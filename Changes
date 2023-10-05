@@ -1,3 +1,13 @@
+Changes in v0.80.1
+==================
+
+- added VIC20 emulation
+- improved loading tapes from WAV format
+- isolated and improved VIA core
+- save joystick keyset
+- CPU halt fixed (disallow IRQ's too)
+- TED sound bugs fixed (no stop on $03FF, noise sequence)
+
 Changes in v0.71.2
 ==================
 

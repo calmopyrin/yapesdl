@@ -427,7 +427,7 @@
       <OptimizationLevel>O3</OptimizationLevel>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>$(SolutionDir)$(Platform)\$(Configuration)\unzip.a;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(SolutionDir)$(Platform)\$(Configuration)\unzip;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>NoDebugInformation</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -435,6 +435,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <AdditionalOptions>-s USE_ZLIB=1 -s USE_SDL=2 %(AdditionalOptions)</AdditionalOptions>
       <PreloadFile>X:\Code\yapeSDL\Debug\p4games@\;%(PreloadFile)</PreloadFile>
+      <RunJavaScriptOptimization>JavaScriptOptimization</RunJavaScriptOptimization>
+      <RunLLVMOptimization>LLVMOptimizationLevel3</RunLLVMOptimization>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">

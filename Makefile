@@ -30,7 +30,7 @@ vic2mem.o \
 video.o
 
 EXENAME = yapesdl
-SRCPACKAGENAME = $(EXENAME)_0.71.2-1
+SRCPACKAGENAME = $(EXENAME)_0.80.1-1
 BINPACKAGENAME = $(SRCPACKAGENAME)_amd64
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LDFLAGS := $(shell sdl2-config --libs)
@@ -91,6 +91,9 @@ keyboard.o : keyboard.cpp keyboard.h
 keys64.o : keys64.cpp keys64.h
 	$(CC) $(cflags) -c $<
 
+keysvic.o : keysvic.cpp keysvic.h
+	$(CC) $(cflags) -c $<
+
 main.o : main.cpp
 	$(CC) $(cflags) -c $<
 
@@ -124,6 +127,9 @@ tedmem.o : tedmem.cpp
 tedsound.o : tedsound.cpp
 	$(CC) $(cflags) -c $<
 
+vicmem.o : vicmem.cpp vicmem.h
+	$(CC) $(cflags) -c $<
+
 vic2mem.o : vic2mem.cpp vic2mem.h
 	$(CC) $(cflags) -c $<
 
@@ -145,6 +151,9 @@ e :
 	emacs -fn 10x20 Makefile *.h *.cpp &
 
 deb:
+	@if [ ! -d ./$(SRCPACKAGENAME)/usr ]; then mkdir ./$(SRCPACKAGENAME)/usr ; fi
+	@if [ ! -d ./$(SRCPACKAGENAME)/usr/local ]; then mkdir ./$(SRCPACKAGENAME)/usr/local ; fi
+	@if [ ! -d ./$(SRCPACKAGENAME)/usr/local/bin ]; then mkdir ./$(SRCPACKAGENAME)/usr/local/bin ; fi
 	cp ./$(EXENAME) ./$(SRCPACKAGENAME)/usr/local/bin
 	dpkg-deb --build $(SRCPACKAGENAME)
 	mv $(SRCPACKAGENAME).deb $(BINPACKAGENAME).deb
