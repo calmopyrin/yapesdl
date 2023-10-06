@@ -102,7 +102,7 @@ int CPU::disassemble(int pc, char *line)
 
 void CPU::regDump(char *line, int rowcount)
 {
- 	int flagmask = 0;
+	int flagmask = 0;
 
 	if (rowcount == 0) {
 		sprintf( line, "AC:%02X,XR:%02X,YR:%02X,SP:%02X,PC:%04X,ST:%04X|NV-BCIZC\n",
@@ -111,7 +111,7 @@ void CPU::regDump(char *line, int rowcount)
 		char txt[][5] = {"HI","LO"};
 		flagmask = bytetobin( REG_ST );
 		sprintf( line, "IRQ(%s)|HC($%02X)|VC($%03X)|CPU:%s   |FL:%08i|Cycle: %llu\n",
-          txt[*irq_register ? 1 : 0], theTed->getHorizontalCount(), theTed->getVerticalCount(), getName(),
+		  txt[*irq_register ? 1 : 0], theTed->getHorizontalCount(), theTed->getVerticalCount(), getName(),
 		  flagmask, theTed->GetClockCount());
 	}
 }

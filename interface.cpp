@@ -332,20 +332,20 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 	// populate file list
 	if (ft != FT_VOLUME) {
 
-        unsigned int nrOfExts = 1;
-        element_t ftypes[10];
+		unsigned int nrOfExts = 1;
+		element_t ftypes[10];
 
 		switch ( type ) {
-            case UI_T64_ITEM:
+			case UI_T64_ITEM:
 			case UI_PRG_ITEM:
-			    nrOfExts = 3;
-			    strcpy(ftypes[0].name, "*.prg");
+				nrOfExts = 3;
+				strcpy(ftypes[0].name, "*.prg");
 				strcpy(ftypes[1].name, "*.P00");
-                strcpy(ftypes[2].name, "*.T64");
-                ftypes[0].menufunction = UI_PRG_ITEM;
-                ftypes[1].menufunction = UI_PRG_ITEM;
-                ftypes[2].menufunction = UI_T64_ITEM;
-                break;
+				strcpy(ftypes[2].name, "*.T64");
+				ftypes[0].menufunction = UI_PRG_ITEM;
+				ftypes[1].menufunction = UI_PRG_ITEM;
+				ftypes[2].menufunction = UI_T64_ITEM;
+				break;
 			case UI_TAP_ITEM:
 				strcpy(ftypes[0].name, "*.tap");
 				strcpy(ftypes[1].name, "*.wav");
@@ -355,16 +355,16 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 				break;
 			case UI_D64_ITEM:
 			case UI_ZIP_ITEM:
-                strcpy(ftypes[0].name, "*.d64");
+				strcpy(ftypes[0].name, "*.d64");
 				ftypes[0].menufunction = UI_D64_ITEM;
 				strcpy(ftypes[1].name, "*.zip");
 				ftypes[1].menufunction = UI_ZIP_ITEM;
 #ifdef _WIN32
 				nrOfExts = 2;
 #else
-                nrOfExts = 3;
+				nrOfExts = 3;
 				strcpy(ftypes[2].name, "*.D64");
-                ftypes[2].menufunction = UI_D64_ITEM;
+				ftypes[2].menufunction = UI_D64_ITEM;
 #endif
 				break;
 			case UI_FRE_ITEM:
@@ -390,16 +390,16 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 		//
 		unsigned int k = nrOfExts - 1;
 		do {
-            strcpy(cfilename, ftypes[k].name);
-            type = ftypes[k].menufunction;
-            res = ad_find_first_file(cfilename);
-            while(res) {
-                strcpy(menu->element[nf].name, ad_return_current_filename());
-                menu->element[nf].menufunction = type;
-                ++nf;
-                res = ad_find_next_file();
-            }
-            ad_find_file_close();
+			strcpy(cfilename, ftypes[k].name);
+			type = ftypes[k].menufunction;
+			res = ad_find_first_file(cfilename);
+			while(res) {
+				strcpy(menu->element[nf].name, ad_return_current_filename());
+				menu->element[nf].menufunction = type;
+				++nf;
+				res = ad_find_next_file();
+			}
+			ad_find_file_close();
 		} while (k--);
 		//
 	}
@@ -493,24 +493,24 @@ bool UI::handle_menu_command( struct element_t *element)
 				curr_menu->curr_sel = file_menu.nr_of_elements - 1;*/
 			return false;
 
-        case UI_T64_ITEM:
+		case UI_T64_ITEM:
 		case UI_PRG_ITEM:
 			{
 				const Uint8 *state = SDL_GetKeyboardState(NULL);
 				if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT] || autoStartNext) {
 					autostart_file(element->name);
 				} else {
-				    if (menuSelection != UI_T64_ITEM)
-                        PrgLoad(element->name, 0, ted8360);
-                    else
-                        prgLoadFromT64(element->name, 0, ted8360);
+					if (menuSelection != UI_T64_ITEM)
+						PrgLoad(element->name, 0, ted8360);
+					else
+						prgLoadFromT64(element->name, 0, ted8360);
 				}
 #if (SDL_VERSION_ATLEAST(2,24,0))
 				SDL_ResetKeyboard();
 #endif
 			}
 			clear (0, 0);
-            break;
+			break;
 
 		case UI_TAP_ITEM:
 			{
@@ -883,7 +883,7 @@ int UI::wait_events()
 				}
 				break;
 
-	        case SDL_KEYDOWN:
+			case SDL_KEYDOWN:
 				//printf("key: %u, button was pressed!\n", event.key.keysym.scancode);
 				switch (event.key.keysym.sym) {
 					case SDLK_ESCAPE :

@@ -41,9 +41,9 @@ class CPU : public SaveState , public Debuggable {
 		inline virtual void ClearVFlag() { ST&=0xBF; };
 		inline void SetVFlag() { ST|=0x40; };
 		enum {
-		    INTERRUPT_NMI = 0xFFFA,
-		    INTERRUPT_RESET = 0xFFFC,
-		    INTERRUPT_IRQ = 0xFFFE,
+			INTERRUPT_NMI = 0xFFFA,
+			INTERRUPT_RESET = 0xFFFC,
+			INTERRUPT_IRQ = 0xFFFE,
 		};
 		unsigned short irqVector;
 		unsigned int nmiLevel;
@@ -78,9 +78,9 @@ class CPU : public SaveState , public Debuggable {
 		static bool bp_active;
 		static bool bp_reached;
 		struct {
-  			unsigned int address;
-  			bool enabled;
-  			bool slot_free;
+			unsigned int address;
+			bool enabled;
+			bool slot_free;
 		} bp[11];
 		unsigned int nr_activebps;
 		bool cpu_jammed;
@@ -97,16 +97,16 @@ class CPU : public SaveState , public Debuggable {
 			stack = _s;
 		}
 		void triggerNmi() {
-		    if (!nmiLevel) {
-                irqVector = INTERRUPT_NMI;
-                nmiLevel = 1;
-                IRQcount = 1;
+			if (!nmiLevel) {
+				irqVector = INTERRUPT_NMI;
+				nmiLevel = 1;
+				IRQcount = 1;
 				irq_sequence = 0x10;
-		    }
-        }
-        void clearNmi() {
-            nmiLevel = 0;
-        }
+			}
+		}
+		void clearNmi() {
+			nmiLevel = 0;
+		}
 		virtual const char *getName() {
 			return "Main";
 		}

@@ -325,7 +325,7 @@ bool start_file(const char *szFile, bool autostart = true)
 			return SaveState::openSnapshot(szFile, false);
 		}
 		return false;
-    }
+	}
 	return false;
 }
 
@@ -415,20 +415,20 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 	const unsigned int *texture = target;
 	unsigned int i, j;
 
-    //
-    if (g_bUseOverlay) {
-        video_convert_buffer(target, pixelsPerRow, src);
-    } else {
-        const unsigned int *palette = palette_get_rgb();
-        for(i = 0; i < SCREENY; i++) {
-            for(j = 0; j < SCREENX; j++) {
+	//
+	if (g_bUseOverlay) {
+		video_convert_buffer(target, pixelsPerRow, src);
+	} else {
+		const unsigned int *palette = palette_get_rgb();
+		for(i = 0; i < SCREENY; i++) {
+			for(j = 0; j < SCREENX; j++) {
 				*target++ = palette[*src++];
 			}
 			src += sourcePitch;
 			target += targetPitch;
 		}
-    }
-    // TODO: use SDL_LockTexture instead
+	}
+	// TODO: use SDL_LockTexture instead
 	int e = SDL_UpdateTexture(sdlTexture, NULL, texture, pixelsPerRow * sizeof (unsigned int));
 	e = SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
 	if (timeOutOverlayKeys) {
@@ -448,7 +448,7 @@ static void frameUpdate()
 
 	if (popupMessageTimeOut)
 		showPopUpMessage();
-    frameUpdate(ted8360->getScreenData() + (cyclesPerRow - 384 - offsetX) / 2 + offsetY * cyclesPerRow, pixels);
+	frameUpdate(ted8360->getScreenData() + (cyclesPerRow - 384 - offsetX) / 2 + offsetY * cyclesPerRow, pixels);
 }
 
 /* ---------- Management of settings ---------- */
@@ -620,9 +620,9 @@ void snapshotSave()
 //-----------------------------------------------------------------------------
 static int SaveBitmap()
 {
-    char bmpname[512];
+	char bmpname[512];
 
-    // finding the last yapeXXXX.bmp image
+	// finding the last yapeXXXX.bmp image
 	if (getSerializedFilename("yape", "bmp", bmpname)) {
 		if (saveScreenshotBMP(bmpname, sdlWindow, sdlRenderer)) {
 			fprintf(stderr, "Screenshot saved: %s\n", bmpname);
@@ -727,16 +727,16 @@ static void setEmulationLevel(unsigned int level)
 			delete fsd1541;
 			fsd1541 = NULL;
 		}
-        switch (level) {
+		switch (level) {
 			default:
-            case 0:
-                ted8360 = new TED;
-                break;
-            case 1:
-                ted8360 = new TEDFAST;
-                break;
-            case 2:
-                ted8360 = new Vic2mem;
+			case 0:
+				ted8360 = new TED;
+				break;
+			case 1:
+				ted8360 = new TEDFAST;
+				break;
+			case 2:
+				ted8360 = new Vic2mem;
 				break;
 			case 3:
 				ted8360 = new Vicmem;
@@ -756,16 +756,16 @@ static void setEmulationLevel(unsigned int level)
 			machineEnable1551(!g_bTrueDriveEmulation);
 			machine->Reset();
 			ted8360->Reset(false);
-            init_palette(ted8360);
+			init_palette(ted8360);
 		} else {
-            // Restore TED register state
-            for(i = 0; i < 0x20; i++) {
-                ted8360->Write(0xFF00 + i, ram[0xFF00 + i]);
-            }
-            ted8360->Write(0xFF3F - romEnabled, 0);
-            // processor ports
-            ted8360->Write(0, prddr);
-            ted8360->Write(1, prp & prddr);
+			// Restore TED register state
+			for(i = 0; i < 0x20; i++) {
+				ted8360->Write(0xFF00 + i, ram[0xFF00 + i]);
+			}
+			ted8360->Write(0xFF3F - romEnabled, 0);
+			// processor ports
+			ted8360->Write(0, prddr);
+			ted8360->Write(1, prp & prddr);
 		}
 		//
 		sound_resume();
@@ -789,13 +789,13 @@ static void toggleVsync(void *none)
 
 static void toggleCrtEmulation(void *none)
 {
-    g_bUseOverlay = !g_bUseOverlay;
-    SDL_DestroyTexture(sdlTexture);
-    sdlTexture = SDL_CreateTexture(sdlRenderer,
-            g_bUseOverlay ? SDL_PIXELFORMAT_UYVY : SDL_PIXELFORMAT_ARGB8888,
-            SDL_TEXTUREACCESS_STREAMING,
+	g_bUseOverlay = !g_bUseOverlay;
+	SDL_DestroyTexture(sdlTexture);
+	sdlTexture = SDL_CreateTexture(sdlRenderer,
+			g_bUseOverlay ? SDL_PIXELFORMAT_UYVY : SDL_PIXELFORMAT_ARGB8888,
+			SDL_TEXTUREACCESS_STREAMING,
 			WINDOWX, WINDOWY * (g_bUseOverlay ? 2 : 1));
-    PopupMsg(" CRT emulation %s ", g_bUseOverlay ? "ON" : "OFF");
+	PopupMsg(" CRT emulation %s ", g_bUseOverlay ? "ON" : "OFF");
 }
 
 static const char *machineTypeLabel(unsigned int index)
@@ -904,7 +904,7 @@ inline static void poll_events(void)
 			SDL_ShowCursor(0);
 	}
 
-    if ( SDL_PollEvent(&event) ) {
+	if ( SDL_PollEvent(&event) ) {
 		switch (event.type) {
 
 			case SDL_WINDOWEVENT:
@@ -913,14 +913,14 @@ inline static void poll_events(void)
 				}
 				break;
 
-	        case SDL_KEYDOWN:
+			case SDL_KEYDOWN:
 
 //				printf("Keysim: %x, scancode: %x - %s key was pressed!\n",
 //				event.key.keysym.sym, event.key.keysym.scancode, SDL_GetKeyName(event.key.keysym.sym));
 				if (event.key.keysym.mod & KMOD_LALT) {
 					sound_pause();
 						switch (event.key.keysym.sym) {
-						    default:;
+							default:;
 								break;
 
 							case SDLK_KP_PLUS:
@@ -958,9 +958,9 @@ inline static void poll_events(void)
 							case SDLK_m :
 								monitorEnter(machine);
 								break;
-                            case SDLK_p:
+							case SDLK_p:
 								toggleCrtEmulation(NULL);
-                                break;
+								break;
 							case SDLK_r:
 								ted8360->Reset(false);
 								machineReset((event.key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT)) != 0);
@@ -1003,7 +1003,7 @@ inline static void poll_events(void)
 				}
 				switch (event.key.keysym.sym) {
 
-                    case SDLK_PAUSE :
+					case SDLK_PAUSE :
 						PopupMsg(!g_bActive ? " RESUMING " : " PAUSED ");
 						g_bActive=!g_bActive;
 						break;
@@ -1011,9 +1011,9 @@ inline static void poll_events(void)
 						g_bActive = 0;
 						machineDoSomeFrames(1);
 						break;
-                    case SDLK_PAGEUP:
+					case SDLK_PAGEUP:
 						ted8360->triggerNMI();
-                        break;
+						break;
 					case SDLK_F5 :
 					case SDLK_F6 :
 						{
@@ -1052,12 +1052,12 @@ inline static void poll_events(void)
 				}
 				break;
 
-	        case SDL_KEYUP:
+			case SDL_KEYUP:
 				switch (event.key.keysym.sym) {
 
-                    case SDLK_PRINTSCREEN:
-                        machine->clearNmi();
-                        break;
+					case SDLK_PRINTSCREEN:
+						machine->clearNmi();
+						break;
 					case SDLK_F11 :
 						g_bActive = true;
 						machineReset( 
@@ -1119,10 +1119,10 @@ inline static void poll_events(void)
 				timeOutMousePointer = 75;
 				break;
 
-            case SDL_QUIT:
-                exit(0);
-        }
-    }
+			case SDL_QUIT:
+				exit(0);
+		}
+	}
 }
 
 static void machineInit()
@@ -1220,25 +1220,25 @@ static void app_initialise()
 	// very important for performance reasons
 	SDL_SetHint(SDL_HINT_EMSCRIPTEN_ASYNCIFY, "0");
 #endif
-    if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) < 0 ) {
-        fprintf(stderr, "Unable to init SDL with controller support: %s\n", SDL_GetError());
+	if ( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) < 0 ) {
+		fprintf(stderr, "Unable to init SDL with controller support: %s\n", SDL_GetError());
 		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
 			fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError());
 			exit(1);
 		}
-    }
+	}
 	atexit(app_close);
 
 	//SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#screen");
-    // create a new window
-    sdlWindow = SDL_CreateWindow(NAME,
+	// create a new window
+	sdlWindow = SDL_CreateWindow(NAME,
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        WINDOWX * g_iWindowMultiplier, WINDOWY * g_iWindowMultiplier,
+		WINDOWX * g_iWindowMultiplier, WINDOWY * g_iWindowMultiplier,
 		SDL_WINDOW_RESIZABLE); // SDL_WINDOW_FULLSCREEN_DESKTOP
-    if (!sdlWindow) {
-        printf("Unable to create window: %s\n", SDL_GetError());
-        return;
-    }
+	if (!sdlWindow) {
+		printf("Unable to create window: %s\n", SDL_GetError());
+		return;
+	}
 	setSDLIcon(sdlWindow);
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 	// check the video driver we have
@@ -1249,13 +1249,13 @@ static void app_initialise()
 		printf(" not");
 	printf(" supported.\n");
 	//
-    sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-    SDL_RenderSetLogicalSize(sdlRenderer, SCREENX * 2, SCREENY * 2);
+	sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+	SDL_RenderSetLogicalSize(sdlRenderer, SCREENX * 2, SCREENY * 2);
 
-    sdlTexture = SDL_CreateTexture(sdlRenderer,
-                               g_bUseOverlay ? SDL_PIXELFORMAT_UYVY : SDL_PIXELFORMAT_ARGB8888,
-                               SDL_TEXTUREACCESS_STREAMING | SDL_TEXTUREACCESS_TARGET,
+	sdlTexture = SDL_CreateTexture(sdlRenderer,
+							   g_bUseOverlay ? SDL_PIXELFORMAT_UYVY : SDL_PIXELFORMAT_ARGB8888,
+							   SDL_TEXTUREACCESS_STREAMING | SDL_TEXTUREACCESS_TARGET,
 							   WINDOWX, WINDOWY * (g_bUseOverlay ? 2 : 1));
 	// Make target texture to render to
 	SDL_SetRenderTarget(sdlRenderer, sdlTexture);

@@ -18,22 +18,22 @@ unsigned char CFakeTCBM::Read(unsigned int addr)
 			//printf("R0:%02X\n", Data);
 			return (Data & ~tia.ddra)
 					|(tia.pra & tia.ddra);
-        case 1:
+		case 1:
 			//printf("R1:%02X\n", Status);
 			return (Status & ~tia.ddrb)
 					|(tia.prb & tia.ddrb);
-        case 2:
+		case 2:
 			//printf("R2:%02X\n", HandShake);
 			return (HandShake & ~tia.ddrc)
 					|(tia.prc & tia.ddrc);
-        case 3:
+		case 3:
 			return tia.ddra;
 		case 4:
 			return tia.ddrb;
 		case 5:
 			return tia.ddrc;
 		case 6:
-		    return tia.cr;
+			return tia.cr;
 		default:
 		case 7:
 			return 0x00;
@@ -51,9 +51,9 @@ void CFakeTCBM::Write( unsigned int addr, unsigned char data)
 			switch (State) {
 				case IEC_IDLE:
 					switch(data & 0x8F) {
-					    case 0x00: // erase command pending flag and execute previous command
+						case 0x00: // erase command pending flag and execute previous command
 							State = IEC_IDLE;
-					        break;
+							break;
 						case 0x80: // dummy command goes back to main loop
 							State = IEC_IDLE;
 							break;

@@ -32,17 +32,17 @@ CSerial::CSerial(unsigned int DevNr) : DeviceNr(DevNr)
 	NrOfDevicesAttached++;
 	
 	if (RootDevice == 0) {
-	    PrevDevice = 0;
-	    NextDevice = 0;
-	    for (int i=0; i<4; i++)
-	    	Devices[i] = 0;
-	    RootDevice = this;
-	    LastDevice = this;
+		PrevDevice = 0;
+		NextDevice = 0;
+		for (int i=0; i<4; i++)
+			Devices[i] = 0;
+		RootDevice = this;
+		LastDevice = this;
 	} else {
-	    PrevDevice = LastDevice;
-	    LastDevice->NextDevice = this;
-	    LastDevice = this;
-	    NextDevice = 0;
+		PrevDevice = LastDevice;
+		LastDevice->NextDevice = this;
+		LastDevice = this;
+		NextDevice = 0;
 	}
 	
 	Devices[DevNr] = this;
@@ -104,7 +104,7 @@ enum {
 	SM_BYTEREADY2,
 	SM_FERROR0,
 	SM_FERROR1,
- 	SM_TEMP
+	SM_TEMP
 };
 
 IecFakeSerial::IecFakeSerial(unsigned int DevNr, CIECDevice *iecDev) : CSerial(DevNr), iecDevice(iecDev)
@@ -174,7 +174,7 @@ void IecFakeSerial::interpretIecByte()
 				nameLength = 0;
 			}
 			errorState = ST_OK;
-  			break;	
+			break;	
 		case IEC_CMD_CLOSE:
 			if (dev_nr >= 8)
 				iecDevice->Close(secondaryAddress & 0x0F);
@@ -196,7 +196,7 @@ void IecFakeSerial::update()
 
 	if ( !atnInLine && (oldAtnLine&ATN_HI) && !(state & IEC_STATE_ATN)) { // ATN 1 -> 0 
 
-	    dataLine = DATA_LO; // device present 
+		dataLine = DATA_LO; // device present 
 		step = SM_WAITTIMEOUT;
 		addr = 0;
 		secondaryAddress_prev = secondaryAddress;
@@ -229,7 +229,7 @@ void IecFakeSerial::update()
 
 	if (state & (IEC_STATE_ATN | IEC_STATE_LISTENING) ) {
 		
-  		switch (step) {
+		switch (step) {
 
 			case SM_NONE:
 #if IEC_DEBUG >= 2
@@ -263,7 +263,7 @@ void IecFakeSerial::update()
 					timeout = cycleCount + TED::usec2cycles(60); // 200 max, 60 avg
 #if IEC_DEBUG >= 2
 					fprintf(stderr, "DATA -> 1, ready for data, mainClock: %i, timeout:%i.\n",
-      						cycleCount, timeout);
+							cycleCount, timeout);
 #endif
 				}
 				break;
@@ -293,7 +293,7 @@ void IecFakeSerial::update()
 				if (readBusWithoutUpdate() & CLK_HI) {
 					const unsigned int level = readBusWithoutUpdate() & DATA_HI; // 0x80 / 0x00
 					io_byte >>= 1;				
-   					io_byte |= level;
+					io_byte |= level;
 #if IEC_DEBUG >= 2
 					fprintf(stderr, "Transfering bit #%i:%i.\n", bitCounter, level ? 1 : 0);
 #endif
@@ -308,7 +308,7 @@ void IecFakeSerial::update()
 			case SM_BITTRANS2:
 				if (!(readBusWithoutUpdate() & CLK_HI)) {
 					step = SM_BITTRANS;	
-    			}
+				}
 				break;
 
 			case SM_BYTEREADY:
@@ -372,7 +372,7 @@ void IecFakeSerial::update()
 #if IEC_DEBUG >= 2
 					fprintf(stderr, "EOI timed out, setting DATA -> 0.\n");
 #endif					
-     			}		
+				}		
 				break;
 			
 			case SM_EOI2:
@@ -381,7 +381,7 @@ void IecFakeSerial::update()
 #if IEC_DEBUG >= 2
 					fprintf(stderr, "Starting bit transfer with ATN hi.\n");
 #endif					
-     			}		
+				}		
 				break;
 		}
 	
@@ -473,16 +473,16 @@ void IecFakeSerial::update()
  ATN
  ___	    _________ ___ ___ ___ ___ ___ ___ ___ ___       ________ ___ ___
  CLK	____|       |_| |_| |_| |_| |_| |_| |_| |_| |_______|      |_| |_| |_
-	    :       :				    :       :      :
-	    :Th :Tne:                               :Tf :Tbb:Th:Tne:
+		:       :				    :       :      :
+		:Th :Tne:                               :Tf :Tbb:Th:Tne:
  ____	    :   :___:___________________________________:      :_____________
  DATA	________|   :|__||__||__||__||__||__||__||__|   |______|
-	    :   :   : 0   1   2   3   4   5   6   7     :
-	    :   :   :LSB                         MSB    :
-	    :	:   :					:
-	    :	:   : TALKER SENDING		Listener: Data Accepted
-	    :	: LISTENER READY-FOR-DATA
-	    : TALKER READY-TO-SEND
+		:   :   : 0   1   2   3   4   5   6   7     :
+		:   :   :LSB                         MSB    :
+		:	:   :					:
+		:	:   : TALKER SENDING		Listener: Data Accepted
+		:	: LISTENER READY-FOR-DATA
+		: TALKER READY-TO-SEND
 
   Serial Bus Timing
 
@@ -521,14 +521,14 @@ void IecFakeSerial::update()
 					dataLine = ((io_byte >> (bitCounter++)) & 1) << 7;
 					clkLine = CLK_HI;
 					// FIXME? Bit Valid time is 20 us
-     				timeout = cycleCount + TED::usec2cycles(60);
+					timeout = cycleCount + TED::usec2cycles(60);
 					if (bitCounter >= 8) {
 						step = SM_BYTEREADY;
 #if IEC_DEBUG >= 1
 						fprintf(stderr, "Byte finished: %02X (%c) (EOI:%i).\n", io_byte, (char) io_byte, eoi);
 #endif
 					} else     				
-         				step = SM_BITTRANS;				
+						step = SM_BITTRANS;				
 				}
 				break;
 			
@@ -536,9 +536,9 @@ void IecFakeSerial::update()
 				if (cycleCount >= timeout) {
 					clkLine = CLK_LO;
 					dataLine = DATA_HI;
-     				// The talker is watching the Data line. The listener should pull the Data line true within one millisecond (typ: 20)
+					// The talker is watching the Data line. The listener should pull the Data line true within one millisecond (typ: 20)
 					timeout = cycleCount + TED::usec2cycles(20);
-         			step = SM_BYTEREADY2;
+					step = SM_BYTEREADY2;
 				}   			
 				break;
 			
@@ -574,7 +574,7 @@ void IecFakeSerial::update()
 					if (!(readBusWithoutUpdate() & DATA_HI)) {
 						step = SM_EOI2;
 						timeout = cycleCount + TED::usec2cycles(60);
-     				} else {
+					} else {
 						// Listener missed the EOI or did not care...
 	#if IEC_DEBUG >= 1
 						fprintf(stderr, "EOI _not_ acknowledged.\n");
@@ -601,7 +601,7 @@ void IecFakeSerial::update()
 					 else
 						fprintf(stderr, "EOI _not_ acknowledged.\n");
 #endif
-     			}
+				}
 				break;
 			
 			case SM_FERROR0:

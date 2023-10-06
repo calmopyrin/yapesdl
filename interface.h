@@ -131,9 +131,9 @@ class UI {
 		void drawMenu();
 		int	 wait_events();
 		void setNewMachine(TED *newTed) {
-            ted8360 = newTed;
-            display = ted8360->screen;
-        };
+			ted8360 = newTed;
+			display = ted8360->screen;
+		};
 };
 
 extern void interfaceLoop(void *arg);

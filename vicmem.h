@@ -15,7 +15,7 @@ struct Color;
 
 class Vicmem : public TED
 {
-    public:
+	public:
 		Vicmem();
 		virtual ~Vicmem();
 		virtual KEYS *getKeys() { return (KEYS*) keysvic; }

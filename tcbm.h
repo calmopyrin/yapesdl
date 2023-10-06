@@ -19,7 +19,7 @@ class CTCBM : public MemoryHandler {
 		unsigned int mode;  // in mode 1 DDRC and PRC behaves differently
 	} tia;
   public:
-    virtual ~CTCBM() {};
+	virtual ~CTCBM() {};
 	virtual void Write(unsigned int addr, Uint8 value) = 0;
 	virtual Uint8 Read(unsigned int) = 0;
 	virtual void Reset() = 0;
@@ -37,10 +37,10 @@ class CFakeTCBM : public CTCBM {
 	Uint8 Status;
 	Uint8 HandShake;
 	unsigned int State;
-    class CIECInterface *iec;
+	class CIECInterface *iec;
   public:
-  	void AddIECInterface(CIECInterface *pIEC) { iec = pIEC; };
-  	virtual void Write(unsigned int addr, Uint8 data);
+	void AddIECInterface(CIECInterface *pIEC) { iec = pIEC; };
+	virtual void Write(unsigned int addr, Uint8 data);
 	virtual Uint8 Read(unsigned int);
 	virtual void Reset();
 };
@@ -52,7 +52,7 @@ class CRealTCBM : public CTCBM {
 	Uint8 HandShake;
 	unsigned int State;
   public:
-  	virtual void Write(unsigned int addr, Uint8 data);
+	virtual void Write(unsigned int addr, Uint8 data);
 	virtual Uint8 Read(unsigned int);
 	virtual void Reset();
 };

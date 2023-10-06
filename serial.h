@@ -9,12 +9,12 @@ class CSerial {
 
 protected:
 	CSerial *PrevDevice;
-    CSerial *NextDevice;
+	CSerial *NextDevice;
 	char Name[16];
 	unsigned int DeviceNr;
 	static unsigned int NrOfDevicesAttached;
-    static CSerial *RootDevice;
-    static CSerial *LastDevice;
+	static CSerial *RootDevice;
+	static CSerial *LastDevice;
 
 public:
 	CSerial();

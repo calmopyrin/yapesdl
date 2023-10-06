@@ -15,7 +15,7 @@ struct Color;
 
 class Vic2mem : public TED
 {
-    public:
+	public:
 		Vic2mem();
 		virtual ~Vic2mem();
 		virtual KEYS *getKeys() { return (KEYS*) keys64; }
@@ -53,7 +53,7 @@ class Vic2mem : public TED
 		virtual void enableREU(unsigned int sizekb);
 		virtual void triggerNMI();
 
-    protected:
+	protected:
 		void doHRetrace();
 		void newLine();
 		void changeCharsetBank();
@@ -108,7 +108,7 @@ class Vic2mem : public TED
 		void render();
 		unsigned char *colorRAM;
 		KEYS64 *keys64;
-    private:
+	private:
 		unsigned char portState;
 		unsigned int dmaCount;
 		ClockCycle vicBusAccessCycleStart;

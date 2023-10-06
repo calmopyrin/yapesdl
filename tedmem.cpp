@@ -945,7 +945,7 @@ void TED::dumpState()
 void TED::readState()
 {
 	// this is ugly :-P
-   	readVar(Ram,RAMSIZE);
+	readVar(Ram,RAMSIZE);
 	readVar(&prp, sizeof(prp));
 	readVar(&prddr, sizeof(prddr));
 	readVar(serialPort, sizeof(serialPort[0]));
@@ -994,7 +994,7 @@ inline void TED::mcec()
 // renders hires text with reverse (128 chars)
 inline void TED::hi_text()
 {
-    unsigned char	chr;
+	unsigned char	chr;
 	unsigned char	charcol;
 	unsigned char	mask;
 	unsigned char	*wbuffer = scrptr + hshift;
@@ -1352,7 +1352,7 @@ inline void TED::newLine()
 		case 205:
 			// cursor phase counter in TED register $1F
 			if ((++crsrphase&0x0F) == 0x0F)
-        		crsrblinkon ^= 1;
+				crsrblinkon ^= 1;
 			break;
 
 		case 226: // NTSC
@@ -1409,13 +1409,13 @@ inline void TED::newLine()
 void TED::ted_process(const unsigned int continuous)
 {
 	loop_continuous = continuous;
-    do {
-        switch(++beamx) {
+	do {
+		switch(++beamx) {
 
-            default:
-                break;
+			default:
+				break;
 
-            case 2:
+			case 2:
 				if (externalFetchWindow) {
 					vertSubCount = (vertSubCount + 1) & 7;
 				}
@@ -1429,20 +1429,20 @@ void TED::ted_process(const unsigned int continuous)
 				}
 				break;
 
-             case 4:
-                if (dmaAllowed) {
+			 case 4:
+				if (dmaAllowed) {
 					BadLine |= (vshift == (ff1d_latch & 7));
 					if (BadLine) {
 						if (clockingState != TDMADELAY) clockingState = THALT1;
 					} else
-                 		clockingState = TSS;
+						clockingState = TSS;
 				}
 				else {
 					clockingState = VertSubActive || !fastmode ? TSS : TDS;
 				}
-                break;
+				break;
 
-            case 8:
+			case 8:
 				HBlanking = false;
 				break;
 
@@ -1457,7 +1457,7 @@ void TED::ted_process(const unsigned int continuous)
 				}
 				break;
 
-            case 10:
+			case 10:
 				if (VertSubActive)
 					CharacterPosition = CharacterPositionReload;
 				if (BadLine & 1) {
@@ -1470,7 +1470,7 @@ void TED::ted_process(const unsigned int continuous)
 					doDMA(chrbuf, (BadLine & 1) ? 0 : 0x400);
 				break;
 
-            case 16:
+			case 16:
 				if (ScreenOn) {
 					SideBorderFlipFlop = true;
 					memset( scrptr, mcol[0], hshift);
@@ -1478,7 +1478,7 @@ void TED::ted_process(const unsigned int continuous)
 						CharacterWindow = true;
 					x = 0;
 				}
-                break;
+				break;
 
 			case 18:
 				if (ScreenOn && !nrwscr) {
@@ -1499,24 +1499,24 @@ void TED::ted_process(const unsigned int continuous)
 				}
 				break;
 
-            case 90:
+			case 90:
 				//fprintf(stderr, "charpos:%i |reload:%i,VC=%i,VSUB=%i,BL:%i,TVline:%i, VSHIFT=%i, frame:%i\n", CharacterPosition, CharacterPositionReload, beamy, vertSubCount, BadLine, TVScanLineCounter, vshift, crsrphase);
-    			if (VertSubActive && charPosLatchFlag) // FIXME
+				if (VertSubActive && charPosLatchFlag) // FIXME
 					CharacterPositionReload = (CharacterPosition + x + 3)&0x3FF;
 				break;
 
-            case 91:
-		    	clockingState = TRFSH;
-		    	break;
+			case 91:
+				clockingState = TRFSH;
+				break;
 
 			case 94:
 				if (!nrwscr)
-  					SideBorderFlipFlop = CharacterWindow = false;
+					SideBorderFlipFlop = CharacterWindow = false;
 				break;
 
-  			case 96:
+			case 96:
 				if (nrwscr)
-  					SideBorderFlipFlop = CharacterWindow = false;
+					SideBorderFlipFlop = CharacterWindow = false;
 				// FIXME this breaks on FF1E writes
 				if (BadLine & 1) {
 					// swap DMA fetch pointers for colour DMA...
@@ -1524,17 +1524,17 @@ void TED::ted_process(const unsigned int continuous)
 					clrbuf = tmpClrbuf;
 					tmpClrbuf = tmpbuf;
 				}
-  			    break;
+				break;
 
-            case 101:
-		    	clockingState = fastmode ? TDS : TSS;
-		    	break;
+			case 101:
+				clockingState = fastmode ? TDS : TSS;
+				break;
 
-		    case 104:
+			case 104:
 				HBlanking = true;
 				break;
 
-		    case 107: // HSYNC start
+			case 107: // HSYNC start
 				break;
 
 			case 110: // $BC (376)
@@ -1543,10 +1543,10 @@ void TED::ted_process(const unsigned int continuous)
 
 			case 111:
 				if (BadLine & 1) {
-    			    BadLine = 2;
+					BadLine = 2;
 					VertSubActive = externalFetchWindow = true;
 				} else if (BadLine & 2) {// in the second bad line, we're finished...
-   					BadLine &= ~2;
+					BadLine &= ~2;
 				}
 				break;
 
@@ -1666,7 +1666,7 @@ bool TED::enableSidCard(bool enable, unsigned int disableMask)
 	if (enable) {
 		if (sidCard) {
 			return true;
-        }
+		}
 		sidCard = new SIDsound(SID8580DB, disableMask);
 		sidCard->setSampleRate(SAMPLE_FREQ);
 		sidCard->setFrequency(TED_SOUND_CLOCK / 2);
@@ -1684,7 +1684,7 @@ bool TED::enableSidCard(bool enable, unsigned int disableMask)
 
 SIDsound *TED::getSidCard()
 {
-    return sidCard;
+	return sidCard;
 }
 
 void TED::enableREU(unsigned int sizekb)
@@ -1753,14 +1753,14 @@ Color TED::getColor(unsigned int ix)
 TED::~TED()
 {
 	delete [] screen;
-    if (keys) {
-        delete keys;
-        keys = NULL;
-    }
-    if (tap) {
-        delete tap;
-        tap = NULL;
-    }
+	if (keys) {
+		delete keys;
+		keys = NULL;
+	}
+	if (tap) {
+		delete tap;
+		tap = NULL;
+	}
 	if (sidCard)
 		enableSidCard(false, 0);
 }

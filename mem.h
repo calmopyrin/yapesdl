@@ -6,13 +6,13 @@
 // Abstract Memory handler superclass for all memory handler objects
 class MemoryHandler {
 public:
-    virtual ~MemoryHandler() {};
+	virtual ~MemoryHandler() {};
 	virtual void Write(unsigned int addr, unsigned char data) = 0;
 	virtual unsigned char Read(unsigned int addr) = 0;
 	virtual void Reset() = 0;
 	virtual void poke(unsigned int addr, unsigned char data) { Write(addr, data); }
 //protected:
-    unsigned char irqFlag;
+	unsigned char irqFlag;
 };
 
 class DRVMEM : public MemoryHandler {

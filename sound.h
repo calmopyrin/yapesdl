@@ -14,21 +14,21 @@
 // derive from this class for sound sources
 class SoundSource : public LinkedList<SoundSource> {
 public:
-    SoundSource() {
-        add(this);
-    }
-    ~SoundSource() {
-        remove(this);
-    }
-    static void bufferFill(unsigned int nrsamples, short *buffer);
+	SoundSource() {
+		add(this);
+	}
+	~SoundSource() {
+		remove(this);
+	}
+	static void bufferFill(unsigned int nrsamples, short *buffer);
 	static void setSamplingRate(unsigned int sampleRate_) {
 		sampleRate = sampleRate_;
 	}
-    virtual void calcSamples(short *buffer, unsigned int nrsamples) = 0;
+	virtual void calcSamples(short *buffer, unsigned int nrsamples) = 0;
 	virtual void setFrequency(unsigned int frequency) = 0;
 	virtual void setSampleRate(unsigned int sampleRate) = 0;
 private:
-    char name[16];
+	char name[16];
 protected:
 	static unsigned int sampleRate;
 };

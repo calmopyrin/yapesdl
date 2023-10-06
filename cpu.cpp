@@ -49,10 +49,10 @@ void CPU::dumpState()
 	saveVar(&PC,sizeof(PC));
 	saveVar(&cycle,sizeof(cycle));
 	saveVar(&SP,sizeof(SP));
-  	saveVar(&ST,sizeof(ST));
-   	saveVar(&AC,sizeof(AC));
-   	saveVar(&X,sizeof(X));
-   	saveVar(&Y,sizeof(Y));
+	saveVar(&ST,sizeof(ST));
+	saveVar(&AC,sizeof(AC));
+	saveVar(&X,sizeof(X));
+	saveVar(&Y,sizeof(Y));
 	saveVar(&IRQcount, sizeof(IRQcount));
 	saveVar(&irq_sequence, sizeof(irq_sequence));
 	saveVar(&nmiLevel, sizeof(nmiLevel));
@@ -65,15 +65,15 @@ void CPU::readState()
 	readVar(&currins,sizeof(currins));
 	readVar(&nextins,sizeof(nextins));
 	readVar(&ptr,sizeof(ptr));
-   	readVar(&PC,sizeof(PC));
+	readVar(&PC,sizeof(PC));
 	PC &= 0xFFFF;
 	readVar(&cycle,sizeof(cycle));
-   	readVar(&SP,sizeof(SP));
-  	readVar(&ST,sizeof(ST));
+	readVar(&SP,sizeof(SP));
+	readVar(&ST,sizeof(ST));
 	ST &= 0xFF;
-   	readVar(&AC,sizeof(AC));
-   	readVar(&X,sizeof(X));
-   	readVar(&Y,sizeof(Y));
+	readVar(&AC,sizeof(AC));
+	readVar(&X,sizeof(X));
+	readVar(&Y,sizeof(Y));
 	readVar(&IRQcount, sizeof(IRQcount));
 	readVar(&irq_sequence, sizeof(irq_sequence));
 	readVar(&nmiLevel, sizeof(nmiLevel));
@@ -377,12 +377,12 @@ void CPU::process()
 						push((ST|0x30)&~irq_sequence);
 						// and then masks the interrupt bit if not NMI
 						if (irqVector == INTERRUPT_IRQ)
-                            ST |= 0x04;
+							ST |= 0x04;
 						break;
 				case 5: break;
 				case 6: PC=mem->Read(irqVector)|(mem->Read(irqVector|1)<<8);
-                        if (irqVector != INTERRUPT_IRQ)
-                            irqVector = INTERRUPT_IRQ;
+						if (irqVector != INTERRUPT_IRQ)
+							irqVector = INTERRUPT_IRQ;
 						irq_sequence = 0x0;
 						cycle=0;
 						break;
@@ -575,7 +575,7 @@ void CPU::process()
 			}
 			break;
 
- 		// Accumulator operations with immediate addressing
+		// Accumulator operations with immediate addressing
 
 		case 0x09 : // ORA #$00
 			PC++;
@@ -2340,7 +2340,7 @@ void CPU::process()
 				case 3: ptr=mem->Read(nextins);
 						break;
 				case 4: nextins += 1;
-                        ptr|=(mem->Read(nextins)<<8);
+						ptr|=(mem->Read(nextins)<<8);
 						break;
 				case 5: farins=mem->Read(ptr);
 						break;
@@ -3140,13 +3140,13 @@ void CPU::process()
 			}
 			break;
 /*
-        SHA $93,$9F     Store (A & X & (ADDR_HI + 1))
-        SHX $9E         Store (X & (ADDR_HI + 1))
-        SHY $9C         Store (Y & (ADDR_HI + 1))
-        SHS $9B         SHA and TXS, where X is replaced by (A & X).
+		SHA $93,$9F     Store (A & X & (ADDR_HI + 1))
+		SHX $9E         Store (X & (ADDR_HI + 1))
+		SHY $9C         Store (Y & (ADDR_HI + 1))
+		SHS $9B         SHA and TXS, where X is replaced by (A & X).
 
-                        Note: The value to be stored is copied also
-                        to ADDR_HI if page boundary is crossed.
+						Note: The value to be stored is copied also
+						to ADDR_HI if page boundary is crossed.
 */
 		case 0x93 : // AXI/SHA ($00),Y		(A) /\ (X) /\ (PCH+1) vagy 0000,X ki tudja???
 			switch (cycle++) {

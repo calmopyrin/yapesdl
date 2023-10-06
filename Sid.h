@@ -174,7 +174,7 @@ inline int SIDsound::waveTriangle(SIDVoice &v)
 	unsigned int msb = (v.ring ? v.accu ^ v.modulatedBy->accu : v.accu)
 		& 0x800000;
 	// triangle wave 15 bit only
- 	return ((msb ? ~v.accu : v.accu) >> 11) & 0xFFF;
+	return ((msb ? ~v.accu : v.accu) >> 11) & 0xFFF;
 }
 
 inline int SIDsound::waveSaw(SIDVoice &v)

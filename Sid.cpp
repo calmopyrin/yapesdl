@@ -76,7 +76,7 @@ void SIDsound::setModel(unsigned int model)
 
 	temp = new double[2048];
 	if (!temp)
-        return;
+		return;
 
 	switch (model) {
 		case SID8580DB:
@@ -340,7 +340,7 @@ unsigned char SIDsound::read(unsigned int adr)
 		case 0x1C:
 			/*fprintf(stderr, "cycle: %010llu envcount : %04X state: %02X level: %02X\n",
 				lastUpdate, voice[2].envCounter, voice[2].egState, voice[2].envCurrLevel);*/
- 			return (unsigned char)(voice[2].envCurrLevel);
+			return (unsigned char)(voice[2].envCurrLevel);
 
 		case 0x1E: // Digiblaster DAC readout
 			if (enableDigiBlaster && model_ == SID8580)

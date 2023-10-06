@@ -3,16 +3,16 @@
 	This is the memory controller and VIA-6522 chip emulation of the 1541 drive,
 	necessary for true-drive emulation.
 
-    1541 memory map:
+	1541 memory map:
 
-       $0000-$07FF RAM (2KB)
-       $0800-$0FFF RAM mirror
-       $1000-$17FF unconnected address space
-       $1800-$1BFF VIA1 mirrored each 16 bytes
-       $1C00-$1FFF VIA2 mirrored each 16 bytes
-       $2000-$7FFF unconnected address space
+	   $0000-$07FF RAM (2KB)
+	   $0800-$0FFF RAM mirror
+	   $1000-$17FF unconnected address space
+	   $1800-$1BFF VIA1 mirrored each 16 bytes
+	   $1C00-$1FFF VIA2 mirrored each 16 bytes
+	   $2000-$7FFF unconnected address space
 	   $8000-$BFFF ROM mirror
-       $C000-$FFFF ROM (16KB)
+	   $C000-$FFFF ROM (16KB)
 */
 
 #include "1541mem.h"

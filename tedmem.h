@@ -48,8 +48,8 @@ typedef void (TED::*delayedEventCallback)();
 
 class TED : public CSerial , public MemoryHandler, public SoundSource, public SaveState {
   public:
-  	TED();
-  	virtual ~TED();
+	TED();
+	virtual ~TED();
 	TAP	*tap;
 	virtual KEYS *getKeys() { return keys; }
 	virtual void UpdateSerialState(unsigned char portval);
@@ -57,8 +57,8 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual void Reset() { Reset(3); };
 	void soundReset();
 	// read memory through memory decoder
-  	virtual unsigned char Read(unsigned int addr);
-  	virtual void Write(unsigned int addr, unsigned char value);
+	virtual unsigned char Read(unsigned int addr);
+	virtual void Write(unsigned int addr, unsigned char value);
 	// read memory directly
 	unsigned char readDMA(unsigned int addr) { return Ram[addr]; }
 	// same as above but with writing
@@ -68,7 +68,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	static void flipRamMask(void *none);
 	static unsigned int getRamMask(void) { return RAMMask;}
 	// are the ROMs disabled?
-  	bool RAMenable;
+	bool RAMenable;
 	// RAM expansions
 	static unsigned int reuSizeKb;
 	static void flipRamExpansion(void* none);
@@ -79,7 +79,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	static char romlopath[4][260];
 	static char romhighpath[4][260];
 	// this is for the FRE support
-  	virtual void dumpState();
+	virtual void dumpState();
 	virtual void readState();
 	// screen rendering
 	// raster co-ordinates and boundaries
@@ -98,8 +98,8 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	// TED process (main loop of emulation)
 	virtual void ted_process(const unsigned int continuous);
 
- 	unsigned char Ram[RAMSIZE];
-  	void ChangeMemBankSetup();
+	unsigned char Ram[RAMSIZE];
+	void ChangeMemBankSetup();
 
 	// timer stuff
 	bool t1on, t2on, t3on;
@@ -152,13 +152,13 @@ private:
 
 protected:
 	static TED *instance_;
-    CTCBM *tcbmbus;
+	CTCBM *tcbmbus;
 	unsigned int loop_continuous;
 	// memory variables
-  	unsigned char rom[4][ROMSIZE * 2];
+	unsigned char rom[4][ROMSIZE * 2];
 	unsigned char *actromlo, *actromhi;
 	unsigned char *mem_8000_bfff, *mem_c000_ffff, *mem_fc00_fcff;
-  	static unsigned int RAMMask;
+	static unsigned int RAMMask;
 	unsigned char *actram;
 	unsigned char* actramBelow4000;
 	// Ram expansion
@@ -259,7 +259,7 @@ protected:
 	static const double luma(unsigned int i)
 	{
 		/*
-            Luminance Voltages
+			Luminance Voltages
 		*/
 		const double luma[9] = { 2.00, 2.4, 2.55, 2.7, 2.9, 3.3, 3.6, 4.1, 4.95 };
 		return luma[i + 1];

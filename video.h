@@ -12,9 +12,9 @@
 	v = (((int)(499*r) - (int)(418*g) - (int)(81*b)+128000 + 5)/1000)
 
 struct Yuv {
-    unsigned char y;
-    int u;
-    int v;
+	unsigned char y;
+	int u;
+	int v;
 };
 
 class TED;

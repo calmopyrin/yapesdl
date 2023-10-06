@@ -55,9 +55,9 @@ void CIECDrive::SetError(unsigned int error, unsigned int track, unsigned int se
 
 void CIECDrive::Reset()
 {
-    SetError(ERR_STARTUP, 0, 0);
-    currentError = ERR_OK;
-    memset(ram, 0, DRIVE_RAM_SIZE);
+	SetError(ERR_STARTUP, 0, 0);
+	currentError = ERR_OK;
+	memset(ram, 0, DRIVE_RAM_SIZE);
 }
 
 void CIECDrive::CloseAllChannels()
@@ -122,8 +122,8 @@ unsigned char CIECDrive::ToPETSCII(unsigned char c)
 }
 
 /*
-    Find first file matching wildcard pattern and get its real name
-    Return true if name 'n' matches pattern 'p'
+	Find first file matching wildcard pattern and get its real name
+	Return true if name 'n' matches pattern 'p'
 */
 bool CIECDrive::Match(char *p, char *n)
 {

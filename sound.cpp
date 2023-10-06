@@ -113,9 +113,9 @@ static void audioCallback(void *userdata, Uint8 *stream, int len)
 	if (sndPlayBufferIndex < sndWriteBufferIndex) {
 		if (len > (int)(BufferLength*2))
 			len = BufferLength * 2;
-   		memcpy(stream, sndPlayBufferPtr, len);
+		memcpy(stream, sndPlayBufferPtr, len);
 		lastSample = sndPlayBufferPtr[len/2 - 1];
-   		delete_frag();
+		delete_frag();
 	} else {
 		short *buf = (short *) stream;
 		len /= 2;
@@ -201,7 +201,7 @@ void sound_reset()
 
 void init_audio(unsigned int sampleFrq)
 {
-    SDL_AudioSpec desired;
+	SDL_AudioSpec desired;
 
 	if (sampleFrq < 11025 || sampleFrq > 192000) sampleFrq = SAMPLE_FREQ;
 	MixingFreq = sampleFrq;
@@ -230,7 +230,7 @@ void init_audio(unsigned int sampleFrq)
 		return;
 	} else {
 		fprintf(stderr, "SDL_OpenAudioDevice success!\n");
-    	fprintf(stderr, "Using audio driver : %s\n", SDL_GetCurrentAudioDriver());
+		fprintf(stderr, "Using audio driver : %s\n", SDL_GetCurrentAudioDriver());
 		audiohwspec = &obtained;
 	}
 	fprintf(stderr, "Obtained mixing frequency: %u\n", audiohwspec->freq);
@@ -258,7 +258,7 @@ void init_audio(unsigned int sampleFrq)
 	lastSample = 0;
 	lastUpdateCycle = 0;
 	lastSamplePos = 0;
-    sound_resume();
+	sound_resume();
 }
 
 void sound_pause()

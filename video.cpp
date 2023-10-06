@@ -6,12 +6,12 @@
 
 template<typename T> T myMin(T a, T b)
 {
-    return a>b ? b : a;
+	return a>b ? b : a;
 }
 
 template<typename T> T myMax(T a, T b)
 {
-    return a>b ? a : b;
+	return a>b ? a : b;
 }
 
 inline static void RGB2YUV(double R, double G, double B, Yuv &yuv)
@@ -43,7 +43,7 @@ static double gammaCorr(double in)
 
 void init_palette(TED *videoChip)
 {
-    unsigned int i;
+	unsigned int i;
 	double	Uc, Vc, Yc,  PI = 4.0 * atan(1.0);
 
 	i = videoChip->getColorCount();
@@ -75,7 +75,7 @@ void init_palette(TED *videoChip)
 		yuvPalette[ix].u = (int)(Uc + 128);
 		yuvPalette[ix].v = (int)(Vc + 128);
 #else
-        rgb2yuv(Bc, Gc, Rc, yuvPalette[ix].y, yuvPalette[ix].u, yuvPalette[ix].v);
+		rgb2yuv(Bc, Gc, Rc, yuvPalette[ix].y, yuvPalette[ix].u, yuvPalette[ix].v);
 #endif
 		yuvPalette[ix + 128] = yuvPalette[ix];
 	}
@@ -133,77 +133,77 @@ void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned 
 	int i;
 	int Uc[4], Vc[4], Up[4], Vp[4];
 
-    const Yuv *yuvLookup = yuvPalette;
+	const Yuv *yuvLookup = yuvPalette;
 	const int interlace = 0;
 //	const int thisFrameInterlaced = !evenFrame && doubleScan ? 1 : 0;
 	unsigned char *fb = screenptr;
 	unsigned char *prevLine = fb;
 
-    i = SCREENY; /// 2;
+	i = SCREENY; /// 2;
 
-    Up[0] = Up[1] = Up[2] = Up[3] = Vp[0] = Vp[1] = Vp[2] = Vp[3] = 0;
-    do {
-        int k = doubleScan & !interlace;
-        do {
-            int shade = doubleScan && !k ? interlacedShade : 100;
-            int j = 0;
-            const Yuv *yuvBuffer = yuvLookup;
+	Up[0] = Up[1] = Up[2] = Up[3] = Vp[0] = Vp[1] = Vp[2] = Vp[3] = 0;
+	do {
+		int k = doubleScan & !interlace;
+		do {
+			int shade = doubleScan && !k ? interlacedShade : 100;
+			int j = 0;
+			const Yuv *yuvBuffer = yuvLookup;
 //            const unsigned int lineVphase = (i & 1) ^ thisFrameInterlaced;
-            const unsigned int invertPhase = 0; //(vPhase[0] ^ (lineVphase) && isPalMode) ? -1 : 0;
-            const unsigned int invertPhaseNext = 0; //((vPhase[1] ^ (lineVphase ^ 1))  && isPalMode) ? -1 : 0;
+			const unsigned int invertPhase = 0; //(vPhase[0] ^ (lineVphase) && isPalMode) ? -1 : 0;
+			const unsigned int invertPhaseNext = 0; //((vPhase[1] ^ (lineVphase ^ 1))  && isPalMode) ? -1 : 0;
 
-            Yuv yuv = yuvBuffer[*fb];
-            Uc[0] = Uc[1] = Uc[2] = Uc[3] = yuv.u;
-            Vc[0] = Vc[1] = Vc[2] = Vc[3] = yuv.v ^ invertPhase;
+			Yuv yuv = yuvBuffer[*fb];
+			Uc[0] = Uc[1] = Uc[2] = Uc[3] = yuv.u;
+			Vc[0] = Vc[1] = Vc[2] = Vc[3] = yuv.v ^ invertPhase;
 
-            do {
-                int Y0, Y1;
+			do {
+				int Y0, Y1;
 				const unsigned int dj = j << 1;
-                const unsigned int filtX = dj & 3;
+				const unsigned int filtX = dj & 3;
 				const unsigned int filtNextX = (filtX + 1) & 3;
 
-                // current row
-                yuv = yuvBuffer[fb[dj]];
-                Y0 = (int)(yuv.y) * shade / 100;
-                Uc[filtX] = yuv.u;
-                Vc[filtX] = yuv.v ^ invertPhase;
-                // previous one
-                yuv = yuvBuffer[prevLine[dj]];
-                Up[filtX] = yuv.u;
-                Vp[filtX] = yuv.v ^ invertPhaseNext;
+				// current row
+				yuv = yuvBuffer[fb[dj]];
+				Y0 = (int)(yuv.y) * shade / 100;
+				Uc[filtX] = yuv.u;
+				Vc[filtX] = yuv.v ^ invertPhase;
+				// previous one
+				yuv = yuvBuffer[prevLine[dj]];
+				Up[filtX] = yuv.u;
+				Vp[filtX] = yuv.v ^ invertPhaseNext;
 
-                // move one pixel
-                yuv = yuvBuffer[fb[dj + 1]];
-                Y1 = (int)(yuv.y) * shade / 100;
-                Uc[filtNextX] = yuv.u;
-                Vc[filtNextX] = yuv.v ^ invertPhase;
-                // previous row
-                yuv = yuvBuffer[prevLine[dj + 1]];
-                Up[filtNextX] = yuv.u;
-                Vp[filtNextX] = yuv.v ^ invertPhaseNext;
+				// move one pixel
+				yuv = yuvBuffer[fb[dj + 1]];
+				Y1 = (int)(yuv.y) * shade / 100;
+				Uc[filtNextX] = yuv.u;
+				Vc[filtNextX] = yuv.v ^ invertPhase;
+				// previous row
+				yuv = yuvBuffer[prevLine[dj + 1]];
+				Up[filtNextX] = yuv.u;
+				Vp[filtNextX] = yuv.v ^ invertPhaseNext;
 
-                // average color signal
-                // approximately a 13 -> 1.3 MHz Butterworth filter
-                const unsigned char U = (Uc[0] + Uc[1] + Uc[2] + Uc[3] +
-                    Up[0] + Up[1] + Up[2] + Up[3]) / 8; // U
-                const unsigned char V = (Vc[0] + Vc[1] + Vc[2] + Vc[3] +
-                    Vp[0] + Vp[1] + Vp[2] + Vp[3]) / 8; // V
+				// average color signal
+				// approximately a 13 -> 1.3 MHz Butterworth filter
+				const unsigned char U = (Uc[0] + Uc[1] + Uc[2] + Uc[3] +
+					Up[0] + Up[1] + Up[2] + Up[3]) / 8; // U
+				const unsigned char V = (Vc[0] + Vc[1] + Vc[2] + Vc[3] +
+					Vp[0] + Vp[1] + Vp[2] + Vp[3]) / 8; // V
 
-                // store result
-                *(pImage + j) =
-                    (U << 0)
-                    | (Y0 << 8)
-                    | (V << 16)
-                    | (Y1 << 24);
+				// store result
+				*(pImage + j) =
+					(U << 0)
+					| (Y0 << 8)
+					| (V << 16)
+					| (Y1 << 24);
 
-            } while (j++ < SCREENX / 2);
-            // take care of double scan
-            if (k == 0) {
-                prevLine = fb;
-            }
-            pImage += srcpitch << interlace;// << doubleScan;
-        } while (k--);
-        fb += srcpitch;
-    } while (--i);
-    evenFrame = !evenFrame;
+			} while (j++ < SCREENX / 2);
+			// take care of double scan
+			if (k == 0) {
+				prevLine = fb;
+			}
+			pImage += srcpitch << interlace;// << doubleScan;
+		} while (k--);
+		fb += srcpitch;
+	} while (--i);
+	evenFrame = !evenFrame;
 }

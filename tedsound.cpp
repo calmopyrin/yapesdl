@@ -26,15 +26,15 @@ void TED::tedSoundInit(unsigned int mixingFreq)
 	originalFreq = TED_SOUND_CLOCK / 8;
 	MixingFreq = mixingFreq;
 	setClockStep(originalFreq, MixingFreq);
-    FlipFlop = 0;
-    oscCount[0] = oscCount[1] = 0;
-    NoiseCounter = 0;
+	FlipFlop = 0;
+	oscCount[0] = oscCount[1] = 0;
+	NoiseCounter = 0;
 	Freq[0] = Freq[1] = 0;
 	DAStatus = cachedDigiSample = 0;
 	cachedSoundSample[0] = cachedSoundSample[1] = 0;
 
 	unsigned char im = 0xff;
-    for (int i=0; i < 256; i++) {
+	for (int i=0; i < 256; i++) {
 		im = (im << 1)|(((im >> 7) ^ (im >> 5) ^ (im >> 4) ^ (im >> 1)) & 1);
 		noise[i] = (im & 1) << 5;
 	}
@@ -66,7 +66,7 @@ void TED::setSampleRate(unsigned int sampleRate)
 
 void TED::calcSamples(short *buffer, unsigned int nrsamples)
 {
-    // Rendering...
+	// Rendering...
 	// Calculate the buffer...
 	if (DAStatus) {// digi?
 		for (;nrsamples--;) {
