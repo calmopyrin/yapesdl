@@ -59,6 +59,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	// read memory through memory decoder
 	virtual unsigned char Read(unsigned int addr);
 	virtual void Write(unsigned int addr, unsigned char value);
+	virtual unsigned char readOpenAddressSpace(unsigned int addr);
 	// read memory directly
 	unsigned char readDMA(unsigned int addr) { return Ram[addr]; }
 	// same as above but with writing
@@ -101,6 +102,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	unsigned char Ram[RAMSIZE];
 	void ChangeMemBankSetup();
 
+	
 	// timer stuff
 	bool t1on, t2on, t3on;
 	unsigned int timer1, timer2, timer3, t1start;
@@ -203,6 +205,7 @@ protected:
 	unsigned int fastmode, irqline;
 	unsigned char hcol[2], mcol[4], ecol[4], bmmcol[4], *cset;
 	//
+	static bool				vertSubIncrAllowed;
 	static unsigned int		vertSubCount;
 	static int				x;
 	static unsigned char	*VideoBase;

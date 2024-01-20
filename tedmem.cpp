@@ -28,7 +28,8 @@
 #define RETRACESCANLINEMAX 360
 #define RETRACESCANLINEMIN (SCR_VSIZE - (RETRACESCANLINEMAX - SCR_VSIZE))
 
-unsigned int		TED::vertSubCount;
+bool			TED::vertSubIncrAllowed;
+unsigned int	TED::vertSubCount;
 int				TED::x;
 unsigned char	*TED::VideoBase;
 
@@ -333,6 +334,16 @@ void TED::ChangeMemBankSetup()
 	}
 }
 
+unsigned char TED::readOpenAddressSpace(unsigned int addr)
+{
+	switch (clockingState) {
+		default:
+			return addr >> 8;
+		case TDS:
+			return Read(cpuptr->getPC());
+	}
+}
+
 unsigned char TED::Read(unsigned int addr)
 {
 	switch ( addr & 0xF000 ) {
@@ -417,7 +428,17 @@ unsigned char TED::Read(unsigned int addr)
 						case 0xFF1C : return (beamy>>8)|0xFE;
 						case 0xFF1D : return beamy&0xFF; /// 1-8. bit of the rasterline counter
 						case 0xFF1E : return ((98+beamx)<<1)%228; // raster column
-						case 0xFF1F : return 0x80|(crsrphase<<3)|vertSubCount;
+						case 0xFF1F :
+							{
+								unsigned char vsubRetVal;
+								if (beamx == 1 && vertSubIncrAllowed) {
+									vsubRetVal = (vertSubCount & (vertSubCount + 1)) & 7;
+								}
+								else {
+									vsubRetVal = vertSubCount;
+								}
+								return 0x80 | (crsrphase << 3) | vsubRetVal;
+							}
 						default:
 							return mem_c000_ffff[addr&0x3FFF];
 					}
@@ -431,12 +452,12 @@ unsigned char TED::Read(unsigned int addr)
 							if (tcbmbus)
 								return tcbmbus->Read(addr);
 						default:
-								return addr >> 8; // FIXME
+								return readOpenAddressSpace(addr);
 					}
 				case 0xFD:
 					switch (addr>>4) {
 						case 0xFD0: // RS232
-							return 0xFD;
+							return readOpenAddressSpace(addr);
 						case 0xFD1: // User port, PIO & 256 RAM expansion
 						{
 							if (!reuSizeKb || addr == 0xFD10)
@@ -444,7 +465,7 @@ unsigned char TED::Read(unsigned int addr)
 							return Ram[addr];
 						}
 						case 0xFD2: // Speech hardware
-							return addr >> 8;
+							return readOpenAddressSpace(addr);
 						case 0xFD3:
 							return Ram[0xFD30];
 						case 0xFD4: // SID Card
@@ -459,7 +480,7 @@ unsigned char TED::Read(unsigned int addr)
 								return keys->readSidcardJoyport();
 							}
 					}
-					return addr >> 8;
+					return readOpenAddressSpace(addr);
 				case 0xFC:
 					return mem_fc00_fcff[addr&0x3FFF];
 				default:
@@ -594,7 +615,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 							changeCharsetBank();
 							// Check if screen is turned on
 							displayEnable = !!(value & 0x10);
-							if (!attribFetch && displayEnable && beamy == 0) {
+							if (!attribFetch && displayEnable && ff1d_latch == 0) {
 								attribFetch = dmaAllowed = true;
 								vertSubCount = 7;
 								if (vshift != (ff1d_latch & 7))
@@ -627,7 +648,9 @@ void TED::Write(unsigned int addr, unsigned char value)
 										memset(tmpClrbuf + oldcount, idleread, invalidcount);
 										memcpy(tmpClrbuf + oldcount + invalidcount, VideoBase + dmaposition + oldcount + invalidcount, newdmacount);
 										BadLine |= 1;
-										delayedDMA = true;
+										// Do not refetch if on or before stop cycle
+										if (beamx < 11)
+											delayedDMA = true;
 										if (!(BadLine & 2))
 											clockingState = TDMADELAY;
 									} else if (beamx<111 && beamx>=86) {
@@ -1416,8 +1439,12 @@ void TED::ted_process(const unsigned int continuous)
 				break;
 
 			case 2:
-				if (externalFetchWindow) {
+				if (vertSubIncrAllowed) {
 					vertSubCount = (vertSubCount + 1) & 7;
+					vertSubIncrAllowed = dmaAllowed;
+				}
+				if (ff1d_latch == 204) {
+					externalFetchWindow = false;
 				}
 				break;
 
@@ -1494,7 +1521,6 @@ void TED::ted_process(const unsigned int continuous)
 					dmaFetchCountStart = 0;
 				}
 				if (ff1d_latch == 205) {
-					externalFetchWindow = false;
 					CharacterCountReload = 0x03FF;
 				}
 				break;
@@ -1556,6 +1582,8 @@ void TED::ted_process(const unsigned int continuous)
 
 			case 114: // HSYNC end
 				newLine();
+				if (externalFetchWindow)
+					vertSubIncrAllowed = true;
 				break;
 
 			case 127:
