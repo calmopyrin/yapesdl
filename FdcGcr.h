@@ -111,7 +111,7 @@ inline unsigned char FdcGcr::SyncFound(void)
 		return 0x80;
 	else {
 		unsigned char *prev_gcr_byte_ptr;
-        prev_gcr_byte_ptr = (gcrPtr == gcrTrackBegin) ? (gcrTrackEnd - 1) : gcrPtr - 1;
+		prev_gcr_byte_ptr = (gcrPtr == gcrTrackBegin) ? (gcrTrackEnd - 1) : gcrPtr - 1;
 		if ((*prev_gcr_byte_ptr & 3) != 3) {
 			unsigned int shiftReg = gcrCurrentBitcount * 100 / gcrCurrentBitRate;
 			if ( shiftReg <= 75 ) { // -> shift register >= 2

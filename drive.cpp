@@ -64,12 +64,12 @@ CTrueDrive::CTrueDrive(unsigned int type, unsigned int dn)
 	NextDevice = 0;
 	PrevDevice = 0;
 	if (RootDevice == 0) {
-	    for (int i=0; i<4; i++)
-	    	Drives[i] = 0;
-	    RootDevice = this;
+		for (int i=0; i<4; i++)
+			Drives[i] = 0;
+		RootDevice = this;
 	} else {
-	    PrevDevice = LastDevice;
-	    LastDevice->NextDevice = this;
+		PrevDevice = LastDevice;
+		LastDevice->NextDevice = this;
 	}
 	LastDevice = this;
 	//
@@ -155,26 +155,26 @@ void CTrueDrive::ChangeDriveType(unsigned int type)
 		patchedRom = 0;
 	}
 	if (!type)
-        return;
-    if (!FdcGCR) {
-        FdcGCR = new FdcGcr();
-        FdcGCR->reset();
-    }
-    Fdc = FdcGCR;
-    romSize = 0x4000;
-    patchedRom = new unsigned char[romSize];
-    originalRom = const_cast<unsigned char*>(rom1541);
+		return;
+	if (!FdcGCR) {
+		FdcGCR = new FdcGcr();
+		FdcGCR->reset();
+	}
+	Fdc = FdcGCR;
+	romSize = 0x4000;
+	patchedRom = new unsigned char[romSize];
+	originalRom = const_cast<unsigned char*>(rom1541);
 //    if (!loadCustomRom(setting.customDriveRom[DevNr & 3], patchedRom, romSize))
 //    {
 //        Rom = patchedRom;
 //    } else
-        rom = originalRom;
-    Mem1541 = new DRIVEMEM(FdcGCR, ram, rom, devNr);
-    Mem = static_cast<DRVMEM*>(Mem1541);
-    Cpu = new DRIVECPU( Mem1541, &(Mem->irqFlag), ram+0x100,
-        FdcGCR->getByteReadyEdge(), Mem1541->get_via2pcr(), devNr);
-    FdcGCR->setSpinFactor(2);
-    ClockRate = 10000000; //DRIVE_CLK_1541; DRIVE_CLK_1541; // 10027928 DRIVE_CLK_1541 10000000
+		rom = originalRom;
+	Mem1541 = new DRIVEMEM(FdcGCR, ram, rom, devNr);
+	Mem = static_cast<DRVMEM*>(Mem1541);
+	Cpu = new DRIVECPU( Mem1541, &(Mem->irqFlag), ram+0x100,
+		FdcGCR->getByteReadyEdge(), Mem1541->get_via2pcr(), devNr);
+	FdcGCR->setSpinFactor(2);
+	ClockRate = 10000000; //DRIVE_CLK_1541; DRIVE_CLK_1541; // 10027928 DRIVE_CLK_1541 10000000
 
 	Mem->Reset();
 	Cpu->Reset();
@@ -200,8 +200,8 @@ CTrueDrive::~CTrueDrive()
 	//
 	//
 	if (!--NrOfDrivesAttached) {
-	    RootDevice = 0;
-	    LastDevice = 0;
+		RootDevice = 0;
+		LastDevice = 0;
 	} else {
 		if (PrevDevice) {
 			PrevDevice->NextDevice = NextDevice;

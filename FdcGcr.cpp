@@ -239,33 +239,33 @@ void FdcGcr::attachD64file(const char *filepath)
 		}
 
 		switch (size) {
-		    case 174848:
-          	case 175531:
-          	    NrOfTracks = 35;
-          	    break;
-		    case (683+1*17)*256:
-          	case (683+1*17)*256 + 683 + 17:
-          	    NrOfTracks = 36;
-		    	break;
-		    case (683+2*17)*256:
-          	case (683+2*17)*256 + 683 + 17*2:
-          	    NrOfTracks = 37;
-		    	break;
-		    case (683+3*17)*256:
-          	case (683+3*17)*256 + 683 + 17*3:
-          	    NrOfTracks = 38;
-		    	break;
-		    case (683+4*17)*256:
-          	case (683+4*17)*256 + 683 + 17*4:
-          	    NrOfTracks = 39;
-		    	break;
-		    case (683+5*17)*256:
-          	case (683+5*17)*256 + 683 + 17*5:
-          	    NrOfTracks = 40;
-		    	break;
-  			default:
-  			    NrOfTracks = 35;
-  			    break;
+			case 174848:
+			case 175531:
+				NrOfTracks = 35;
+				break;
+			case (683+1*17)*256:
+			case (683+1*17)*256 + 683 + 17:
+				NrOfTracks = 36;
+				break;
+			case (683+2*17)*256:
+			case (683+2*17)*256 + 683 + 17*2:
+				NrOfTracks = 37;
+				break;
+			case (683+3*17)*256:
+			case (683+3*17)*256 + 683 + 17*3:
+				NrOfTracks = 38;
+				break;
+			case (683+4*17)*256:
+			case (683+4*17)*256 + 683 + 17*4:
+				NrOfTracks = 39;
+				break;
+			case (683+5*17)*256:
+			case (683+5*17)*256 + 683 + 17*5:
+				NrOfTracks = 40;
+				break;
+			default:
+				NrOfTracks = 35;
+				break;
 		}
 		NrOfSectors = d64SectorOffset[NrOfTracks+1];
 
@@ -354,7 +354,7 @@ const unsigned int tblEncodeToGCR[16] = {
 
 const unsigned int tblDecodeFromGCR[32] = {
 	0, 0, 0, 0, 0, 0, 0, 0,  0, 8, 0, 1, 0,12, 4, 5,
-    0, 0, 2, 3, 0,15, 6, 7,  0, 9,10,11, 0,13,14, 0
+	0, 0, 2, 3, 0,15, 6, 7,  0, 9,10,11, 0,13,14, 0
 };
 
 void FdcGcr::gcrConv4bytesTo5(unsigned char *from, unsigned char *to)
@@ -383,26 +383,26 @@ void FdcGcr::gcrConv4bytesTo5(unsigned char *from, unsigned char *to)
 
 void FdcGcr::gcrConv5bytesTo4(unsigned char *buffer, unsigned char *ptr)
 {
-    unsigned int i;
-    unsigned char gcr_bytes[8];
+	unsigned int i;
+	unsigned char gcr_bytes[8];
 
-    gcr_bytes[0] = (*buffer)>>3;
-    gcr_bytes[1] =((*buffer++)&0x07)<<2;
-    gcr_bytes[1] |=(*buffer)>>6;
-    gcr_bytes[2] =((*buffer)&0x3E)>>1;
-    gcr_bytes[3] =((*buffer++)&0x01)<<4;
-    gcr_bytes[3]|=((*buffer)&0xF0)>>4;
-    gcr_bytes[4] =((*buffer++)&0x0F)<<1;
-    gcr_bytes[4] |=(*buffer)>>7;
-    gcr_bytes[5] =((*buffer)&0x7C)>>2;
-    gcr_bytes[6] =((*buffer++)&0x03)<<3;
-    gcr_bytes[6]|=((*buffer)&0xE0)>>5;
-    gcr_bytes[7] = (*buffer)&0x1F;
+	gcr_bytes[0] = (*buffer)>>3;
+	gcr_bytes[1] =((*buffer++)&0x07)<<2;
+	gcr_bytes[1] |=(*buffer)>>6;
+	gcr_bytes[2] =((*buffer)&0x3E)>>1;
+	gcr_bytes[3] =((*buffer++)&0x01)<<4;
+	gcr_bytes[3]|=((*buffer)&0xF0)>>4;
+	gcr_bytes[4] =((*buffer++)&0x0F)<<1;
+	gcr_bytes[4] |=(*buffer)>>7;
+	gcr_bytes[5] =((*buffer)&0x7C)>>2;
+	gcr_bytes[6] =((*buffer++)&0x03)<<3;
+	gcr_bytes[6]|=((*buffer)&0xE0)>>5;
+	gcr_bytes[7] = (*buffer)&0x1F;
 
-    for (i = 0; i < 4; i++, ptr++) {
-        *ptr = tblDecodeFromGCR[gcr_bytes[2 * i]] << 4;
-        *ptr |= tblDecodeFromGCR[gcr_bytes[2 * i + 1]];
-    }
+	for (i = 0; i < 4; i++, ptr++) {
+		*ptr = tblDecodeFromGCR[gcr_bytes[2 * i]] << 4;
+		*ptr |= tblDecodeFromGCR[gcr_bytes[2 * i + 1]];
+	}
 }
 
 void FdcGcr::sector2gcr(int track, int sector)
@@ -425,13 +425,13 @@ void FdcGcr::sector2gcr(int track, int sector)
 	// Create GCR header
 	memset( p, syncByte, NUM_SYNC);	// Header SYNC bytes
 	p += NUM_SYNC;
-    buf[0] = (errCode == 20) ? 0xFF : 0x08;	// Header mark
+	buf[0] = (errCode == 20) ? 0xFF : 0x08;	// Header mark
 	buf[1] = sector ^ track ^ id2 ^ headerID1; // Checksum
 	buf[2] = sector;
 	buf[3] = track;
 
-    if (errCode == 27)
-        buf[1] ^= 0xFF;
+	if (errCode == 27)
+		buf[1] ^= 0xFF;
 
 	gcrConv4bytesTo5(buf, p);
 	buf[0] = id2;
@@ -475,22 +475,22 @@ void FdcGcr::sector2gcr(int track, int sector)
 }
 
 void FdcGcr::gcr2sector(unsigned char *buffer, unsigned char *p,
-                               unsigned char *trackStart,
-                               unsigned char *trackEnd)
+							   unsigned char *trackStart,
+							   unsigned char *trackEnd)
 {
-    unsigned int	i, j;
-    unsigned char	*offset = p;
-    unsigned char	gcrBufferPtr[5];
+	unsigned int	i, j;
+	unsigned char	*offset = p;
+	unsigned char	gcrBufferPtr[5];
 
-    for ( i=0; i<65; i++) {
-        for ( j=0; j<5; j++) {
-            gcrBufferPtr[j] = *offset++;
-            if (offset == trackEnd)
-                offset = trackStart;
-        }
-        gcrConv5bytesTo4(gcrBufferPtr, buffer);
-        buffer += 4;
-    }
+	for ( i=0; i<65; i++) {
+		for ( j=0; j<5; j++) {
+			gcrBufferPtr[j] = *offset++;
+			if (offset == trackEnd)
+				offset = trackStart;
+		}
+		gcrConv5bytesTo4(gcrBufferPtr, buffer);
+		buffer += 4;
+	}
 }
 
 void FdcGcr::dumpGcr(unsigned char *p)
@@ -501,7 +501,7 @@ void FdcGcr::dumpGcr(unsigned char *p)
 	sprintf(dumpName, "GCRDUMP%s.BIN", imageName);
 	gcrdump = fopen(dumpName, "wb");
 	if (!gcrdump)
-        return;
+		return;
 	for (unsigned int i = 0; i < GCR_MAX_TRACK_SIZE * 35; i++)
 		fputc( *p++, gcrdump );
 	fclose( gcrdump );
@@ -521,10 +521,10 @@ void FdcGcr::disk2gcr(void)
 unsigned char *FdcGcr::getSectorHeaderOffset(unsigned int track, unsigned int sector,
 										unsigned char *trackStart, unsigned char *trackEnd)
 {
-    unsigned char *offset = trackStart;
-    unsigned char gcr_header[5], header_data[4];
+	unsigned char *offset = trackStart;
+	unsigned char gcr_header[5], header_data[4];
 	bool wrap_around = false;
-    int nr_of_syncs_found = 0;
+	int nr_of_syncs_found = 0;
 
 	while ((offset < trackEnd) && !wrap_around) {
 		while (*offset != 0xFF) {
@@ -551,19 +551,19 @@ unsigned char *FdcGcr::getSectorHeaderOffset(unsigned int track, unsigned int se
 //				Log::write(_T("GCR error: too many synch bytes found.\n"));
 				return NULL;
 			}
-        }
-        for (unsigned int i = 0; i < 5; i++) {
-            gcr_header[i] = *(offset++);
-            if (offset >= trackEnd) {
-                offset = trackStart;
-                wrap_around = true;
-            }
-        }
-        gcrConv5bytesTo4(gcr_header, header_data);
-        if (header_data[0] == 0x08 && header_data[2] == sector && header_data[3] == track)
+		}
+		for (unsigned int i = 0; i < 5; i++) {
+			gcr_header[i] = *(offset++);
+			if (offset >= trackEnd) {
+				offset = trackStart;
+				wrap_around = true;
+			}
+		}
+		gcrConv5bytesTo4(gcr_header, header_data);
+		if (header_data[0] == 0x08 && header_data[2] == sector && header_data[3] == track)
 			return offset;
-    }
-    return NULL;
+	}
+	return NULL;
 }
 
 void FdcGcr::gcr2disk(void)

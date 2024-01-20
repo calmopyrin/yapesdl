@@ -41,8 +41,8 @@ private:
 };
 
 class CTrueDrive : public Drive
-    , public Clockable
-    {
+	, public Clockable
+	{
 public:
 	CTrueDrive(unsigned int type, unsigned int dn);
 	virtual ~CTrueDrive();
@@ -97,10 +97,10 @@ public:
 
 protected:
 	//
-    static CTrueDrive *RootDevice;
-    static CTrueDrive *LastDevice;
+	static CTrueDrive *RootDevice;
+	static CTrueDrive *LastDevice;
 	CTrueDrive *PrevDevice;
-    CTrueDrive *NextDevice;
+	CTrueDrive *NextDevice;
 	//
 	FdcGcr *FdcGCR, *Fdc;
 	DRIVEMEM *Mem1541;

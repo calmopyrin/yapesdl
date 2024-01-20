@@ -2,7 +2,7 @@
 
 void CFakeIEC::Reset()
 {
-    state = STATE_IDLE;
+	state = STATE_IDLE;
 	status = IEC_OK;
 }
 
@@ -14,16 +14,16 @@ unsigned int CFakeIEC::Listen()
 
 unsigned int CFakeIEC::Unlisten()
 { 
-    if (state & STATE_LISTENING) {
-        state = STATE_IDLE;
-        if (prev_cmd == CMD_OPEN) {
+	if (state & STATE_LISTENING) {
+		state = STATE_IDLE;
+		if (prev_cmd == CMD_OPEN) {
 			status = Device->Write(secondaryAddress, 0, CMD_OPEN, true);
-            status = Device->Open(secondaryAddress);
-        } else if (prev_cmd == CMD_DATA) {
-            status = Device->Write(secondaryAddress, 0, CMD_DATA, true);
-        }    
-    } else
-    	status = IEC_OK;
+			status = Device->Open(secondaryAddress);
+		} else if (prev_cmd == CMD_DATA) {
+			status = Device->Write(secondaryAddress, 0, CMD_DATA, true);
+		}    
+	} else
+		status = IEC_OK;
 	return status;
 }
 
@@ -59,10 +59,10 @@ unsigned int CFakeIEC::DispatchIECCmd(unsigned char cmd)
 			Untalk();
 			return IEC_OK;
 		default: // illegal command
-		    return IEC_ERROR;
+			return IEC_ERROR;
 	}
 }
-    
+	
 unsigned int CFakeIEC::OutCmd(unsigned char data)
 {
 	prev_cmd = received_cmd;
@@ -82,16 +82,16 @@ unsigned int CFakeIEC::Out(unsigned char data)
 unsigned int CFakeIEC::OutSec(unsigned char data)
 {
 	prev_addr = secondaryAddress;
-    secondaryAddress = data&0x0F;
+	secondaryAddress = data&0x0F;
 
 	prev_cmd = received_cmd;
 	received_cmd = data&0xF0;
 
-    switch (state) {
-        case STATE_IDLE:
+	switch (state) {
+		case STATE_IDLE:
 			status = IEC_ERROR;
-            break;        
-        case STATE_LISTENING:
+			break;        
+		case STATE_LISTENING:
 			switch (received_cmd) {
 				case CMD_OPEN:	// Prepare for receiving the file name
 					status = IEC_OK;
@@ -103,16 +103,16 @@ unsigned int CFakeIEC::OutSec(unsigned char data)
 				
 				case CMD_DATA: // Data comes
 					break;
-				    
+					
 				default:
-				    status = IEC_ERROR;
-				    state = STATE_IDLE;
-				    break;
+					status = IEC_ERROR;
+					state = STATE_IDLE;
+					break;
 			}
-            break;
+			break;
 
-        case STATE_TALKING:
-            break;
-    }
-    return status;
+		case STATE_TALKING:
+			break;
+	}
+	return status;
 }
