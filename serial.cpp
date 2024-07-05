@@ -550,6 +550,7 @@ void IecFakeSerial::update()
 						errorState = 0;
 						clkLine = CLK_HI;
 						dataLine = DATA_HI;
+						dataTransfered = 0;
 					} else {
 						timeout = cycleCount;
 						step = SM_WAITCLK0;

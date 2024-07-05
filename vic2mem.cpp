@@ -1623,7 +1623,7 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 		if (m.expandX) {
 			// sprite X expansion, hires mode
 			for(i = 0; i < 3; i++, out += 16, cx += 16) {
-				unsigned char data = in[i];
+				const unsigned char data = in[i];
 				if (data & 0x80) {
 					spriteCollisions[cx] |= six;
 					spriteCollisions[cx + 1] |= six;

@@ -2,7 +2,7 @@
 #include "tedmem.h"
 
 #define PRECISION 4
-#define OSCRELOADVAL (0x3FF << PRECISION)
+#define OSCRELOADVAL (0x400 << PRECISION)
 
 static int             Volume;
 static int             channelStatus[2];

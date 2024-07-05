@@ -1311,8 +1311,13 @@ static void printSpecialKeys()
 	printf("CONTROL      : %s\n", SDL_GetKeyName(SDLK_RCTRL));
 	printf("INST/DEL     : %s\n", SDL_GetKeyName(SDLK_BACKSPACE));
 	printf("RUN/STOP     : %s\n", SDL_GetKeyName(SDLK_TAB));
-	printf("POUND        : %s\n", SDL_GetKeyName(SDLK_END));
-	printf("RESTORE      : %s\n", SDL_GetKeyName(SDLK_INSERT));
+	if (ted8360->getEmulationLevel() < 2)
+		printf("POUND        : %s\n", SDL_GetKeyName(SDLK_END));
+	else {
+		printf("POUND        : %s\n", SDL_GetKeyName(SDLK_INSERT));
+		printf("UPARROW (^)  : %s\n", SDL_GetKeyName(SDLK_END));
+	}
+	printf("RESTORE      : %s\n", SDL_GetKeyName(SDLK_PAGEUP));
 }
 
 /* ---------- MAIN ---------- */

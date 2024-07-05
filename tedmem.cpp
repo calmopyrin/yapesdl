@@ -439,6 +439,9 @@ unsigned char TED::Read(unsigned int addr)
 								}
 								return 0x80 | (crsrphase << 3) | vsubRetVal;
 							}
+						case 0xFF3E:
+						case 0xFF3F:
+							return readOpenAddressSpace(addr);
 						default:
 							return mem_c000_ffff[addr&0x3FFF];
 					}

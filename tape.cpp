@@ -183,7 +183,7 @@ void TAP::changewave(bool wholewave)
 inline void TAP::readMtapData(unsigned int elapsed)
 {
 	while (elapsed--) {
-		if (!tapeDelay--) {
+		if (!tapeDelay) {
 			//fprintf( stderr, "TAP unit timeout in cycle: %u\n", elapsed);
 			if (edge == 0x10) {
 				convTAPUnitsToCycles();
@@ -193,6 +193,7 @@ inline void TAP::readMtapData(unsigned int elapsed)
 			}
 			edge ^= 0x10;
 		}
+		tapeDelay--;
 	}
 }
 
