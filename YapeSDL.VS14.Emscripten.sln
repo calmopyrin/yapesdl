@@ -1,0 +1,27 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31019.35
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "YapeSDL", "YapeSDL.VS14.vcxproj", "{88A75874-9C6D-4364-8C94-78AA1A8BFB99}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Emscripten = Debug|Emscripten
+		Release|Emscripten = Release|Emscripten
+		ReleaseEmbedPrg|Emscripten = ReleaseEmbedPrg|Emscripten
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.Debug|Emscripten.ActiveCfg = Debug|Emscripten
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.Debug|Emscripten.Build.0 = Debug|Emscripten
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.Release|Emscripten.ActiveCfg = Release|Emscripten
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.Release|Emscripten.Build.0 = Release|Emscripten
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.ReleaseEmbedPrg|Emscripten.ActiveCfg = ReleaseEmbedPrg|Emscripten
+		{88A75874-9C6D-4364-8C94-78AA1A8BFB99}.ReleaseEmbedPrg|Emscripten.Build.0 = ReleaseEmbedPrg|Emscripten
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {06273080-AB9E-43F0-B3FC-BA89D94C1ED5}
+	EndGlobalSection
+EndGlobal

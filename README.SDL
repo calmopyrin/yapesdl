@@ -8,7 +8,7 @@ LEGAL
 =====
 
   Yape for SDL is 
-  (C) 2000,2001,2004,2007,2008,2015-2023 Attila Grósz (gyros@freemail.hu)
+  (C) 2000,2001,2004,2007,2008,2015-2024 Attila Grósz (gyros@freemail.hu)
   http://yape.plus4.net
 
   This program is free software; you can redistribute it and/or
@@ -150,8 +150,8 @@ USAGE
   Any PRG files you may wish to load, should go there, although you can browse the directory tree
   from the user interface, too.
    
-  This means that an exact filename match will load
-  the requested program, similarly can you save a file.
+  This means that an exact filename match will load the requested program, 
+  similarly can you save a file.
   
   Full ROM banking is supported on the plus/4, via the 'Attach/Detach ROM...' menu.
   Yape also supports the default ROM's. These are:
@@ -175,13 +175,14 @@ KEYBOARD MAPPINGS
   
   Real C=     Emulator
   ------------------------
-  Pound 	= End
-  Clr/Home	= Home
+  Pound     = End (C64/VIC20: Insert)
+  Clr/Home  = Home
   Restore   = PageUp
   C=        = Left Ctrl
   CONTROL   = Right Ctrl
   INST/DEL  = Backspace
   RUN/STOP  = TAB
+  ^         = End
 
 FEATURES
 ========

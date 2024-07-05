@@ -254,7 +254,6 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>
@@ -395,21 +394,22 @@
       <OptimizationLevel>O3</OptimizationLevel>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>$(SolutionDir)$(Platform)\$(Configuration)\unzip;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>NoDebugInformation</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <AdditionalOptions>-s USE_ZLIB=1 -s USE_SDL=2 -s ASYNCIFY=1 -s ASYNCIFY_IMPORTS=[emscripten_wget]  %(AdditionalOptions)</AdditionalOptions>
-      <RunJavaScriptOptimization>JavaScriptOptimization</RunJavaScriptOptimization>
-      <RunLLVMOptimization>LLVMOptimizationLevel3</RunLLVMOptimization>
-      <RunLLVMLinkTimeOptimization>
-      </RunLLVMLinkTimeOptimization>
+      <RunJavaScriptOptimization>NotSpecified</RunJavaScriptOptimization>
+      <RunLLVMOptimization>NotSpecified</RunLLVMOptimization>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <RunLLVMLinkTimeOptimization>NotSpecified</RunLLVMLinkTimeOptimization>
     </Link>
     <ProjectReference>
       <LinkLibraryDependencies>
       </LinkLibraryDependencies>
+      <UseLibraryDependencyInputs>
+      </UseLibraryDependencyInputs>
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseEmbedPrg|Emscripten'">
@@ -427,7 +427,7 @@
       <OptimizationLevel>O3</OptimizationLevel>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>$(SolutionDir)$(Platform)\$(Configuration)\unzip;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>NoDebugInformation</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -435,8 +435,6 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <AdditionalOptions>-s USE_ZLIB=1 -s USE_SDL=2 %(AdditionalOptions)</AdditionalOptions>
       <PreloadFile>X:\Code\yapeSDL\Debug\p4games@\;%(PreloadFile)</PreloadFile>
-      <RunJavaScriptOptimization>JavaScriptOptimization</RunJavaScriptOptimization>
-      <RunLLVMOptimization>LLVMOptimizationLevel3</RunLLVMOptimization>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
@@ -484,10 +482,12 @@
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <AssemblerOutput>AssemblyAndSourceCode</AssemblerOutput>
+      <AdditionalUsingDirectories>
+      </AdditionalUsingDirectories>
     </ClCompile>
     <Link>
       <AdditionalDependencies>SDL2main.lib;SDL2.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <IgnoreSpecificDefaultLibraries>msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
