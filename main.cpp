@@ -852,9 +852,11 @@ static void confirmEmulationLevelChange(unsigned int shiftPressed)
 		NULL
 	};
 
-	if (SDL_ShowMessageBox(&messageboxdata, &buttonid) < 0)
-		SDL_Log("error opening window");
-	else if (buttonid == 0) 
+	if (SDL_ShowMessageBox(&messageboxdata, &buttonid) < 0) {
+		SDL_Log("Error opening window: %s\n", SDL_GetError());
+		buttonid = 0;
+	}
+	if (buttonid == 0) 
 #endif
 	{
 		char name[64];
