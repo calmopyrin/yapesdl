@@ -27,6 +27,7 @@
 
 #define RETRACESCANLINEMAX 360
 #define RETRACESCANLINEMIN (SCR_VSIZE - (RETRACESCANLINEMAX - SCR_VSIZE))
+#define REU_BANK_MASK ((reuBankCount << 1) - 1)
 
 bool			TED::vertSubIncrAllowed;
 unsigned int	TED::vertSubCount;
@@ -336,11 +337,13 @@ void TED::ChangeMemBankSetup()
 
 unsigned char TED::readOpenAddressSpace(unsigned int addr)
 {
+	unsigned int pc = cpuptr->getPC();
+
 	switch (clockingState) {
 		default:
 			return addr >> 8;
 		case TDS:
-			return Read(cpuptr->getPC());
+			return ((pc ^ addr) & 0xFF00) ? Read(pc) : (addr >> 8);
 	}
 }
 
@@ -464,8 +467,12 @@ unsigned char TED::Read(unsigned int addr)
 						case 0xFD1: // User port, PIO & 256 RAM expansion
 						{
 							if (!reuSizeKb || addr == 0xFD10)
-								return (tap->IsButtonPressed() << 2) ^ 0xFF;
-							return Ram[addr];
+								return Ram[0xFD10] & ~(tap->IsButtonPressed() << 2);
+							if (addr == 0xFD16) {
+								unsigned char mask = REU_BANK_MASK;
+								return Ram[addr];//  & mask) | (0xFF & ~mask);
+							}
+							return readOpenAddressSpace(addr);
 						}
 						case 0xFD2: // Speech hardware
 							return readOpenAddressSpace(addr);
@@ -895,11 +902,16 @@ void TED::Write(unsigned int addr, unsigned char value)
 						case 0xFD0: // RS232
 						case 0xFD2: // Speech hardware
 							return;
-						case 0xFD1: // User port, PIO & Hannes RAM expansion
-							if (ramExt && addr == 0xFD16) {
-								reuWrite(value);
-								Ram[addr] = value;
+						case 0xFD1: // User port/PIO & Hannes RAM expansion
+							if (ramExt) {
+								if (addr == 0xFD16) {
+									reuWrite(value);
+									Ram[0xFD16] = value;
+									return;
+								} else if (addr != 0xFD10)
+									return;
 							}
+							Ram[0xFD10] = value;
 							return;
 						case 0xFD3:
 							Ram[0xFD30] = value;
@@ -1726,14 +1738,17 @@ void TED::enableREU(unsigned int sizekb)
 		unsigned int size = sizekb * 1024 * 1024;
 		ramExt = new unsigned char[size];
 		reuSizeKb = sizekb;
-		reuMemMask = 3 << 26;// size - 1;
-		Ram[0xFD16] = 3;
+		reuBankCount = sizekb / 128;
+		unsigned int maxBankIndex = REU_BANK_MASK;
+ 		reuMemMask = maxBankIndex << 26;// size - 1;
+		Ram[0xFD16] = maxBankIndex;
 		reuWrite(0);
 	}
 	else { 
 		reuSizeKb = reuMemMask = 0;
 		delete[] ramExt;
 		ramExt = NULL;
+		actram = actramBelow4000 = Ram;
 	}
 }
 
@@ -1746,13 +1761,14 @@ void TED::flipRamExpansion(void* none)
 
 void TED::reuWrite(unsigned char value)
 {
+	unsigned int mask = REU_BANK_MASK;
 	// bank register bits are inverted
-	value ^= 3;
+	value ^= (mask & 0x3F);
 	// first 2 bits (originally) bank number
 	reuBank = value & (reuMemMask >> 26);
 	// when 7th bit is set area below $4000 is normal RAM
 	// FIXME: bit 6 is indicating a TED DMA bank
-	if (reuBank & 3) {
+	if (reuBank & mask) {
 		actram = ramExt + (reuBank << 16);
 		actramBelow4000 = (value & 0x80) ? Ram : actram;
 	} else

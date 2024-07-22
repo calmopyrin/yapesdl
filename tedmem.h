@@ -166,6 +166,7 @@ protected:
 	// Ram expansion
 	unsigned char* ramExt;
 	unsigned int reuBank;
+	unsigned int reuBankCount;
 	unsigned int reuMemMask;
 	void reuWrite(unsigned char value);
 	// I/O ports
