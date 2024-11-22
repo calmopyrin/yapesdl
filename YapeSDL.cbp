@@ -108,6 +108,7 @@
 		<Unit filename="keyoverlay.h" />
 		<Unit filename="keys64.cpp" />
 		<Unit filename="keys64.h" />
+		<Unit filename="keysvic.cpp" />
 		<Unit filename="main.cpp" />
 		<Unit filename="mem.h" />
 		<Unit filename="monitor.cpp" />
@@ -128,6 +129,7 @@
 		<Unit filename="types.h" />
 		<Unit filename="vic2mem.cpp" />
 		<Unit filename="vic2mem.h" />
+		<Unit filename="vicmem.cpp" />
 		<Unit filename="video.cpp" />
 		<Unit filename="video.h" />
 		<Extensions>
