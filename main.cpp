@@ -256,6 +256,7 @@ bool openZipDisk(const char *fname, bool autostart)
 	unsigned int fsize = 0;
 	unsigned int ftype;
 
+	unzipFiles(fname, ".");
 	if (zipOpen(fname, &b, fsize, ftype)) {
 		const char* tmpName = (ftype == 1) ? "unz.d64" : "unz.tap";
 		FILE *tmp = fopen(tmpName, "wb");
@@ -1406,7 +1407,7 @@ int main(int argc, char *argv[])
 	printf("ESC          : enter/leave menu\n");
 	printf("PAUSE        : suspend/resume emulation\n");
 	printSpecialKeys();
-	printf("Joystick buttons are the arrow keys and SPACE. You can change it in the menu under 'Options...'\n");
+	printf("Joystick buttons are the arrow keys and left SHIFT. You can change it in the menu under 'Options...'\n");
 	setMainLoop(1);
 #else
 	printSpecialKeys();

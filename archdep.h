@@ -54,6 +54,7 @@ extern bool				ad_vsync(bool sync);
 extern unsigned int		ad_get_fps(unsigned int &framesDrawn);
 
 extern bool zipOpen(const char *zipName, unsigned char **buffer, unsigned int &bufferSize, unsigned int &fileType);
+extern void unzipFiles(const char* zipFilename, const char* OutDir);
 
 class Sync {
 public:

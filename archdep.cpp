@@ -449,3 +449,80 @@ bool zipOpen(const char *zipName, unsigned char **buffer, unsigned int &bufferSi
 	return false;
 }
 #endif
+
+void unzipFiles(const char* zipFilename, const char* OutDir)
+{
+#ifdef __EMSCRIPTEN__
+	unzFile zipfile = unzOpen(zipFilename);
+	if (zipfile == NULL) {
+		fprintf(stderr, "Error opening ZIP file %s\n", zipFilename);
+		return;
+	}
+
+	// Get the total number of files in the ZIP archive
+	unz_global_info global_info;
+	if (unzGetGlobalInfo(zipfile, &global_info) != UNZ_OK) {
+		fprintf(stderr, "Error getting global info for %s\n", zipFilename);
+		unzClose(zipfile);
+		return;
+	}
+
+	// Loop through each file in the ZIP archive
+	for (unsigned int i = 0; i < global_info.number_entry; i++) {
+		// Get file info
+		unz_file_info file_info;
+		char filename_in_zip[256];
+		if (unzGetCurrentFileInfo(zipfile, &file_info, filename_in_zip, sizeof(filename_in_zip), NULL, 0, NULL, 0) != UNZ_OK) {
+			fprintf(stderr, "Error getting file info for entry %d\n", i);
+			unzClose(zipfile);
+			return;
+		}
+
+		// Construct the full output path for the file
+		char output_path[512];
+		snprintf(output_path, sizeof(output_path), "%s/%s", OutDir, filename_in_zip);
+
+		// Open the file for extraction
+		if (unzOpenCurrentFile(zipfile) != UNZ_OK) {
+			fprintf(stderr, "Error opening file %s\n", filename_in_zip);
+			unzClose(zipfile);
+			return;
+		}
+
+		// Create the directory if necessary
+		FILE* out_file = fopen(output_path, "wb");
+		if (out_file == NULL) {
+			fprintf(stderr, "Error creating file %s\n", output_path);
+			unzClose(zipfile);
+			return;
+		}
+
+		// Allocate buffer for reading the file content
+		unsigned char buffer[4096];
+		int bytes_read = 0;
+
+		// Extract the file content
+		while ((bytes_read = unzReadCurrentFile(zipfile, buffer, sizeof(buffer))) > 0) {
+			fwrite(buffer, 1, bytes_read, out_file);
+		}
+
+		if (bytes_read < 0) {
+			fprintf(stderr, "Error reading file %s\n", filename_in_zip);
+		}
+
+		fclose(out_file);
+		unzCloseCurrentFile(zipfile);
+
+		// Move to the next file in the ZIP archive
+		if (i < global_info.number_entry - 1) {
+			if (unzGoToNextFile(zipfile) != UNZ_OK) {
+				fprintf(stderr, "Error moving to next file in ZIP archive\n");
+				unzClose(zipfile);
+				return;
+			}
+		}
+	}
+	// Close the ZIP file
+	unzClose(zipfile);
+#endif
+}
