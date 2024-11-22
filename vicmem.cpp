@@ -788,7 +788,7 @@ inline void Vicmem::render4px(unsigned char *scr, const unsigned int x, const un
 	unsigned int charcol = colorRam_[(0x9400 | scrclr_bit9) + curr_pos];
 	const unsigned char chr = VideoBase[curr_pos];
 #else
-	unsigned int charcol = Read(0x9400 | ((curr_pos + scrclr_bit9) & 0x03FF));
+	unsigned int charcol = Ram[0x9400 | ((curr_pos + scrclr_bit9) & 0x03FF)];
 	const unsigned int offset = videoBaseValue + curr_pos;
 	const unsigned int vbase = ((offset & 0x3FFF) > 0x2000) ? (offset ^ 0x8000) & 0x83FF : offset;
 	const unsigned char chr = Read(vbase);

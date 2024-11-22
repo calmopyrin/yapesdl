@@ -20,7 +20,7 @@ const char *DriveErrors[] = {
 		"67,ILLEGAL TRACK OR SECTOR",
 		"70,NO CHANNEL",
 		"72,DISK FULL",
-		"73,CBM DOS V2.6 TDISK",
+		"73,CBM DOS V2.6 YAPESDL IEC",
 		"74,DRIVE NOT READY"
 };
 
