@@ -1367,8 +1367,12 @@ int main(int argc, char *argv[])
 #ifdef __EMSCRIPTEN__
 		printf("Parameter 2 :%s\n", argv[2]);
 		emscripten_wget(argv[1], argv[2]);
-		if (argc >= 3 && !strcmp(argv[3], "-c64"))
-			setEmulationLevel(2);
+		if (argc >= 3) {
+			if (!strcmp(argv[3], "-c64"))
+				setEmulationLevel(2);
+			else if (!strcmp(argv[3], "-vic20"))
+				setEmulationLevel(3);
+		}
 		autostart_file(argv[2], true);
 #else
 		char *pathBackup = new char[4096];
@@ -1377,7 +1381,6 @@ int main(int argc, char *argv[])
 		int r = ad_get_curr_dir(pathBackup);
 		ad_set_curr_dir(exePath);
 		// and then try to load the parameter as file
-		autostart_file(argv[1], true);
 		if (!autostart_file(argv[1], true))
 			fprintf(stderr, "Failed loading: %s\n", argv[1]);
 		// revert to working directory (TODO: to be overriden with CL switch)

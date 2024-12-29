@@ -287,7 +287,7 @@
       <AdditionalOptions>-Wno-"undefined-var-template" -s USE_ZLIB=1 -s USE_SDL=2 -fdebug-compilation-dir='../..' -s WASM=1 -gseparate-dwarf -s ASYNCIFY=1 -s ASSERTIONS=2 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>$(SolutionDir)$(Platform)\$(Configuration)\unzip;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>msvcrt;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>MoreDebugInformation</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
