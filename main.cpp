@@ -7,11 +7,11 @@
 	and/or modify it under certain conditions. For more information,
 	read 'Copying'.
 
-	(c) 2000, 2001, 2004, 2005, 2007, 2015-2021 Attila Grósz
+	(c) 2000, 2001, 2004, 2005, 2007, 2015-2025 Attila Grósz
 	(c) 2005 VENESZ Roland
 */
 
-#define NAME    "Yape/SDL 0.80.1"
+#define NAME    "Yape/SDL 0.80.2"
 #define WINDOWX SCREENX
 #define WINDOWY SCREENY
 
@@ -431,7 +431,12 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 	}
 	// TODO: use SDL_LockTexture instead
 	int e = SDL_UpdateTexture(sdlTexture, NULL, texture, pixelsPerRow * sizeof (unsigned int));
-	e = SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
+	// VIC20 source rectangle is smaller
+	if (ted8360->getSoundClock() == VIC20_SOUND_CLOCK) {
+		SDL_Rect srcrc = { 0, 1, SCREENX, SCREENY - 4 };
+		e = SDL_RenderCopy(sdlRenderer, sdlTexture, &srcrc, NULL);
+	} else
+		e = SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
 	if (timeOutOverlayKeys) {
 		showKeyboardOverlay();
 		//SDL_StartTextInput();

@@ -164,3 +164,6 @@ yapesdl.xcodeproj/xcuserdata/
 *.vsidx
 *.lock
 yapesdl_0.80.1-1/usr/local/bin/yapesdl
+/.vs
+YapeSDL.depend
+YapeSDL.layout
