@@ -15,6 +15,7 @@ public:
 	virtual unsigned char Open(int channel, char *nameBuf);
 	virtual unsigned char Close(int channel);
 	virtual unsigned char Read(int channel, unsigned char *data);
+	virtual void setEoI(unsigned int channel);
 	virtual unsigned char Write(int channel, unsigned char data, unsigned int cmd, bool eoi);
 	virtual void Reset();
 
@@ -23,7 +24,7 @@ private:
 	virtual unsigned char OpenDirectory(int channel, char *filename);
 	virtual void ParseFileName(char *srcname, char *destname, int *filemode, int *filetype, bool *wildflag);
 	virtual void ExecuteCommand(char *command);
-	void FindFirstFile(char *name);
+	bool findFirstFile(char *name);
 	bool ChangeDir(char *dirpath);
 	void ChangeDirCmd(char *dirpath);
 	char dir_path[MAX_PATH];
@@ -31,7 +32,7 @@ private:
 	char dir_title[16];
 	FILE *file[16];
 
-	char cmd_buffer[44];
+	char cmd_buffer[256]; // in reality: 58
 	int cmd_len;
 
 	unsigned char read_char[16];

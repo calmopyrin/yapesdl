@@ -123,7 +123,7 @@ class FakeSerialDrive : public Drive
 public:
 	FakeSerialDrive(unsigned int dn);
 	virtual ~FakeSerialDrive();
-	virtual void Reset() {};
+	virtual void Reset();
 	virtual void AttachDisk(const char *fname) {
 		//iecDrive->
 	}

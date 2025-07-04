@@ -16,11 +16,11 @@ unsigned int CFakeIEC::Unlisten()
 { 
 	if (state & STATE_LISTENING) {
 		state = STATE_IDLE;
-		if (prev_cmd == CMD_OPEN) {
-			status = Device->Write(secondaryAddress, 0, CMD_OPEN, true);
+		if (prev_cmd == IEC_CMD_OPEN) {
+			Device->setEoI(secondaryAddress);
 			status = Device->Open(secondaryAddress);
-		} else if (prev_cmd == CMD_DATA) {
-			status = Device->Write(secondaryAddress, 0, CMD_DATA, true);
+		} else if (prev_cmd == IEC_CMD_DATA) {
+			status = Device->Write(secondaryAddress, 0, IEC_CMD_DATA, true);
 		}    
 	} else
 		status = IEC_OK;
@@ -39,7 +39,7 @@ void CFakeIEC::Untalk()
 
 unsigned int CFakeIEC::In(unsigned char *data)
 {
-	if ((state&STATE_TALKING) && (received_cmd == CMD_DATA))
+	if ((state & STATE_TALKING) && received_cmd == IEC_CMD_DATA)
 		return Device->Read(secondaryAddress, data);
 
 	return IEC_ERROR;
@@ -48,14 +48,14 @@ unsigned int CFakeIEC::In(unsigned char *data)
 unsigned int CFakeIEC::DispatchIECCmd(unsigned char cmd)
 {
 	switch (cmd&0xF0) {
-		case CMD_LISTEN:
+		case IEC_CMD_LISTEN:
 			return Listen();
-		case CMD_UNLISTEN:
+		case IEC_CMD_UNLISTEN:
 			return Unlisten();
-		case CMD_TALK:
+		case IEC_CMD_TALK:
 			Talk();
 			return IEC_OK;
-		case CMD_UNTALK:
+		case IEC_CMD_UNTALK:
 			Untalk();
 			return IEC_OK;
 		default: // illegal command
@@ -72,9 +72,8 @@ unsigned int CFakeIEC::OutCmd(unsigned char data)
 
 unsigned int CFakeIEC::Out(unsigned char data)
 {
-	if ((state&STATE_LISTENING) /*&& (received_cmd == CMD_DATA)*/) {
-		status = Device->Write( secondaryAddress, data, received_cmd, false);
-		return status;
+	if (state & STATE_LISTENING) {
+		return Device->Write(secondaryAddress, data, received_cmd, false);
 	}
 	return IEC_ERROR;  
 }
@@ -93,15 +92,15 @@ unsigned int CFakeIEC::OutSec(unsigned char data)
 			break;        
 		case STATE_LISTENING:
 			switch (received_cmd) {
-				case CMD_OPEN:	// Prepare for receiving the file name
+				case IEC_CMD_OPEN:	// Prepare for receiving the file name
 					status = IEC_OK;
 					break;
 
-				case CMD_CLOSE: // Close channel
+				case IEC_CMD_CLOSE: // Close channel
 					status = Device->Close( secondaryAddress);
 					break;
 				
-				case CMD_DATA: // Data comes
+				case IEC_CMD_DATA: // Data comes
 					break;
 					
 				default:

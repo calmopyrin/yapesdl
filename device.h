@@ -11,6 +11,7 @@ public:
 	virtual unsigned char Close(int channel) = 0;
 	virtual unsigned char Read(int channel, unsigned char *data) = 0;
 	virtual unsigned char Write(int channel, unsigned char data, unsigned int cmd, bool eoi) = 0;
+	virtual void setEoI(unsigned int channel) = 0;
 	virtual void Reset() = 0;
 };
 

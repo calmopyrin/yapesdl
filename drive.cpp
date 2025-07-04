@@ -246,3 +246,8 @@ FakeSerialDrive::FakeSerialDrive(unsigned int dn) : Drive(dn)
 	iecDrive = new CIECFSDrive(".");
 	iecInterFace = new IecFakeSerial(dn, iecDrive);
 }
+
+void FakeSerialDrive::Reset()
+{
+	iecDrive->Reset();
+}

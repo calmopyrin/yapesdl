@@ -1,6 +1,7 @@
 #include "device.h"
 #include "iec.h"
 #include "diskfs.h"
+#include "1541rom.h"
 #include <string.h>
 #include <ctype.h>
 
@@ -44,7 +45,7 @@ unsigned char CIECFSDrive::Open(int channel)
 	SetError(ERR_OK, 0, 0);
 
 	if (channel == 15) {
-		ExecuteCommand(name_buf);
+		ExecuteCommand(cmd_buffer);
 		return ST_OK;
 	}
 
@@ -94,7 +95,7 @@ unsigned char CIECFSDrive::OpenFile(int channel, char *filename)
 			SetError(ERR_SYNTAX33, 0, 0);
 			return ST_OK;
 		}
-		FindFirstFile(plainname);
+		findFirstFile(plainname);
 	} else {
 
 		switch (filetype) {
@@ -179,7 +180,7 @@ void CIECFSDrive::ParseFileName(char *srcname, char *destname, int *filemode, in
 	*wildflag = strpbrk(destname, "?*") != NULL;
 }
 
-void CIECFSDrive::FindFirstFile(char *name)
+bool CIECFSDrive::findFirstFile(char *name)
 {
 	bool found = true;
 	char *filename, cmpname[NAMEBUF_LENGTH];
@@ -190,9 +191,11 @@ void CIECFSDrive::FindFirstFile(char *name)
 		*filename=toupper(*filename);
 
 	if ( !(ad_set_curr_dir(dir_path)) )
-		return;
+		return false;
 
-	if (!ad_find_first_file("*.prg")) return;
+	strcat(name, ".prg");
+	if (!ad_find_first_file(name)) 
+		return false;
 	found = ad_return_current_filename() != 0;
 
 	while (found) {
@@ -210,13 +213,14 @@ void CIECFSDrive::FindFirstFile(char *name)
 			// Match found? Then copy real file name
 			if (Match(name, cmpname)) {
 				strncpy(name, fname, strlen(fname)+1 );
-				return;
+				return true;
 			}
 			// Get next directory entry
 		}
 		found = !!ad_find_next_file();
 	}
 	ad_find_file_close();
+	return found;
 }
 
 unsigned char CIECFSDrive::OpenDirectory(int channel, char *filename)
@@ -320,25 +324,18 @@ unsigned char CIECFSDrive::Close(int channel)
 	return ST_OK;
 }
 
-/*void CIECFSDrive::CloseAllChannels()
-{
-	for (int i=0; i<15; i++)
-		Close(i);
-	cmd_len = 0;
-}*/
-
 unsigned char CIECFSDrive::Read(int channel, unsigned char *byte)
 {
 	int c;
 
 	if (channel == 15) {
 		*byte = *errorPtr++;
-
-		if (*byte != '\r')
+		errorLength--;
+		if (*byte != '\r' || !errorLength)
 			return ST_OK;
 		else {	// End of message
 			SetError(ERR_OK, 0, 0);
-			return ST_EOF;
+			return ST_ERROR; // not ST_EOF!
 		}
 	}
 
@@ -348,24 +345,30 @@ unsigned char CIECFSDrive::Read(int channel, unsigned char *byte)
 	*byte = read_char[channel];
 	c = fgetc(file[channel]);
 	if (c == EOF)
-		return ST_EOF;
+		return ST_ERROR; // not ST_EOF!
 	else {
 		read_char[channel] = c;
 		return ST_OK;
 	}
 }
 
-Uint8 CIECFSDrive::Write(int channel, Uint8 data, unsigned int cmd, bool eoi)
+void CIECFSDrive::setEoI(unsigned int channel)
+{
+	if (channel == 15) {
+		cmd_buffer[cmd_len] = 0;
+		cmd_len = 0;
+	}
+	else {
+		name_buf[name_length] = 0;
+		name_length = 0;
+	}
+}
+
+Uint8 CIECFSDrive::Write(int channel, unsigned char data, unsigned int cmd, bool eoi)
 {
 	if (channel == 15) {
 
-		if (eoi) {
-			cmd_buffer[cmd_len] = 0;
-			cmd_len = 0;
-			ExecuteCommand(cmd_buffer);
-			return ST_OK;
-		}
-		if (cmd_len >= 40)
+		if (cmd_len >= 58)
 			return ST_ERROR;
 		cmd_buffer[cmd_len++] = data;
 		return ST_OK;
@@ -373,17 +376,12 @@ Uint8 CIECFSDrive::Write(int channel, Uint8 data, unsigned int cmd, bool eoi)
 	}
 
 	switch (cmd) {
-		case CIECInterface::CMD_OPEN:
+		case IEC_CMD_OPEN:
 			name_buf[name_length++] = data;
 			if (name_length>=16)
 	    		return ST_ERROR;
-			if (eoi) {
-				name_buf[name_length] = 0;
-				name_length = 0;
-				return ST_EOF;
-			}
 			return ST_OK;
-		case CIECInterface::CMD_DATA:
+		case IEC_CMD_DATA:
 			if (!file[channel]) {
 				SetError(ERR_FILENOTOPEN, 0, 0);
 				return ST_ERROR;
@@ -446,7 +444,10 @@ void CIECFSDrive::ExecuteCommand(char *command)
 				switch (command[2]) {
 					case 'R':
 						adr = (command[4] << 8) | (command[3]);
-						errorPtr = (char *)(ram + (adr & 0x07ff));
+						if (adr < 0xC000)
+							errorPtr = (char*)(ram + (adr & 0x07ff));
+						else
+							errorPtr = (char *)(rom1541 + (adr & 0x3fff));
 						if (!(errorLength = command[5]))
 							errorLength = 1;
 						break;

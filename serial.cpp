@@ -153,7 +153,7 @@ void IecFakeSerial::interpretIecByte()
 			if ( state & IEC_STATE_LISTENING) {
 				if ( (secondaryAddress_prev & 0xF0) == IEC_CMD_OPEN && dev_nr >= 8) {
 					*namePtr = 0;
-					//errorState = iecDevice->Open(secondaryAddress_prev & 0x0F, nameBuffer);
+					iecDevice->setEoI(secondaryAddress_prev & 0x0F);
 					errorState = iecDevice->Open(secondaryAddress_prev & 0x0F, 0);
 				}
 				state &= ~IEC_STATE_LISTENING;
@@ -162,7 +162,6 @@ void IecFakeSerial::interpretIecByte()
 	
 		case IEC_CMD_UNTALK:
 			state &= ~IEC_STATE_TALKING;
-			//state &= ~IEC_STATE_LISTENING;
 			dataTransfered = 0;
 			break;  	
 	}
@@ -262,7 +261,7 @@ void IecFakeSerial::update()
 					step = SM_READY_FOR_DATA;
 					timeout = cycleCount + TED::usec2cycles(60); // 200 max, 60 avg
 #if IEC_DEBUG >= 2
-					fprintf(stderr, "DATA -> 1, ready for data, mainClock: %i, timeout:%i.\n",
+					fprintf(stderr, "DATA -> 1, ready for data, mainClock: %llu, timeout:%llu.\n",
 							cycleCount, timeout);
 #endif
 				}
@@ -340,7 +339,7 @@ void IecFakeSerial::update()
 						//if ( dataTransfered ) 
 						if (state & (IEC_STATE_LISTENING))
 						{
-							unsigned int command = dataTransfered ? CIECInterface::CMD_DATA : CIECInterface::CMD_OPEN;
+							unsigned int command = dataTransfered ? IEC_CMD_DATA : IEC_CMD_OPEN;
 							switch (dev_nr) {
 								case 8:
 								case 9:

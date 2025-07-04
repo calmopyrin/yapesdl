@@ -3,6 +3,7 @@
 
 #include "types.h"
 
+// IEC command & control codes
 enum {
 	// IEC command codes normally sent under ATN low
 	IEC_CMD_LISTEN = 0x20,
@@ -18,16 +19,6 @@ enum {
 class CIECInterface {
   public:
 	virtual ~CIECInterface() {};
-	// IEC command & control codes
-	enum {
-		CMD_LISTEN = 0x20,
-		CMD_UNLISTEN = 0x30,
-		CMD_TALK = 0x40,
-		CMD_UNTALK = 0x50,
-		CMD_DATA = 0x60,	// Data transfer
-		CMD_CLOSE = 0xe0,	// Close channel
-		CMD_OPEN = 0xf0		// Open channel
-	};
 	virtual void Reset() = 0;
 	virtual unsigned int Listen() = 0;
 	virtual unsigned int Unlisten() = 0;

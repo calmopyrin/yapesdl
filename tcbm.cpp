@@ -4,6 +4,7 @@
 void CFakeTCBM::Reset()
 {
 	State = IEC_IDLE;
+	Status = TCBM_OK;
 	Data = HandShake = Status = 0;
 	tia.ddra = tia.ddrb = tia.ddrc = 0;
 	tia.pra = tia.prb = tia.prc = 0;
@@ -51,11 +52,11 @@ void CFakeTCBM::Write( unsigned int addr, unsigned char data)
 			switch (State) {
 				case IEC_IDLE:
 					switch(data & 0x8F) {
-						case 0x00: // erase command pending flag and execute previous command
-							State = IEC_IDLE;
-							break;
 						case 0x80: // dummy command goes back to main loop
 							State = IEC_IDLE;
+						default: // erase command pending flag and execute previous command
+						case 0x85:	// Check device
+							Status = TCBM_OK;
 							break;
 						case 0x81:	// Command w/ dev nr coming (TALK/LISTEN/UNTALK/UNLISTEN)
 							State = IEC_COMMAND;
@@ -68,9 +69,6 @@ void CFakeTCBM::Write( unsigned int addr, unsigned char data)
 							break;
 						case 0x84:  // Data comes (to plus/4)
 							Status = iec->In( &Data ) ? TCBM_ERROR : TCBM_OK;
-							break;
-						case 0x85:	// Check device
-							Status = TCBM_OK;
 							break;
 					};
 					break;

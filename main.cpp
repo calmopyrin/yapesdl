@@ -183,6 +183,11 @@ void machineReset(unsigned int resetlevel)
 	ted8360->Reset(resetlevel);
 	machine->Reset();
 	CTrueDrive::ResetAllDrives();
+	tcbm->Reset();
+	iec->Reset();
+	fsdrive->Reset();
+	if (fsd1541)
+		fsd1541->Reset();
 }
 
 void machineDoSomeFrames(unsigned int frames)

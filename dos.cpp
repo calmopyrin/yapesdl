@@ -56,7 +56,6 @@ void CIECDrive::SetError(unsigned int error, unsigned int track, unsigned int se
 void CIECDrive::Reset()
 {
 	SetError(ERR_STARTUP, 0, 0);
-	currentError = ERR_OK;
 	memset(ram, 0, DRIVE_RAM_SIZE);
 }
 
