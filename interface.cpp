@@ -357,14 +357,18 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 			case UI_ZIP_ITEM:
 				strcpy(ftypes[0].name, "*.d64");
 				ftypes[0].menufunction = UI_D64_ITEM;
-				strcpy(ftypes[1].name, "*.zip");
-				ftypes[1].menufunction = UI_ZIP_ITEM;
+				strcpy(ftypes[1].name, "*.g64");
+				ftypes[1].menufunction = UI_D64_ITEM;
+				strcpy(ftypes[2].name, "*.zip");
+				ftypes[2].menufunction = UI_ZIP_ITEM;
 #ifdef _WIN32
-				nrOfExts = 2;
-#else
 				nrOfExts = 3;
-				strcpy(ftypes[2].name, "*.D64");
-				ftypes[2].menufunction = UI_D64_ITEM;
+#else
+				nrOfExts = 5;
+				strcpy(ftypes[3].name, "*.D64");
+				ftypes[3].menufunction = UI_D64_ITEM;
+				strcpy(ftypes[4].name, "*.G64");
+				ftypes[4].menufunction = UI_D64_ITEM;
 #endif
 				break;
 			case UI_FRE_ITEM:

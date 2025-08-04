@@ -80,6 +80,17 @@ const unsigned int speed_zone[MAX_NUM_TRACKS+1] = {
 	0,0,0,0,0,0 // 36-41
 };
 
+#define MAX_G64_TRACKS 84
+typedef struct _G64HEADER {
+	char headerstring[8];
+	unsigned char version; // 0
+	unsigned char no_of_tracks;
+	unsigned short size_of_tracks;
+	unsigned int track_offset_in_file[MAX_G64_TRACKS]; // max is 84
+	unsigned int speedZone[MAX_G64_TRACKS];
+} g64_header_t;
+static g64_header_t g64hdr = { 0 };
+
 unsigned int FdcGcr::sectorSize[MAX_NUM_TRACKS+1];
 
 FdcGcr::FdcGcr()
@@ -183,8 +194,7 @@ void FdcGcr::readState()
 void FdcGcr::openDiskImage(const char *filepath)
 {
 	closeDiskImage();
-	attachD64file(filepath);
-	imageType = DISK_D64;
+	attachDiskImage(filepath);
 	strcpy(imageName, filepath);
 }
 
@@ -213,7 +223,7 @@ void FdcGcr::closeDiskImage()
 	isDiskInserted = false;
 }
 
-void FdcGcr::attachD64file(const char *filepath)
+void FdcGcr::attachDiskImage(const char *filepath)
 {
 	unsigned long size;
 	unsigned char magic[4];
@@ -227,81 +237,114 @@ void FdcGcr::attachD64file(const char *filepath)
 		diskImageHandle = fopen(filepath, "rb");
 	}
 	if (diskImageHandle != NULL) {
-
+		isDiskCorrupted = false;
 		fseek(diskImageHandle, 0, SEEK_END);
 		size = ftell(diskImageHandle);
-		// Check length
-		if ( (size < MIN_d64NumOfSectors * 256) || (size > MAX_d64NumOfSectors * 257) ) {
-			fclose(diskImageHandle);
-			diskImageHandle = NULL;
-			isDiskInserted = false;
-			return;
-		}
+		fseek(diskImageHandle, 0, SEEK_SET);
+		size_t read = fread(&g64hdr, 1, sizeof(g64hdr), diskImageHandle);
+		// is it a G64 image?
+		if (read == sizeof(g64hdr) && !strncmp(g64hdr.headerstring, "GCR-1541", 8)) {
+			imageType = DISK_G64;
+			NrOfTracks = g64hdr.no_of_tracks;
+			for (unsigned int track = 0; track < NrOfTracks; track++) {
 
-		switch (size) {
+				int offset;
+				unsigned char* p = gcrData + (track / 2) * GCR_MAX_TRACK_SIZE;
+
+				if (p >= gcrData + GCR_DISK_SIZE) {
+					fprintf(stderr, "Error opening G64 file: GCR buffer overflow on track %i.", track);
+					break;
+				}
+
+				offset = g64hdr.track_offset_in_file[track];
+				// don't process half tracks...
+				if (offset && !(track & 1)) {
+					unsigned short stored_track_size;
+
+					fseek(diskImageHandle, offset, SEEK_SET);
+					fread(&stored_track_size, 2, 1, diskImageHandle);
+					fread(p, GCR_MAX_TRACK_SIZE, 1, diskImageHandle);
+				}
+			}
+			fprintf(stderr, "Attached low level disk (%u tracks): %s\n", NrOfTracks, filepath);
+		}
+		else {
+			// open as D64
+			// rewind
+			fseek(diskImageHandle, 0, SEEK_SET);
+			// Check length
+			if ((size < MIN_d64NumOfSectors * 256) || (size > MAX_d64NumOfSectors * 257)) {
+				fclose(diskImageHandle);
+				diskImageHandle = NULL;
+				isDiskInserted = false;
+				return;
+			}
+
+			switch (size) {
 			case 174848:
 			case 175531:
 				NrOfTracks = 35;
 				break;
-			case (683+1*17)*256:
-			case (683+1*17)*256 + 683 + 17:
+			case (683 + 1 * 17) * 256:
+			case (683 + 1 * 17) * 256 + 683 + 17:
 				NrOfTracks = 36;
 				break;
-			case (683+2*17)*256:
-			case (683+2*17)*256 + 683 + 17*2:
+			case (683 + 2 * 17) * 256:
+			case (683 + 2 * 17) * 256 + 683 + 17 * 2:
 				NrOfTracks = 37;
 				break;
-			case (683+3*17)*256:
-			case (683+3*17)*256 + 683 + 17*3:
+			case (683 + 3 * 17) * 256:
+			case (683 + 3 * 17) * 256 + 683 + 17 * 3:
 				NrOfTracks = 38;
 				break;
-			case (683+4*17)*256:
-			case (683+4*17)*256 + 683 + 17*4:
+			case (683 + 4 * 17) * 256:
+			case (683 + 4 * 17) * 256 + 683 + 17 * 4:
 				NrOfTracks = 39;
 				break;
-			case (683+5*17)*256:
-			case (683+5*17)*256 + 683 + 17*5:
+			case (683 + 5 * 17) * 256:
+			case (683 + 5 * 17) * 256 + 683 + 17 * 5:
 				NrOfTracks = 40;
 				break;
 			default:
 				NrOfTracks = 35;
 				break;
+			}
+			NrOfSectors = d64SectorOffset[NrOfTracks + 1];
+
+			// x64 image?
+			fread(&magic, 4, 1, diskImageHandle);
+			if (magic[0] == 0x43 && magic[1] == 0x15 && magic[2] == 0x41 && magic[3] == 0x64)
+				diskImageHeaderSize = 64;
+			else
+				diskImageHeaderSize = 0;
+
+			// Preset error info (all sectors no error)
+			memset(diskErrorInfo, 1, sizeof(diskErrorInfo));
+
+			// Load sector error info from .d64 file, if available
+			if (!diskImageHeaderSize && size == NrOfSectors * 257) {
+				fseek(diskImageHandle, NrOfSectors * 256, SEEK_SET);
+				fread(&diskErrorInfo, NrOfSectors, 1, diskImageHandle);
+			}
+
+			// Read BAM and get ID
+			if (!readSector(18, 0, bam)) {
+				isDiskCorrupted = true;
+			}
+			else {
+				id1 = bam[162];
+				id2 = bam[163];
+				// Create GCR encoded disk data from image
+				disk2gcr();
+			}
+			imageType = DISK_D64;
+			fprintf(stderr, "Attached disk (%u tracks, %u sectors): %s\n", NrOfTracks, NrOfSectors, filepath);
 		}
-		NrOfSectors = d64SectorOffset[NrOfTracks+1];
-
-		// x64 image?
-		fseek(diskImageHandle, 0, SEEK_SET);
-		fread(&magic, 4, 1, diskImageHandle);
-		if (magic[0] == 0x43 && magic[1] == 0x15 && magic[2] == 0x41 && magic[3] == 0x64)
-			diskImageHeaderSize = 64;
-		else
-			diskImageHeaderSize = 0;
-
-		// Preset error info (all sectors no error)
-		memset(diskErrorInfo, 1, sizeof(diskErrorInfo));
-
-		// Load sector error info from .d64 file, if available
-		if (!diskImageHeaderSize && size == NrOfSectors * 257) {
-//			Log::write(_T("Sector error info found.\n"));
-			fseek(diskImageHandle, NrOfSectors * 256, SEEK_SET);
-			fread(&diskErrorInfo, NrOfSectors, 1, diskImageHandle);
-		}
-
-		// Read BAM and get ID
-		if (!readSector(18, 0, bam)) {
-			isDiskCorrupted = true;
-		} else {
-			id1 = bam[162];
-			id2 = bam[163];
-			// Create GCR encoded disk data from image
-			disk2gcr();
-			// indicate that the disk is present
-			isDiskInserted = true;
-			isImageChanged = false;
-			isDiskCorrupted = false;
-			isDiskSwapped = true;
-		}
-		fprintf(stderr, "Attached disk (%u tracks, %u sectors): %s\n", NrOfTracks, NrOfSectors, filepath);
+		// indicate that the disk is present
+		isDiskInserted = true;
+		isImageChanged = false;
+		isDiskSwapped = true;
+		
 		return;
 	}
 	isDiskInserted = false;

@@ -56,7 +56,7 @@ public:
 
 private:
 
-	void attachD64file(const char *filepath);
+	void attachDiskImage(const char *filepath);
 	bool readSector(int track, int sector, unsigned char *buffer);
 	bool writeSector(int track, int sector, unsigned char *buffer);
 	unsigned int secnumFromTS(unsigned int track, unsigned int sector);

@@ -295,7 +295,9 @@ bool start_file(const char *szFile, bool autostart = true)
 
 	if (pFileExt) {
 		char *fileext = pFileExt;
-		if (!strcmp(fileext,".d64") || !strcmp(fileext,".D64")) {
+		if (!strcmp(fileext,".d64") || !strcmp(fileext,".D64") ||
+			!strcmp(fileext, ".g64") || !strcmp(fileext, ".G64")
+			) {
 			startd64(szFile, autostart);
 			return true;
 		}
