@@ -427,10 +427,10 @@ bool zipOpen(const char *zipName, unsigned char **buffer, unsigned int &bufferSi
 						storedFileSize = fsize;
 					}
 					if (*buffer) {
-						if (!strcmp(ext, ".d64") || !strcmp(ext, ".D64"))
-							fileType = 1;
-						else
+						if (!strcmp(ext, ".tap") || !strcmp(ext, ".TAP"))
 							fileType = 2;
+						else
+							fileType = 1;
 						bufferSize = fsize;
 						unzReadCurrentFile(zipFile, *buffer, fsize);
 						unzCloseCurrentFile(zipFile);

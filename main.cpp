@@ -440,7 +440,8 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 	int e = SDL_UpdateTexture(sdlTexture, NULL, texture, pixelsPerRow * sizeof (unsigned int));
 	// VIC20 source rectangle is smaller
 	if (ted8360->getSoundClock() == VIC20_SOUND_CLOCK) {
-		SDL_Rect srcrc = { 0, 1, SCREENX, SCREENY - 4 };
+		unsigned int scaleY = g_bUseOverlay ? 1 : 0;
+		SDL_Rect srcrc = { 0, 1 << scaleY, SCREENX, (SCREENY - 4) << scaleY };
 		e = SDL_RenderCopy(sdlRenderer, sdlTexture, &srcrc, NULL);
 	} else
 		e = SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
