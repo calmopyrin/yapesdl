@@ -527,7 +527,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 				case 0:
 					return prddr;
 				case 1:
-					return (prp & prddr) | ((portState | 0x17) & ~prddr & 0xDF & (!(tap->IsButtonPressed()) << 4));
+					return (prp & prddr) | ( (((tap->IsButtonPressed() << 4) ^ 0x10) | portState | 0x07) & ~prddr);
 				default:
 					return actram[addr & 0xFFFF];
 			}
@@ -701,7 +701,7 @@ void Vic2mem::Write(unsigned int addr, unsigned char value)
 						goto skip;
 
 					case 1:
-						if ((prp ^ value) & 0x20)
+						if ((prp ^ value) & 0x20 & prddr)
 							tap->setTapeMotor(CycleCounter, !(value & 0x20));
 						prp = value;
 skip:

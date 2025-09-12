@@ -347,6 +347,11 @@ unsigned char TED::readOpenAddressSpace(unsigned int addr)
 	}
 }
 
+unsigned char* TED::getCharSetPtr()
+{ 
+	return kernal + 0x1400;
+}
+
 unsigned char TED::Read(unsigned int addr)
 {
 	switch ( addr & 0xF000 ) {

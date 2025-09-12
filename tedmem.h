@@ -144,6 +144,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual void setFrequency(unsigned int sid_frequency);
 	virtual void setSampleRate(unsigned int sampleRate_);
 	virtual void triggerNMI() { /* no NMI */ };
+	virtual unsigned char *getCharSetPtr();
 	void setClockStep(unsigned int originalFreq, unsigned int samplingFreq);
 	//
 	static unsigned int sidCardEnabled;

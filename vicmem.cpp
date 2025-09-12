@@ -74,6 +74,11 @@ Vicmem::~Vicmem()
 	delete keysvic;
 }
 
+unsigned char* Vicmem::getCharSetPtr()
+{
+	return vic20charset + 0x0800;
+}
+
 void Vicmem::flipVicramExpansion(void* none)
 {
 	Vicmem* vicm = dynamic_cast<Vicmem*>(instance_);
@@ -337,9 +342,11 @@ Color Vicmem::getColor(unsigned int ix)
 
 void Vicmem::updateColorRegs()
 {
+	// Changes to $900F and $900E colors appear 1 hires pixel too late with respect to half char boundaries
 	firstmcol[SCRN] = vicReg[15] >> 4;
 	firstmcol[BORDER] = vicReg[15] & 7;
 	framecol = (mcol[BORDER] << 24) | (mcol[BORDER] << 16) | (firstmcol[BORDER] << 8) | firstmcol[BORDER];
+	// FIXME: changes to the reverse mode bit appear 3 hires pixels late!
 	reverseMode = vicReg[15] & 0x08;
 	_delayedEventCallBack = 0;
 }

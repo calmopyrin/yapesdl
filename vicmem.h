@@ -40,6 +40,7 @@ class Vicmem : public TED
 		virtual unsigned int getSoundClock() { return VIC20_SOUND_CLOCK; }
 		virtual unsigned int getRealSlowClock() { return VIC20_REAL_CLOCK_M10 / 5 / 2; }
 		virtual unsigned int getEmulationLevel() { return 3; }
+		virtual unsigned char* getCharSetPtr();
 #if !FAST_BOOT
 		virtual unsigned int getAutostartDelay() { return 175; }
 #else
