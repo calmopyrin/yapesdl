@@ -21,7 +21,6 @@
 #include "prg.h"
 #include "tape.h"
 #include "drive.h"
-#include "roms.h"
 #include "SaveState.h"
 
 #ifndef SDL_CONTROLLERBUTTONDOWN // Emscripten
@@ -164,7 +163,7 @@ static rvar_t *findRVar(char *name)
 }
 
 UI::UI(class TED *ted) :
-	display(ted->screen), charset(kernal + 0x1400), ted8360(ted)
+	display(ted->screen), ted8360(ted)
 {
 	pixels = new unsigned int[568 * 312 * 2];
 	// Link menu structure
@@ -222,7 +221,7 @@ void UI::screen_update()
 void UI::clear(char color, char shade)
 {
 	memset(display, COLOR(color, shade), 568 * SCR_VSIZE);
-	screen_update();
+	//screen_update();
 }
 
 void UI::set_color(unsigned char foreground, unsigned char background)
@@ -245,10 +244,9 @@ void UI::texttoscreen(int x, int y, char *scrtxt, size_t len = 0)
 void UI::chrtoscreen(int x,int y, char scrchr)
 {
 	int j, k;
-	unsigned char *cset;
+	unsigned char *cset = ted8360->getCharSetPtr() + (scrchr << 3);
 	const unsigned int CPR = ted8360->getCyclesPerRow();
 
-	cset = charset + (scrchr << 3);
 	for (j = 0; j<8; j++)
 		for (k = 0; k < 8; k++)
 			display[(y + j) * CPR + x + k] = (cset[j] & (0x80 >> k)) ? fgcol : bgcol;

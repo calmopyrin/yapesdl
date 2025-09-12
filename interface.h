@@ -92,7 +92,6 @@ class UI {
 
 	private:
 		unsigned char *display; // pointer to the emulator screen
-		unsigned char *charset; // pointer to the character ROM
 
 		char bgcol; // background color
 		char fgcol; // foreground color
