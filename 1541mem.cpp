@@ -76,44 +76,8 @@ void DRIVEMEM::EmulateTick()
 
 inline void DRIVEMEM::CountTimers()
 {
-#if 0
-	if (!via[0].t1c--) {
-		if (via[0].acr & 0x40)	// free-run mode?
-			via[0].t1c = via[0].t1l; // reload from latch
-		via[0].ifr |= 0x40;
-		/*if (via[0].ier & 0x40)
-			irq_flag |= 0xC0;*/
-	}
-
-	if (!(via[0].acr & 0x20)) {	// one-shot mode?
-		if (!via[0].t2c--)
-			via[0].ifr |= 0x20;
-	}
-
-	if (!via[1].t1c--) {
-		if (via[1].acr & 0x40)	// free-run mode?
-			via[1].t1c = via[1].t1l; // reload from latch
-		via[1].ifr |= 0x40;
-		// Set VIA2 timer 1 IRQ
-		if (via[1].ier & 0x40)
-			irqFlag |= 0xC0;
-	}
-
-	if (!(via[1].acr & 0x20)) {	// one-shot mode?
-		if (!via[1].t2c--) {
-			if (via2_t2to_enable) {
-				via2_t2to_enable = false;
-				via[1].ifr |= 0x20;
-				// Set VIA2 timer 2 IRQ, set only when t2 hi is re-written
-				/*if (via[1].ier & 0x20)
-					irq_flag |= 0xA0;*/
-			}
-		}
-	}
-#else
 	via[0].countTimers();
 	via[1].countTimers();
-#endif
 }
 
 /*
@@ -179,19 +143,16 @@ inline unsigned char DRIVEMEM::ReadVIA(unsigned int adr)
 				unsigned char serial_state =  (serial_bus >> 7)		// DATA
 											|((serial_bus >> 4) & 0x04)	// CLK
 											|((serialPort[0] << 3) & 0x80); // ATN OUT -> DATA
-
-				//Log::write( "#%i, $1800 read : %02X\n", devnr>>5, serial_bus);
-				// FIXME! bit 5 and 6 gives the device number thru 2 jumpers
-				//return (via[0].prb & 0x1A | serial_state | devnr) ^ 0x85;// $1A  ddrb
-				return (via[0].prb & via[0].ddrb)
-					| (((serial_state ^ 0x85) | devnr | 0x1A | ((via[0].pb7 ^ 0x80) & via[0].acr & 0x80)) & ~via[0].ddrb) ;// $1A  ddrb
+				unsigned char pb7out = via[0].acr & 0x80;
+				return (((via[0].prb & ~pb7out) | via[0].pb67) & via[0].ddrb)
+					| (((serial_state ^ 0x85) | devnr | 0x1A | (via[0].pb67 & pb7out)) & ~via[0].ddrb);
 			}
 		case 0x1801:
 		case 0x180F:
 			via[0].ifr &= 0xFD;
 			//SetIRQflag( via[0].ier & via[0].ifr );
 			return (via[0].pra & via[0].ddra) | (ppIn & ~via[0].ddra);
-				// |0x01 1541C ROM check (track 0 sensor)
+
 		case 0x1804:
 		case 0x1808:
 		case 0x180A:
@@ -219,9 +180,8 @@ inline unsigned char DRIVEMEM::ReadVIA(unsigned int adr)
 					| ((fdc->WPState() | fdc->SyncFound()) & ~via[1].ddrb);
 		case 0x1C01:
 		case 0x1C0F:
-			//fdc->ClearByteReady();
 			return fdc->readGCRByte();
-			//return (fdc->ReadGCRByte() & ~via[1].ddrb) | (via[1].prb & via[1].ddrb);
+
 		case 0x1C04:
 		case 0x1C08:
 		case 0x1C0A:

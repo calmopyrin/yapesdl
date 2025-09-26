@@ -27,19 +27,16 @@ void Via::write(unsigned int r, unsigned char value)
 	case 5:
 		// write T1 high order counter, read from low order latch
 		t1l = (t1l & 0xFF) | (value << 8);
-		//t1c = t1l;
 		// trigger a reload
+		t1latch = true;
 		t1r = 1;
+		t1t = 0;
+		// toggle PB7
+		if (acr & 0x80 && t1l > 1)
+			pb67 ^= 0x80;
 		// Clear T1 IRQ
 		ifr &= ~IRQM_T1;
 		checkIrqCallback(callBackParam, ifr & ier);
-		t1t = 0;
-		// PB7 square wave output
-		// if PB7 is programmed as a T1 output it will go low on the phi2 following the write operation
-		if (acr & 0xC0) {
-			pb7 = 0;
-			pb7trigger = false;
-		}
 		break;
 	case 7:
 		// write T1 high order latch
@@ -47,6 +44,9 @@ void Via::write(unsigned int r, unsigned char value)
 		// despite what official docs state, it does clear the interrupt flag
 		ifr &= ~IRQM_T1;
 		checkIrqCallback(callBackParam, ifr & ier);
+		// if IRQ disabled, disallow it
+		if (!(ier & IRQM_T1))
+			t1latch = false;
 		break;
 	case 8:
 		// write T2 low order latch
@@ -55,7 +55,7 @@ void Via::write(unsigned int r, unsigned char value)
 	case 9:
 		// write T2 high order counter, low order latch xfered to low count
 		t2c = (t2l & 0xFF) | (value << 8);
-		// trigger reload
+		// skip one decrement
 		t2r = 1;
 		// Clear T2 IRQ
 		ifr &= ~IRQM_T2;
@@ -67,7 +67,7 @@ void Via::write(unsigned int r, unsigned char value)
 		break;
 	case 0xB:
 		/* ACR bits:
-		  7 = PB7 output enable
+		  7 = PB7 output enable square wave output if PB7 is programmed as a T1 output it will go low on the phi2 following the write operation
 		  6 = free-run enable
 		  5 = timer 2 control (0=timed interrupt,1=countdown with pulses)
 		  2,3,4 = shift register control
@@ -75,13 +75,19 @@ void Via::write(unsigned int r, unsigned char value)
 		  0 = PA latching enabled
 		*/
 		acr = value;
+		// if one-shot, allow timeout again
+		if (!(acr & 0x40))
+			t1t = 0;
+		// Clear PB7
+		if (acr & 0x80)
+			pb67 |= 0x80;
 		break;
 	case 0xC:
 		pcr = value;
 		break;
 	case 0xD:
 		ifr &= ~(value | 0x80);
-		checkIrqCallback(callBackParam, ifr & ier & 0x7F);
+		checkIrqCallback(callBackParam, ifr & ier);
 		break;
 	case 0xE:
 		if (value & 0x80)
@@ -103,7 +109,7 @@ unsigned char Via::read(unsigned int r)
 		// Clear CB1 IRQ flag
 		ifr &= ~IRQM_CB1;
 		checkIrqCallback(callBackParam, ifr & ier);
-		return prb | ~ddrb; // & ~(acr & 0x80)) | (pb7 & 0x80 && ddrb);
+		return ((prb & ~(acr & 0x80)) | pb67) | ~ddrb;
 	default:
 	case 1:
 	case 0xF:
@@ -132,6 +138,8 @@ unsigned char Via::read(unsigned int r)
 		// Clear T2 IRQ flag
 		ifr &= ~IRQM_T2;
 		checkIrqCallback(callBackParam, ifr & ier);
+		if ((acr & 0x20) && (t2c & 0xFF))
+			return (t2c - 1) & 0xFF;
 		return t2c & 0xFF;
 	case 9:
 		return t2c >> 8;
@@ -162,6 +170,6 @@ void Via::reset()
 	acr = pcr = 0;
 	sr = 0; t1c = t2c = t1l = t2l = 0xFFFF;
 	t1t = t2t = 0;
-	pb7 = 0x80;
-	pb7trigger = false;
+	pb67 = 0;
+	t1latch = true;
 }
