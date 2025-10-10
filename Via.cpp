@@ -109,7 +109,7 @@ unsigned char Via::read(unsigned int r)
 		// Clear CB1 IRQ flag
 		ifr &= ~IRQM_CB1;
 		checkIrqCallback(callBackParam, ifr & ier);
-		return ((prb & ~(acr & 0x80)) | pb67) | ~ddrb;
+		return ((prb | ~ddrb) & ~(acr & 0x80)) | pb67;
 	default:
 	case 1:
 	case 0xF:
@@ -171,5 +171,5 @@ void Via::reset()
 	sr = 0; t1c = t2c = t1l = t2l = 0xFFFF;
 	t1t = t2t = 0;
 	pb67 = 0;
-	t1latch = true;
+	t1latch = false;
 }
