@@ -16,14 +16,15 @@
 #define SET_BITS(REG, VAL) { \
 		unsigned int i = 7; \
 		do { \
-			REG = ((VAL) & (1 << i)) == (1 << i); \
+			REG = ((VAL >> i) & 1); \
 		} while(i--); \
 	}
 
 #define MOB_DO_PIXEL(X, COLOR) \
 	do { \
-		if (!(out[X] & 0x80)) { \
-			if (!(out[X] & 0x40)) { \
+		unsigned char o = out[X]; \
+		if (!(o & 0x80)) { \
+			if (!(o & 0x40)) { \
 				if (!spriteBckgCollReg) { \
 					vicReg[0x19] |= ((vicReg[0x1A] & 2) << 6) | 2; \
 					checkIRQflag(); \
@@ -459,7 +460,7 @@ inline void Vic2mem::checkIRQflag()
 void Vic2mem::doDelayedDMA()
 {
 	if (attribFetch) {
-		bool nowBadLine = (vshift == (beamy & 7)) & (beamy != 247);
+		bool nowBadLine = (vshift == (beamy & 7)) && (beamy != 247);
 		if (nowBadLine) {
 			if (!BadLine && (beamx <= 86 || beamx >= 124)) {
 				int delay;
@@ -494,10 +495,12 @@ void Vic2mem::doDelayedDMA()
 			VertSubActive = true;
 			BadLine = 1;
 		} else {
-			BadLine = 0;
 			//if (BadLine) 
 			// fprintf(stderr, "Bad line stopped @ XSCR=%i X=%i Y=%i(%02X) VSC=%02X DMAC=%i @ PC=%04X\n", 
 			//		hshift, beamx, beamy, beamy, vertSubCount, dmaCount, cpuptr->getPC());
+			BadLine = 0;
+			if (!spriteDMAmask)
+				vicBusAccessCycleStart = 0;
 		}
 	}
 }
