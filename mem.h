@@ -67,18 +67,4 @@ public:
 	}
 };
 
-class CartMem : public MemoryHandler {
-private:
-	unsigned char *romBank[4];
-	unsigned int activeBank;
-protected:
-public:
-	CartMem(const unsigned int nofbanks) : activeBank(0) {
-		*romBank = new unsigned char[16384];
-	};
-	virtual ~CartMem() {
-		delete[] * romBank;
-	};
-};
-
 #endif // _MEM_H

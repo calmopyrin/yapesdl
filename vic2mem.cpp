@@ -257,6 +257,7 @@ void Vic2mem::loadromfromfile(int nr, const char fname[512], unsigned int offset
 	FILE *img;
 
 	if ((img = fopen(fname, "rb"))) {
+		crtType = 0;
 		// note: this is only the minimum!
 		const unsigned int crthdrsize = 64;
 		unsigned char crtheader[crthdrsize];
@@ -268,7 +269,7 @@ void Vic2mem::loadromfromfile(int nr, const char fname[512], unsigned int offset
 			unsigned int size, loadaddress;
 			const unsigned int crtversionMain = crtheader[0x14];
 			const unsigned int crtversionSub = crtheader[0x15];
-			const unsigned int crtType = crtheader[0x17] | (crtheader[0x16] << 8);
+			crtType = crtheader[0x17] | (crtheader[0x16] << 8);
 
 			fprintf(stderr, "CRT image version: %u.%u, type: %u\n", crtversionMain, crtversionSub, crtType);
 
@@ -464,7 +465,6 @@ void Vic2mem::doDelayedDMA()
 		if (nowBadLine) {
 			if (!BadLine && (beamx <= 86 || beamx >= 124)) {
 				int delay;
-				int illegalRead;
 
 				if (!vicBusAccessCycleStart)
 					vicBusAccessCycleStart = CycleCounter;
@@ -681,12 +681,20 @@ unsigned char Vic2mem::Read(unsigned int addr)
 						/*fprintf(stderr, "CIA2(%02X) read:%02X @ PC=%04X @ cycle=%lli\n", addr & 0x1f, cia[1].read(addr & 0xf),
 								cpuptr->getPC(), CycleCounter);*/
 						return cia[1].read(addr);
+					case 0xDE:
+						if (crtType == 66) {
+							exrom = gamepin = 0;
+						}
+						return readFloatingBus(addr);
 					case 0xDF:
+						if (crtType == 66) {
+							exrom = gamepin = 1;
+						}
 						if (reu) {
 							return reu->Read(addr);
 						}
 					default: // open address space
-						return readFloatingBus(addr); // cpuptr->getcins();
+						return readFloatingBus(addr);
 				}
 			}
 	}
@@ -1213,7 +1221,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case 82:
 				checkSpriteEnable();
 				// On bad line with sprite 0 on, all CPU cycles are stolen
-				if (!checkSpriteDMA(0) /*&& !BadLine*/)
+				if (!checkSpriteDMA(0))
 					vicBusAccessCycleStart = 0;
 				break;
 
@@ -1282,7 +1290,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			cpuptr->stopcycle();
 
 		// drawing the visible part of the screen
-		if (!(HBlanking |VBlanking)) {
+		if (!(HBlanking || VBlanking)) {
 			if (SideBorderFlipFlop) {
 				// call the relevant rendering function
 				render();

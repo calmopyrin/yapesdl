@@ -90,7 +90,7 @@ class Vic2mem : public TED
 		unsigned char collisionLookup[256];
 		unsigned char mobExtCol[4];
 		void renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsigned int cx, const unsigned int six);
-		void drawSpritesPerLine(unsigned char *lineBuf);
+		void drawSpritesPerLine(unsigned char* lineBuf);
 		bool checkSpriteDMA(unsigned int i);
 		//
 		Cia cia[2];
@@ -125,6 +125,7 @@ class Vic2mem : public TED
 		unsigned char *mem_8000_9fff;
 		unsigned char *mem_1000_3fff; // for Ultimax mode
 		unsigned int getVicBaseAddress();
+		unsigned int crtType;
 		// REU
 		class REU : public MemoryHandler, public SaveState {
 			REU(unsigned int sizekb, TED *machine_);
