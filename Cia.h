@@ -26,6 +26,7 @@ private:
 	unsigned int sdrShiftCnt;
 	unsigned char icr;
 	unsigned char irq_mask;
+	bool icrRead;
 	struct TOD {
 		unsigned int sec;
 		unsigned int min;
@@ -39,6 +40,7 @@ private:
 	bool pendingIrq;
 	CallBackFunctor irqCallback;
 	void *callBackParam;
+	bool isNewCia;
 
 public:
 	Cia() { refCount++; irqCallback = 0; }
@@ -49,7 +51,7 @@ public:
 	unsigned char read(unsigned int addr);
 	void checkTimerAUnderflow();
 	void checkTimerBUnderflow(int cascaded);
-	void setIRQflag(unsigned int mask);
+	virtual void setIRQflag(unsigned int mask);
 	void countTimers();
 	void countTimerB(const int cascaded);
 	void setTimerMode(const unsigned int flag, const unsigned int tv, unsigned int cr);

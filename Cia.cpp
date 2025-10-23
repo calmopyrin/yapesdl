@@ -1,5 +1,12 @@
 #include "Cia.h"
 
+//#define LOG_CIA
+#ifdef LOG_CIA
+#include <cstdio>
+#include "cpu.h"
+#include "tedmem.h"
+#endif
+
 unsigned int Cia::refCount = 0;
 
 void Cia::reset()
@@ -24,25 +31,29 @@ void Cia::reset()
 	todIn = 60;
 	tod.ampm = 0;
 	pendingIrq = false;
+	isNewCia = false;
+	icrRead = false;
 }
 
 void Cia::setIRQflag(unsigned int mask)
 {
 	if (mask) {
 		if (!(icr & 0x80)) {
-#if 0
-			pendingIrq = true;
-#else
-			icr |= 0x80;
-			irqCallback(callBackParam);
-#endif
+			// 1 cycle delay on later CIA's
+			if (isNewCia) {
+				pendingIrq = true;
+			}
+			else {
+				icr |= 0x80;
+				irqCallback(callBackParam);
+			}
 		}
 	}
 }
 
 unsigned int Cia::bcd2hex(unsigned int bcd)
 {
-	return (((bcd & 0xf0) >> 4) * 10) + (bcd & 0xf);
+	return (((bcd & 0xf0) >> 4) * 10) + (bcd & 0xF);
 }
 
 unsigned int Cia::hex2bcd(unsigned int hex)
@@ -64,7 +75,7 @@ void Cia::todUpdate()
 			tod.ampm ^= 0x80;
 			todCount = 0;
 		}
-#if 0
+#if LOG_CIA
 		TOD time;
 		frames2tod(todCount, time, todIn);
 		// if (!(todCount % 2000))
@@ -121,7 +132,9 @@ inline void Cia::setTimerMode(const unsigned int flag, const unsigned int tv, un
 
 void Cia::write(unsigned int addr, unsigned char value)
 {
-	//fprintf(stderr, "$(%04X) CIA%i write : %02X @ PC=%04X\n", addr, refCount, value, theTed->cpuptr->getPC());
+#ifdef LOG_CIA
+	fprintf(stderr, "$(%04X) CIA%i write : %02X @ PC=%04X\n", addr, refCount, value, theTed->cpuptr->getPC());
+#endif
 	addr &= 0xF;
 	switch (addr) {
 	case 0x00:
@@ -148,7 +161,10 @@ void Cia::write(unsigned int addr, unsigned char value)
 		latcha = (latcha & 0xFF) | (value << 8);
 		// Reload timer A only if stopped
 		if (!(cra & 1)) {
-			taReload = 1;
+			//taReload = 1;
+			ta = latcha;
+			// if the timer is stopped, the high-byte is re-set as well
+			//ta = (ta & 0xFF) | (value << 8);
 		}
 		break;
 
@@ -161,6 +177,8 @@ void Cia::write(unsigned int addr, unsigned char value)
 		// Reload timer B only if stopped
 		if (!(crb & 1)) {
 			tbReload = 1;
+			// if the timer is stopped, the high-byte is re-set as well
+			//tb = (tb & 0xFF) | (value << 8);
 		}
 		break;
 
@@ -171,11 +189,9 @@ void Cia::write(unsigned int addr, unsigned char value)
 			alarmCount = tod2frames(alm);
 		}
 		else {
-			if (!tod.halt)
-				frames2tod(todCount, tod, todIn);
+			frames2tod(todCount, tod, todIn);
 			tod.tenths = value & 0x0F;
-			if (!tod.halt)
-				todCount = tod2frames(tod);
+			todCount = tod2frames(tod);
 		}
 		tod.halt = false;
 		break;
@@ -187,11 +203,9 @@ void Cia::write(unsigned int addr, unsigned char value)
 			alarmCount = tod2frames(alm);
 		}
 		else {
-			if (!tod.halt)
-				frames2tod(todCount, tod, todIn);
+			frames2tod(todCount, tod, todIn);
 			tod.sec = value & 0x7F;
-			if (!tod.halt)
-				todCount = tod2frames(tod);
+			todCount = tod2frames(tod);
 		}
 		break;
 
@@ -202,11 +216,9 @@ void Cia::write(unsigned int addr, unsigned char value)
 			alarmCount = tod2frames(alm);
 		}
 		else {
-			if (!tod.halt)
-				frames2tod(todCount, tod, todIn);
+			frames2tod(todCount, tod, todIn);
 			tod.min = value & 0x7F;
-			if (!tod.halt)
-				todCount = tod2frames(tod);
+			todCount = tod2frames(tod);
 		}
 		break;
 
@@ -217,10 +229,12 @@ void Cia::write(unsigned int addr, unsigned char value)
 			alarmCount = tod2frames(alm);
 		}
 		else {
-			if (!tod.halt)
-				frames2tod(todCount, tod, todIn);
-			tod.hr = value & 0x9F;
-			//todCount = tod2frames(tod);
+			unsigned int hours;
+			frames2tod(todCount, tod, todIn);
+			hours = value & 0x3F;
+			if (value & 0x80) hours += 16;
+			tod.hr = hours;
+			todCount = tod2frames(tod);
 		}
 		tod.halt = true;
 		break;
@@ -247,9 +261,9 @@ void Cia::write(unsigned int addr, unsigned char value)
 			taFeed = 0;
 		// Forced reload
 		if (value & 0x10) {
-			taReload = 1;
-			value &= ~0x10;
+			//taReload = 1;
 			taFeed &= ~1;
+			ta = latcha;
 		}
 		// set Timer A mode
 		setTimerMode(0x40, ta, cra);
@@ -302,14 +316,10 @@ unsigned char Cia::read(unsigned int addr)
 	case 0x07:
 		return tb >> 8;
 	case 0x08:
-		if (tod.latched) {
-			tod.latched = false;
-			return todLatch.sec;
-		}
-		else {
-			frames2tod(todCount, tod, todIn);
-			return tod.tenths;
-		}
+		tod.latched = false;
+		frames2tod(todCount, tod, todIn);
+		return tod.tenths;
+
 	case 0x09:
 		if (tod.latched)
 			return todLatch.sec;
@@ -336,8 +346,13 @@ unsigned char Cia::read(unsigned int addr)
 	case 0x0D:
 	{
 		unsigned char retval = icr & 0x9F;
+		// FIXME: reading ICR resets the ICR in the next cycle
 		icr = 0;
-		pendingIrq = false;
+		if (pendingIrq) {
+			retval |= 0x80;
+			pendingIrq = false;
+		}
+		icrRead = true;
 		return retval;
 	}
 	case 0x0E:
@@ -352,7 +367,7 @@ void Cia::checkTimerAUnderflow()
 {
 	if (!ta && (taFeed & 1)) {
 		icr |= 0x01; // Set timer A IRQ flag
-		setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay
+		setIRQflag(icr & irq_mask); // FIXME, old CIA not good
 		if ((crb & 0x41) == 0x41) { // cascaded timer? CNT pin is high by default
 			tbFeed |= 1;
 			countTimerB(-1);
@@ -379,9 +394,12 @@ void Cia::checkTimerAUnderflow()
 
 void Cia::checkTimerBUnderflow(const int cascaded)
 {
-	if (tb == cascaded && (tbFeed & 1)) {
-		icr |= 0x02; // Set timer B IRQ flag
-		setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay on later CIA's
+	if (tb == 0 && (tbFeed & 1)) {
+		// reading from ICR blocks timer B interrupt generation
+		if (!icrRead) {
+			icr |= 0x02; // Set timer B IRQ flag
+			setIRQflag(icr & irq_mask); // FIXME, 1 cycle delay on later CIA's
+		}
 		prbTimerToggle ^= 0x80; // PRB7 underflow count toggle
 								// timer A output to PB6?
 		if (crb & 2) {
@@ -425,6 +443,9 @@ void Cia::countTimers()
 		irqCallback(callBackParam);
 		pendingIrq = false;
 	}
+	if (icrRead)
+		icrRead = false;
+	// Timer A counting positive slope at CNT-pin?
 	if ((cra & 0x40) && sdrShiftCnt) {
 		sdrShiftCnt -= 1;
 		if (!sdrShiftCnt) {
@@ -432,9 +453,11 @@ void Cia::countTimers()
 			setIRQflag(icr & irq_mask);
 		}
 	}
+	// On a timer A underflow, bit 6 of port B got high for one cycle? then reset...
 	if (!(cra & 4)) {
 		prbTimerOut &= ~0x40; // reset PRB6
 	}
+	// Timer A counts system cycles?
 	if ((cra & 0x20) == 0x00) {
 		ta -= (taFeed & 1);
 		taFeed = (taFeed >> 1) | ((cra & 1) << 1);
@@ -446,12 +469,27 @@ void Cia::countTimers()
 			ta = latcha;
 			// skip decrement in next cycle
 			taFeed &= ~1;
-		}
+		}	
 	}
+	// On timer B underflow, bit 6 of port B inverted?
 	if (!(crb & 4)) {
 		prbTimerOut &= ~0x80; // reset PRB7
 	}
-	if ((crb & 0x60) == 0x00) { // TimerB counting phi clock cycles?
-		countTimerB(0);
+	// Timer B counting...
+	switch (crb & 0x60) {
+		default:
+		case 0:
+			// phi clock cycles ?
+			countTimerB(0);
+			break;
+		case 0x20:
+			// positive slope on CNT-pin
+			break;
+		case 0x40:
+			// underflow of timer A
+			break;
+			// underflow of timer A if the CNT-pin is high
+		case 0x60:
+			break;
 	}
 }
