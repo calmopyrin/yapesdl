@@ -718,7 +718,11 @@ static void toggleFullThrottle(void *none)
 
 static void setEmulationLevel(unsigned int level)
 {
-	unsigned char ram[RAMSIZE];
+	unsigned char *ram = new unsigned char[RAMSIZE];
+	
+	if (!ram)
+		return;
+
 	unsigned int i = ted8360->getEmulationLevel();
 
 	if (level != i) {
@@ -785,6 +789,7 @@ static void setEmulationLevel(unsigned int level)
 		sound_resume();
 		g_bActive = 1;
 	}
+	delete[] ram;
 }
 
 static void toggleShowSpeed(void *none)
