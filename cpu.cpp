@@ -619,33 +619,37 @@ void CPU::process()
 		// rotations
 
 		case 0x0A : // ASL
-			AC&0x80 ? ST|=0x01 : ST&=0xFE; // the Carry flag
+			ST = (ST & 0xFE) | (AC >> 7); // the Carry flag
 			AC<<=1;
 			SETFLAGS_ZN(AC);
 			cycle=0;
 			break;
 
 		case 0x2A : // ROL
-			nextins=(AC<<1)|(ST&0x01);
-			AC&0x80 ? ST|=0x01 : ST&=0xFE; // the Carry flag
-			AC=nextins;
-			SETFLAGS_ZN(AC);
-			cycle=0;
+			{
+				unsigned char tmp = (AC << 1) | (ST & 0x01);
+				ST = (ST & 0xFE) | (AC >> 7); // the Carry flag
+				AC = tmp;
+				SETFLAGS_ZN(AC);
+				cycle = 0;
+			}
 			break;
 
 		case 0x4A : // LSR
-			AC&0x01 ? ST|=0x01 : ST&=0xFE; // the Carry flag
+			ST = (ST & 0xFE) | (AC & 1); // the Carry flag
 			AC=AC>>1;
 			SETFLAGS_ZN(AC);
 			cycle=0;
 			break;
 
 		case 0x6A : // ROR
-			nextins=(AC>>1)|((ST&0x01)<<7);
-			AC&0x01 ? ST|=0x01 : ST&=0xFE; // the Carry flag
-			AC=nextins;
-			SETFLAGS_ZN(AC);
-			cycle=0;
+			{
+				unsigned char tmp = (AC >> 1) | (ST << 7);
+				ST = (ST & 0xFE) | (AC & 1); // the Carry flag
+				AC = tmp;
+				SETFLAGS_ZN(AC);
+				cycle = 0;
+			}
 			break;
 
 		// loads
@@ -880,7 +884,7 @@ void CPU::process()
 				case 3: nextins=mem->Read(ptr);
 						break;
 				case 4:	mem->Write(ptr,nextins);
-						(nextins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (nextins >> 7); // the Carry flag
 						nextins<<=1;
 						break;
 				case 5:	mem->Write(ptr,nextins);
@@ -902,7 +906,7 @@ void CPU::process()
 				case 4:	nextins=mem->Read(ptr);
 						break;
 				case 5:	mem->Write(ptr,nextins);
-						(nextins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (nextins >> 7); // the Carry flag
 						nextins<<=1;
 						break;
 				case 6: mem->Write(ptr,nextins);
@@ -923,7 +927,7 @@ void CPU::process()
 						nextins=(farins<<1)|(ST&0x01);
 						break;
 				case 4:	mem->Write(ptr,farins);
-						(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						break;
 				case 5:	mem->Write(ptr,nextins);
 						SETFLAGS_ZN(nextins);
@@ -943,7 +947,7 @@ void CPU::process()
 						break;
 				case 4:	farins=mem->Read(ptr);
 						nextins=(farins<<1)|(ST&0x01);
-						(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						break;
 				case 5:	mem->Write(ptr,farins);
 						break;
@@ -1007,7 +1011,7 @@ void CPU::process()
 						break;
 				case 4: mem->Write(ptr,farins);
 						nextins=(farins>>1)|((ST&0x01)<<7);
-						(farins&0x01) ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
 						break;
 				case 5: mem->Write(ptr,nextins);
 						SETFLAGS_ZN(nextins);
@@ -1027,7 +1031,7 @@ void CPU::process()
 						break;
 				case 4: farins=mem->Read(ptr);
 						nextins=(farins>>1)|((ST&0x01)<<7);
-						(farins&0x01) ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
 						break;
 				case 5: mem->Write(ptr,farins);
 						break;
@@ -1256,7 +1260,7 @@ void CPU::process()
 				case 3: farins=mem->Read(nextins);
 						break;
 				case 4: mem->Write(nextins,farins);
-						(farins)&0x80 ? ST|=0x01 : ST&=0xFE;
+						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						farins<<=1;
 						break;
 				case 5: mem->Write(nextins,farins);
@@ -1277,7 +1281,7 @@ void CPU::process()
 						break;
 				case 4: mem->Write(ptr,farins);
 						nextins=(farins<<1)|((ST&0x01));
-						farins&0x80 ? ST|=0x01 : ST&=0xFE;
+						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						break;
 				case 5: mem->Write(ptr,nextins);
 						SETFLAGS_ZN(nextins);
@@ -1727,7 +1731,7 @@ void CPU::process()
 				case 1: PC++;
 						break;
 				case 2: farins=mem->Read(nextins);
-						farins&0x80 ? ST|=0x01 : ST&=0xFE;
+						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						break;
 				case 3: mem->Write(nextins,farins);
 						farins<<=1;
@@ -1748,7 +1752,7 @@ void CPU::process()
 						nextins=(farins<<1)|(ST&0x01);
 						break;
 				case 3: mem->Write(ptr,farins);
-						farins&0x80 ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						break;
 				case 4: mem->Write(ptr,nextins);
 						SETFLAGS_ZN(nextins);
@@ -1824,7 +1828,7 @@ void CPU::process()
 						nextins=(farins>>1)|((ST&0x01)<<7);
 						break;
 				case 3: mem->Write(ptr,farins);
-						farins&0x01 ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
 						break;
 				case 4: mem->Write(ptr,nextins);
 						SETFLAGS_ZN(nextins);
@@ -1844,7 +1848,7 @@ void CPU::process()
 						nextins=(farins>>1)|((ST&0x01)<<7);
 						break;
 				case 4: mem->Write(ptr,farins);
-						farins&0x01 ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
 						break;
 				case 5: mem->Write(ptr,nextins);
 						SETFLAGS_ZN(nextins);
@@ -2567,7 +2571,7 @@ void CPU::process()
 				case 5: nextins=(farins<<1)|(ST&0x01);
 						mem->Write(ptr,nextins);
 						break;
-				case 6:	(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
+				case 6:	ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						break;
 				case 7: AC&=nextins;
 						SETFLAGS_ZN(AC);
@@ -2905,7 +2909,7 @@ void CPU::process()
 				case 5: nextins=mem->Read(ptr);
 						farins=(nextins>>1)|((ST&0x01)<<7);
 						break;
-				case 6: nextins&0x01 ? ST|=0x01 : ST&=0xFE;
+				case 6: ST = (ST & 0xFE) | (nextins & 1); // the Carry flag
 						break;
 				case 7: mem->Write(ptr,farins);
 						ADC(farins);
@@ -3857,7 +3861,7 @@ void CPU::stopcycle()
 		case 0x0E : // ASL $0000
 			switch (cycle) {
 				case 4:	mem->Write(ptr,nextins);
-						(nextins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (nextins >> 7); // the Carry flag
 						nextins<<=1;
 						++cycle;
 						break;
@@ -3871,7 +3875,7 @@ void CPU::stopcycle()
 		case 0x0F : // ASO/SLO $0000		: A <- (M << 1) \/ A
 			switch (cycle) {
 				case 4: mem->Write(ptr,nextins);
-						(nextins)&0x80 ? ST|=0x01 : ST&=0xFE;
+						ST = (ST & 0xFE) | (nextins >> 7); // the Carry flag
 						nextins<<=1;
 						cycle++;
 						break;
@@ -3886,7 +3890,7 @@ void CPU::stopcycle()
 		case 0x16 : // ASL $00,X
 			switch (cycle) {
 				case 4: mem->Write(nextins,farins);
-						(farins)&0x80 ? ST|=0x01 : ST&=0xFE;
+						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						farins<<=1;
 						++cycle;
 						break;
@@ -3900,7 +3904,7 @@ void CPU::stopcycle()
 		case 0x17 : // ASO/SLO $00,X		: A <- (M << 1) \/ A
 			switch (cycle) {
 				case 4: mem->Write(ptr,farins);
-						(farins)&0x80 ? ST|=0x01 : ST&=0xFE;
+						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						farins<<=1;
 						cycle++;
 						break;
@@ -3915,7 +3919,7 @@ void CPU::stopcycle()
 		case 0x1E : // ASL $0000,X
 			switch (cycle) {
 				case 5:	mem->Write(ptr,nextins);
-						(nextins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (nextins >> 7); // the Carry flag
 						nextins<<=1;
 						++cycle;
 						break;
@@ -3929,7 +3933,7 @@ void CPU::stopcycle()
 		case 0x26 : // ROL $00
 			switch (cycle) {
 				case 3: mem->Write(ptr,farins);
-						farins&0x80 ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						++cycle;
 						break;
 				case 4: mem->Write(ptr,nextins);
@@ -3946,7 +3950,7 @@ void CPU::stopcycle()
 						cycle++;
 						break;
 				case 4: mem->Write(ptr,nextins);
-						(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						AC&=nextins;
 						SETFLAGS_ZN(AC);
 						cycle=0;
@@ -3957,7 +3961,7 @@ void CPU::stopcycle()
 		case 0x2E : // ROL $0000
 			switch (cycle) {
 				case 4:	mem->Write(ptr,farins);
-						(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						++cycle;
 						break;
 				case 5:	mem->Write(ptr,nextins);
@@ -3986,7 +3990,7 @@ void CPU::stopcycle()
 			switch (cycle) {
 				case 4: mem->Write(ptr,farins);
 						nextins=(farins<<1)|((ST&0x01));
-						farins&0x80 ? ST|=0x01 : ST&=0xFE;
+						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
 						++cycle;
 						break;
 				case 5: mem->Write(ptr,nextins);
@@ -4122,7 +4126,7 @@ void CPU::stopcycle()
 		case 0x66 : // ROR $00
 			switch (cycle) {
 				case 3: mem->Write(ptr,farins);
-						farins&0x01 ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
 						++cycle;
 						break;
 				case 4: mem->Write(ptr,nextins);
@@ -4150,7 +4154,7 @@ void CPU::stopcycle()
 			switch (cycle) {
 				case 4: mem->Write(ptr,farins);
 						nextins=(farins>>1)|((ST&0x01)<<7);
-						(farins&0x01) ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
 						++cycle;
 						break;
 				case 5: mem->Write(ptr,nextins);
@@ -4191,7 +4195,7 @@ void CPU::stopcycle()
 		case 0x76 : // ROR $00,X
 			switch (cycle) {
 				case 4: mem->Write(ptr,farins);
-						farins&0x01 ? ST|=0x01 : ST&=0xFE; // the Carry flag
+						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
 						cycle++;
 						break;
 				case 5: mem->Write(ptr,nextins);
