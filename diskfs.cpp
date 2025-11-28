@@ -345,7 +345,7 @@ unsigned char CIECFSDrive::Read(int channel, unsigned char *byte)
 	*byte = read_char[channel];
 	c = fgetc(file[channel]);
 	if (c == EOF)
-		return ST_ERROR; // not ST_EOF!
+		return ST_EOF;
 	else {
 		read_char[channel] = c;
 		return ST_OK;
