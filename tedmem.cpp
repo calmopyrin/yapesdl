@@ -57,6 +57,10 @@ bool TED::endOfScreen;
 bool TED::delayedDMA;
 TED *TED::instance_;
 unsigned int TED::retraceScanLine;
+unsigned int TED::scanLineOffset;
+int TED::scanlinesDone;
+unsigned int TED::clockDivisor;
+bool TED::ntscMode;
 char TED::romlopath[4][260];
 char TED::romhighpath[4][260];
 unsigned int TED::reuSizeKb;
@@ -93,12 +97,14 @@ enum {
 	TRFSHDELAY = 1 << 11
 };
 
-TED::TED() : SaveState(), sidCard(0), crsrphase(0), clockDivisor(10), ramExt(0), reuBank(3)
+TED::TED() : SaveState(), sidCard(0), crsrphase(0), ramExt(0), reuBank(3)
 {
 	unsigned int i;
 
 	instance_ = this;
 	masterClock = TED_REAL_CLOCK_M10;
+	clockDivisor = 10;
+	ntscMode = false;
 	setId("TED0");
 
 	screen = new unsigned char[512 * (SCR_VSIZE*2)];
@@ -157,6 +163,7 @@ TED::TED() : SaveState(), sidCard(0), crsrphase(0), clockDivisor(10), ramExt(0),
 	BadLine = 0;
 	CycleCounter = 0;
 	retraceScanLine = RETRACESCANLINEMAX;
+	scanLineOffset = 0;
 
 	tedSoundInit(sampleRate);
 	if (enableSidCard(true, 0)) {
@@ -286,6 +293,11 @@ void TED::loadromfromfile(int nr, const char fname[512], unsigned int offset)
 				else if (!strncmp(fname, "KERNAL", 6) || (!strncmp(fname, "*", 1) && offset == 0x4000)) {
 					memcpy(rom[0] + offset, kernal, ROMSIZE);
 					strcpy(romhighpath[nr], "KERNAL");
+					if (ntscMode) {
+						for (unsigned int i = 0; i < NTSC_PATCH_SIZE; i++) {
+							rom[0][offset + ntsc_kernal05[i].addr] = ntsc_kernal05[i].byte;
+						}
+					}
 				}
 				break;
 			case 1: 
@@ -321,6 +333,17 @@ void TED::log(unsigned int addr, unsigned int value)
 {
 	fprintf(stderr, "%04X<-%02X(%03d) Old:%02X HC:(%03d/$%02X) VC:(%03d/$%03X) XY:%03i/%03i PC:$%04X BL:%02X frm:%i cyc:%llu\n",
 		addr, value, value, Read(addr), getHorizontalCount(), getHorizontalCount(), beamy, beamy, beamx, TVScanLineCounter, cpuptr->getPC(), BadLine, crsrphase, CycleCounter);
+}
+
+void TED::setNtscMode(bool on)
+{
+	ntscMode = on;
+	masterClock = on ? TED_REAL_CLOCK_NTSC_M10 : TED_REAL_CLOCK_M10;
+	loadroms();
+	Reset(1);
+	Write(0xFF07, (Read(0xFF07) & ~0x40) | (on ? 0x40 : 0));
+	setFrequency((on ? TED_CLOCK_NTSC : TED_CLOCK) / clockDivisor / 8);
+	//cpuptr->Reset();
 }
 
 void TED::ChangeMemBankSetup()
@@ -1303,13 +1326,34 @@ void TED::doVRetrace()
 void TED::doHRetrace()
 {
 	if (!retraceScanLine) {
-		if (TVScanLineCounter >= RETRACESCANLINEMAX)
+		unsigned int maxLinessThreshold = RETRACESCANLINEMAX;
+		if (ntscMode) maxLinessThreshold -= 48;
+		if (TVScanLineCounter >= maxLinessThreshold)
 			retraceScanLine = 1;
 	} else {
 		retraceScanLine += 1;
 		if ((Ram[0xFF07] & 0x40 ? 20U : 22U) <= retraceScanLine) {
-			if (TVScanLineCounter > RETRACESCANLINEMIN) {
-				doVRetrace();
+			unsigned int minLinessThreshold = RETRACESCANLINEMIN;
+			if (ntscMode) minLinessThreshold -= 48;
+			if (TVScanLineCounter >= minLinessThreshold) {
+				const int linesInFrame = ntscMode ? 240 : 288;
+				scanlinesDone = int(TVScanLineCounter) - int(scanLineOffset) + 1;
+				if (scanlinesDone < linesInFrame) {
+					const int linesSkipped = linesInFrame - scanlinesDone;
+					memset(scrptr, 0, SCR_HSIZE * linesSkipped);
+					// center the picture if fewer lines
+					const unsigned int pixelOffset = SCR_HSIZE * linesSkipped;
+					memset(screen, 0, pixelOffset);
+					scrptr = screen + pixelOffset;
+					loop_continuous = 0;
+					TVScanLineCounter = scanLineOffset = linesSkipped;
+					retraceScanLine = 0;
+					VBlanking = false;
+				}
+				else {
+					scanLineOffset = 0;
+					doVRetrace();
+				}
 				return;
 			}
 		}
@@ -1399,7 +1443,7 @@ inline void TED::newLine()
 			break;
 
 		case 226: // NTSC
-			VBlanking = !!(Ram[0xFF07] & 0x40);
+			if (Ram[0xFF07] & 0x40) VBlanking = true;
 			break;
 
 		case 229: // NTSC
@@ -1413,7 +1457,8 @@ inline void TED::newLine()
 			break;
 
 		case 251:
-			VBlanking = !(Ram[0xFF07] & 0x40);
+			if (!(Ram[0xFF07] & 0x40))
+				VBlanking = true;
 			break;
 
 		case 254:
@@ -1422,14 +1467,14 @@ inline void TED::newLine()
 				retraceScanLine = 1;
 			break;
 
-		case 261:
-			break;
-
 		case 274:
 			if (!(Ram[0xFF07] & 0x40))
 				VBlanking = false;
 			break;
 
+		case 261:
+			if (!(Ram[0xFF07] & 0x40))
+				break;
 		case 512:
 		case 312:
 			beamy = ff1d_latch = 0;
@@ -1793,7 +1838,7 @@ Color TED::getColor(unsigned int ix)
 		color.hue = 0;
 	} else {
 		color.saturation = 45.0;
-		color.hue = thishue;
+		color.hue = (ntscMode && code == 14) ? 23 : thishue;
 	}
 	if (thishue == -2) // black
 		color.luma = 0;

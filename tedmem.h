@@ -23,9 +23,10 @@
 #define SCR_HSIZE 456
 #define SCR_VSIZE 312
 #define TED_CLOCK (312*114*500)
-#define TED_REAL_CLOCK_M10 17734475
-#define TED_SOUND_CLOCK (TED_CLOCK / 10 )
-#define TED_REAL_SOUND_CLOCK (TED_REAL_CLOCK_M10 / 10 / 8)
+#define TED_CLOCK_NTSC (262*114*600)
+#define TED_REAL_CLOCK_M10      17734475
+#define TED_REAL_CLOCK_NTSC_M10 14318180
+#define TED_SOUND_CLOCK (TED_CLOCK / clockDivisor)
 
 #define TEXTMODE	0x00000000
 #define MULTICOLOR	0x00000010
@@ -123,6 +124,9 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	static size_t usec2cycles(unsigned long usecs) {
 		return (unsigned long) (((double) masterClock) / 10000000.0f * (double) usecs);
 	}
+	static int getScanlinesDone() {
+		return scanlinesDone;
+	};
 	//
 	void showled(int x, int y, unsigned char onoff);
 	virtual unsigned int getColorCount() { return 128; };
@@ -145,6 +149,9 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual void setSampleRate(unsigned int sampleRate_);
 	virtual void triggerNMI() { /* no NMI */ };
 	virtual unsigned char *getCharSetPtr();
+	virtual void setNtscMode(bool on);
+	virtual bool isNtscMode() { return ntscMode; };
+	unsigned int getFrameRate() { return ntscMode ? 60 : 50; }
 	void setClockStep(unsigned int originalFreq, unsigned int samplingFreq);
 	//
 	static unsigned int sidCardEnabled;
@@ -235,6 +242,9 @@ protected:
 	static bool delayedDMA;
 	static bool displayEnable;
 	static unsigned int retraceScanLine;
+	static unsigned int scanLineOffset;
+	static int scanlinesDone;
+	static bool ntscMode;
 	//
 	void doDMA( unsigned char *Buf, unsigned int Offset  );
 	SIDsound *sidCard;
@@ -247,7 +257,7 @@ protected:
 		aw_addr_ptr = addr;
 		aw_value = value;
 	}
-	unsigned int clockDivisor;
+	static unsigned int clockDivisor;
 	//
 	void updateSerialDevices(unsigned char newAtn);
 	//
@@ -258,7 +268,7 @@ protected:
 		/*MAGENTA*/	53,/*GREEN*/ 241, /*BLUE*/347,
 		/*YELLOW*/ 167,/*ORANGE*/123, /*BROWN*/	148,
 		/*YLLW-GRN*/ 195, /*PINK*/ 83, /*BLU-GRN*/ 265,
-		/*LT-BLU*/ 323, /*DK-BLU*/ /*23 original, but wrong...*/ 355, /*LT-GRN	*/ 213};
+		/*LT-BLU*/ 323, /*DK-BLU*/ /*23 original, but wrong...*/ 0, /*LT-GRN	*/ 213};
 		return HUE[i];
 	}
 	static const double luma(unsigned int i)

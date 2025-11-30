@@ -52,6 +52,8 @@ class Vic2mem : public TED
 		virtual void loadromfromfile(int nr, const char fname[512], unsigned int offset);
 		virtual void enableREU(unsigned int sizekb);
 		virtual void triggerNMI();
+		virtual void setNtscMode(bool on) {};
+		virtual bool isNtscMode() { return false; };
 
 	protected:
 		void doHRetrace();

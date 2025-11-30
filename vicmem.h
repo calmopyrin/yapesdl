@@ -69,6 +69,8 @@ class Vicmem : public TED
 		void cartDetach(bool emptyUpper);
 		virtual void loadromfromfile(int nr, const char fname[512], unsigned int offset);
 		virtual void triggerNMI();
+		virtual void setNtscMode(bool on) {};
+		virtual bool isNtscMode() { return false; };
 		//virtual void enableREU(unsigned int sizekb);
 		//
 		void vic6560write(unsigned int addr, unsigned char value);

@@ -46,6 +46,8 @@ Vicmem::Vicmem()
 	// setting screen memory pointer
 	scrptr = screen;
 	endptr = scrptr + 312 * 71 * 8;
+	scanlinesDone = 312;
+	ntscMode = false;
 	TVScanLineCounter = 0;
 	beamy = beamx = 0;
 	framecol = 0;

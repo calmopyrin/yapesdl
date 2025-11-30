@@ -37,6 +37,8 @@ static unsigned int framesShown = 50;
 static const unsigned int maxFpsValues[] = { 100, 60, 50, 25, 10 };
 static unsigned int maxFps = 100;
 static unsigned int maxFpsIndex = 0;
+static unsigned int targetFps;
+
 rvar_t archDepSettings[] = {
 	{ "Maximum framerate", "MaxFrameRate", flipMaxFps, &maxFps, RVAR_INT, NULL },
 	{ "", "", NULL, NULL, RVAR_NULL, NULL }
@@ -58,6 +60,7 @@ static BOOL showDriveLetters = FALSE;
 static DWORD driveBitFields;
 static UINT currentDriveIndex;
 static char currentDrive[MAX_PATH];
+static unsigned int fpsInterval;
 
 /* file management */
 void ad_exit_drive_selector()
@@ -179,27 +182,33 @@ int ad_makedirs(char *path)
 #endif /* end of Windows functions */
 
 #if defined(_WIN32) || defined(__EMSCRIPTEN__)
-static unsigned int timeelapsed;
+static Uint64 timeelapsed;
 
-void ad_vsync_init(void)
+void ad_vsync_init(unsigned int targetfps)
 {
-	timeelapsed = SDL_GetTicks();
+	timeelapsed = SDL_GetTicks64();
+	targetFps = targetfps;
+	fpsInterval = 1000 / targetFps;
+	if (targetfps > maxFps) {
+		maxFpsIndex = 0;
+		maxFps = maxFpsValues[maxFpsIndex];
+	}
 }
 
 bool ad_vsync(bool sync)
 {
-	unsigned int time_limit = timeelapsed + 20;
-	static unsigned int nextFrameTime = timeelapsed + (1000 / maxFps);
+	Uint64 time_limit = timeelapsed + fpsInterval;
+	static Uint64 nextFrameTime = timeelapsed + (1000 / maxFps);
 
-	timeelapsed = SDL_GetTicks();
+	timeelapsed = SDL_GetTicks64();
 	if (sync) {
 		if (time_limit > timeelapsed) {
-			int nr10ms = ((time_limit - timeelapsed) / 10) * 10;
+			Uint32 nr10ms = Uint32((time_limit - timeelapsed) / 10) * 10;
 			SDL_Delay(nr10ms);
-			timeelapsed = SDL_GetTicks();
+			timeelapsed = SDL_GetTicks64();
 			while (time_limit > timeelapsed) {
 				SDL_Delay(0);
-				timeelapsed = SDL_GetTicks();
+				timeelapsed = SDL_GetTicks64();
 			}
 		}
 	}
@@ -214,19 +223,20 @@ bool ad_vsync(bool sync)
 
 unsigned int ad_get_fps(unsigned int &framesDrawn)
 {
-	static unsigned int fps = 100;
-	static unsigned int g_TotElapsed = SDL_GetTicks();
+	static unsigned int speed = targetFps * 2;
+	static Uint64 g_TotElapsed = SDL_GetTicks64();
 	static unsigned int g_TotFrames = 0;
+	const unsigned int measureIntervalMsec = 2000 - (targetFps - 50) * 40;
 
-	if (g_TotElapsed + 2000 < timeelapsed) {
-		g_TotElapsed = SDL_GetTicks();
-		fps = g_TotFrames;
+	if (g_TotElapsed + measureIntervalMsec <= timeelapsed) {
+		g_TotElapsed = SDL_GetTicks64();
+		speed = g_TotFrames;
 		g_TotFrames = 0;
-		framesDrawn = framesShown / 2;
+		framesDrawn = framesShown * targetFps / 100;
 		framesShown = 0;
 	} else
 		g_TotFrames++;
-	return fps;
+	return speed;
 }
 #endif
 
@@ -354,13 +364,13 @@ void _ad_vsync_sigalrm_handler(int signal)
 	// Refresh FPS every 3 seconds. To avoid race condition, do
 	// it in the next call if tick_vsync is locked.
 	if (++tick_50hz >= 3*20 && sem_fps != 0x00) {
-		fps = (int) (50 * ((double) tick_vsync / (double) tick_50hz));
+		fps = (int) (targetFps * ((double) tick_vsync / (double) tick_50hz));
 		tick_vsync = 0;
 		tick_50hz = 0;
 	}
 }
 
-void ad_vsync_init(void)
+void ad_vsync_init(unsigned int targetfps)
 {
 	struct sigaction ac;
 
@@ -369,13 +379,14 @@ void ad_vsync_init(void)
 	sem_fps = 0x01;
 	tick_vsync = 0;
 	tick_50hz = 0;
-	fps = 50;
+	fps = targetfps;
+	targetFps = targetfps;
 
 	ac.sa_handler = _ad_vsync_sigalrm_handler;
 	sigemptyset(&ac.sa_mask);
 	ac.sa_flags = 0;
 
-	if (sigaction(SIGALRM, &ac, NULL) == 0) ualarm(100, 20000);
+	if (sigaction(SIGALRM, &ac, NULL) == 0) ualarm(100, 1000000 / targetfps);
 }
 
 bool ad_vsync(bool sync)

@@ -1,6 +1,8 @@
 #include <math.h>
 #include "tedmem.h"
 #include "video.h"
+#include "archdep.h"
+
 //
 /* ---------- Inline functions ---------- */
 
@@ -31,6 +33,7 @@ static unsigned int videoSaturation = 100;
 static unsigned int videoBrightness = 100;
 static int videoHueOffset = 0;
 static unsigned int videoGammaCorrection = 0;
+static unsigned int videoNtscMode = 0;
 
 static double gammaCorr(double in)
 {
@@ -119,7 +122,19 @@ static void toggleVideoGammaCorrection(void *none)
 	init_palette(theTed);
 }
 
+static void toggleVideoStandard(void* none)
+{
+	theTed->setNtscMode(!videoNtscMode);
+	unsigned int ntsc = theTed->isNtscMode();
+	if (videoNtscMode != ntsc) {
+		videoNtscMode = ntsc;
+		ad_vsync_init(ntsc ? 60 : 50);
+		init_palette(theTed);
+	}
+}
+
 rvar_t videoSettings[] = {
+	{ "NTSC mode", "NTSCMode", toggleVideoStandard, &videoNtscMode, RVAR_TOGGLE, NULL },
 	{ "Interlaced line shade", "InterlacedShade", flipInterlacedShade, &interlacedShade, RVAR_INT, NULL },
 	{ "Video saturation in percent", "VideoSaturation", flipVideoSaturation, &videoSaturation, RVAR_INT, NULL },
 	{ "Video brightness in percent", "VideoBrightness", flipVideoBrightness, &videoBrightness, RVAR_INT, NULL },

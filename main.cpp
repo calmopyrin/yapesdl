@@ -11,7 +11,7 @@
 	(c) 2005 VENESZ Roland
 */
 
-#define NAME    "Yape/SDL 0.80.2"
+#define NAME    "Yape/SDL 0.81.1"
 #define WINDOWX SCREENX
 #define WINDOWY SCREENY
 
@@ -139,7 +139,7 @@ inline static void ShowFrameRate(unsigned int show)
 	if (show) {
 		sprintf(fpstxt, "%u%%/%ufps", speed, fps);
 		unsigned int s = (unsigned int) strlen(fpstxt) << 3;
-		ted8360->texttoscreen((ted8360->getCyclesPerRow() >= VIC_PIXELS_PER_ROW ? 472 : 408) - s, 34, fpstxt);
+		ted8360->texttoscreen((ted8360->getCyclesPerRow() >= VIC_PIXELS_PER_ROW ? 472 : 408) - s, 9, fpstxt);
 	}
 }
 
@@ -439,9 +439,11 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 	// TODO: use SDL_LockTexture instead
 	int e = SDL_UpdateTexture(sdlTexture, NULL, texture, pixelsPerRow * sizeof (unsigned int));
 	// VIC20 source rectangle is smaller
-	if (ted8360->getSoundClock() == VIC20_SOUND_CLOCK) {
+	bool isNtsc = ted8360->isNtscMode();
+	if (g_iEmulationLevel == 3 || (isNtsc && g_bActive)) {
+		const int ySize = isNtsc ? 240 : SCREENY;
 		unsigned int scaleY = g_bUseOverlay ? 1 : 0;
-		SDL_Rect srcrc = { 0, 1 << scaleY, SCREENX, (SCREENY - 4) << scaleY };
+		SDL_Rect srcrc = { 0, 1 << scaleY, SCREENX, (ySize - 4) << scaleY };
 		e = SDL_RenderCopy(sdlRenderer, sdlTexture, &srcrc, NULL);
 	} else
 		e = SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
@@ -679,6 +681,8 @@ static void doSwapKeyset()
 
 static void enterMenu()
 {
+	unsigned int wasActive = g_bActive;
+	g_bActive = 0;
 	timeOutOverlayKeys = 0;
 	sound_pause();
 #ifdef __EMSCRIPTEN__
@@ -688,6 +692,7 @@ static void enterMenu()
 #endif
 	if (g_50Hz)
 		sound_resume();
+	g_bActive = wasActive;
 	if (!g_bActive) {
 		PopupMsg(" PAUSED ");
 		frameUpdate();
@@ -788,6 +793,7 @@ static void setEmulationLevel(unsigned int level)
 		//
 		sound_resume();
 		g_bActive = 1;
+		ad_vsync_init(ted8360->getFrameRate());
 	}
 	delete[] ram;
 }
@@ -1432,7 +1438,7 @@ int main(int argc, char *argv[])
 	setMainLoop(1);
 #else
 	printSpecialKeys();
-	ad_vsync_init();
+	ad_vsync_init(50);
 	for (;;) {
 		mainLoop();
 	}

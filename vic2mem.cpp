@@ -104,6 +104,8 @@ Vic2mem::Vic2mem() : gamepin(1), exrom(1), reu(0)
 	// important for sprite-bg collisions: fill blank area with border black
 	memset(screen, 0x80, VIC_PIXELS_PER_ROW * 312);
 	TVScanLineCounter = 0;
+	scanlinesDone = 312;
+	ntscMode = false;
 	beamy = beamx = 0;
 	framecol = 0x80808080;
 	//

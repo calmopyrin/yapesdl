@@ -49,7 +49,7 @@ int		ad_get_curr_dir(char *pathstring);
 int		ad_makedirs(char *temp);
 void	ad_exit_drive_selector();
 
-extern void				ad_vsync_init(void);
+extern void				ad_vsync_init(unsigned int targetfps);
 extern bool				ad_vsync(bool sync);
 extern unsigned int		ad_get_fps(unsigned int &framesDrawn);
 
