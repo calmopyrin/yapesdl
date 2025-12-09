@@ -904,6 +904,18 @@ int UI::wait_events()
 						show_sel_bar( curr_menu);
 						break;
 					case SDLK_END:
+						hide_sel_bar(curr_menu);
+						clear(1, 5);
+						curr_menu->curr_sel = curr_menu->nr_of_elements - 1;
+						if (curr_menu->nr_of_elements < MAX_LINES) {
+							curr_menu->curr_line = curr_menu->nr_of_elements - 1;
+							curr_menu->uppermost = 0;
+						} else {
+							curr_menu->uppermost = curr_menu->curr_sel - MAX_LINES;
+							curr_menu->curr_line = MAX_LINES;
+						}
+						show_menu(curr_menu);
+						show_sel_bar(curr_menu);
 						break;
 					case SDLK_UP:
 						menuMove(-1);
