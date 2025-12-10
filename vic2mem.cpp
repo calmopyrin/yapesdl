@@ -1387,15 +1387,16 @@ inline void Vic2mem::hi_text()
 		charcol = 0;
 		mask = vicBase[0x3FFF];
 	}
+	const unsigned char col[] = { mcol[0], charcol };
 
-	wbuffer[0] = (mask & 0x80) ? charcol : mcol[0];
-	wbuffer[1] = (mask & 0x40) ? charcol : mcol[0];
-	wbuffer[2] = (mask & 0x20) ? charcol : mcol[0];
-	wbuffer[3] = (mask & 0x10) ? charcol : mcol[0];
-	wbuffer[4] = (mask & 0x08) ? charcol : mcol[0];
-	wbuffer[5] = (mask & 0x04) ? charcol : mcol[0];
-	wbuffer[6] = (mask & 0x02) ? charcol : mcol[0];
-	wbuffer[7] = (mask & 0x01) ? charcol : mcol[0];
+	wbuffer[0] = col[mask >> 7];
+	wbuffer[1] = col[(mask & 0x40) >> 6];
+	wbuffer[2] = col[(mask & 0x20) >> 5];
+	wbuffer[3] = col[(mask & 0x10) >> 4];
+	wbuffer[4] = col[(mask & 0x08) >> 3];
+	wbuffer[5] = col[(mask & 0x04) >> 2];
+	wbuffer[6] = col[(mask & 0x02) >> 1];
+	wbuffer[7] = col[mask & 1];
 }
 
 // renders extended color text
@@ -1453,15 +1454,16 @@ inline void Vic2mem::mc_text()
 		wbuffer[6] = wbuffer[7] = mcol[ mask & 0x03 ];
 
 	} else { // this is a normally colored character
+		const unsigned char col[] = { mcol[0], charcol };
 
-		wbuffer[0] = (mask & 0x80) ? charcol : mcol[0];
-		wbuffer[1] = (mask & 0x40) ? charcol : mcol[0];
-		wbuffer[2] = (mask & 0x20) ? charcol : mcol[0];
-		wbuffer[3] = (mask & 0x10) ? charcol : mcol[0];
-		wbuffer[4] = (mask & 0x08) ? charcol : mcol[0];
-		wbuffer[5] = (mask & 0x04) ? charcol : mcol[0];
-		wbuffer[6] = (mask & 0x02) ? charcol : mcol[0];
-		wbuffer[7] = (mask & 0x01) ? charcol : mcol[0];
+		wbuffer[0] = col[mask >> 7];
+		wbuffer[1] = col[(mask & 0x40) >> 6];
+		wbuffer[2] = col[(mask & 0x20) >> 5];
+		wbuffer[3] = col[(mask & 0x10) >> 4];
+		wbuffer[4] = col[(mask & 0x08) >> 3];
+		wbuffer[5] = col[(mask & 0x04) >> 2];
+		wbuffer[6] = col[(mask & 0x02) >> 1];
+		wbuffer[7] = col[mask & 1];
 	}
 }
 
@@ -1483,15 +1485,16 @@ inline void Vic2mem::hi_bitmap()
 		hcol1 = 0;
 		mask = vicBase[0x3FFF];
 	}
+	const unsigned char col[] = { hcol0, hcol1 };
 
-	wbuffer[0] = (mask & 0x80) ? hcol1 : hcol0;
-	wbuffer[1] = (mask & 0x40) ? hcol1 : hcol0;
-	wbuffer[2] = (mask & 0x20) ? hcol1 : hcol0;
-	wbuffer[3] = (mask & 0x10) ? hcol1 : hcol0;
-	wbuffer[4] = (mask & 0x08) ? hcol1 : hcol0;
-	wbuffer[5] = (mask & 0x04) ? hcol1 : hcol0;
-	wbuffer[6] = (mask & 0x02) ? hcol1 : hcol0;
-	wbuffer[7] = (mask & 0x01) ? hcol1 : hcol0;
+	wbuffer[0] = col[mask >> 7];
+	wbuffer[1] = col[(mask & 0x40) >> 6];
+	wbuffer[2] = col[(mask & 0x20) >> 5];
+	wbuffer[3] = col[(mask & 0x10) >> 4];
+	wbuffer[4] = col[(mask & 0x08) >> 3];
+	wbuffer[5] = col[(mask & 0x04) >> 2];
+	wbuffer[6] = col[(mask & 0x02) >> 1];
+	wbuffer[7] = col[mask & 1];
 }
 
 // renders multicolor bitmap graphics
@@ -1555,8 +1558,7 @@ inline void Vic2mem::hi_bmec()
 {
 	unsigned char mask;
 	unsigned char *wbuffer = scrptr + hshift;
-	unsigned char hcol0 = 0x40;
-	unsigned char hcol1 = 0;
+	const unsigned char col[] = { 0x40, 0 };
 
 	if (VertSubActive) {
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x19FF) | vertSubCount];
@@ -1564,14 +1566,14 @@ inline void Vic2mem::hi_bmec()
 		mask = vicBase[0x39FF];
 	}
 
-	wbuffer[0] = (mask & 0x80) ? hcol1 : hcol0;
-	wbuffer[1] = (mask & 0x40) ? hcol1 : hcol0;
-	wbuffer[2] = (mask & 0x20) ? hcol1 : hcol0;
-	wbuffer[3] = (mask & 0x10) ? hcol1 : hcol0;
-	wbuffer[4] = (mask & 0x08) ? hcol1 : hcol0;
-	wbuffer[5] = (mask & 0x04) ? hcol1 : hcol0;
-	wbuffer[6] = (mask & 0x02) ? hcol1 : hcol0;
-	wbuffer[7] = (mask & 0x01) ? hcol1 : hcol0;
+	wbuffer[0] = col[mask >> 7];
+	wbuffer[1] = col[(mask & 0x40) >> 6];
+	wbuffer[2] = col[(mask & 0x20) >> 5];
+	wbuffer[3] = col[(mask & 0x10) >> 4];
+	wbuffer[4] = col[(mask & 0x08) >> 3];
+	wbuffer[5] = col[(mask & 0x04) >> 2];
+	wbuffer[6] = col[(mask & 0x02) >> 1];
+	wbuffer[7] = col[mask & 1];
 }
 
 inline void Vic2mem::mc_bmec()

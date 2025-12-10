@@ -639,8 +639,6 @@ void TED::Write(unsigned int addr, unsigned char value)
 							timer3=(timer3&0x00FF)|(value<<8);
 							return;
 						case 0xFF06:
-							/*fprintf(stderr, "%04X write %02X in cycle %d, in line: %d\n", addr,
-									value, beamx, beamy);*/
 							Ram[0xFF06]=value;
 							// get vertical offset of screen when smooth scroll
 							vshift = value&0x07;
@@ -870,9 +868,13 @@ void TED::Write(unsigned int addr, unsigned char value)
 							return;
 						case 0xFF1A:
 							CharacterPositionReload = (CharacterPositionReload & 0xFF) | ((value&3)<<8);
+							if (beamx == 89)
+								charPosLatchFlag = false;
 							return;
 						case 0xFF1B:
 							CharacterPositionReload = (CharacterPositionReload & 0x300) | value;
+							if (beamx == 89)
+								charPosLatchFlag = false;
 							return;
 						case 0xFF1C:
 							beamy=((value&0x01)<<8)|(beamy&0xFF);
@@ -1060,67 +1062,56 @@ inline void TED::mcec()
 // renders hires text with reverse (128 chars)
 inline void TED::hi_text()
 {
-	unsigned char	chr;
-	unsigned char	charcol;
-	unsigned char	mask;
-	unsigned char	*wbuffer = scrptr + hshift;
+	const unsigned char col[] = { mcol[0], clrbuf[x] };
+	const unsigned char	chr = chrbuf[x];
+	unsigned char* wbuffer = scrptr + hshift;
+	unsigned char mask;
 
-	// get the actual physical character column
-	charcol=clrbuf[x];
-	chr=chrbuf[x];
-
-	if ((charcol)&0x80 && !crsrblinkon)
+	if (col[1] & 0x80 && !crsrblinkon)
 		mask = 00;
 	else if (VertSubActive)
-		mask = cset[((chr&0x7F)<<3)|vertSubCount];
+		mask = cset[((chr & 0x7F) << 3) | vertSubCount];
 	else
 		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
-	if (chr&0x80)
-		mask ^= 0xFF;
-	if (crsrpos==((CharacterPosition+x)&0x3FF) && crsrblinkon )
-		mask ^= 0xFF;
+	mask ^= (chr >> 7) * 0xFF;
+	mask ^= (crsrpos == ((CharacterPosition + x) & 0x3FF) && crsrblinkon) * 0xFF;
 
-	wbuffer[0] = (mask & 0x80) ? charcol : mcol[0];
-	wbuffer[1] = (mask & 0x40) ? charcol : mcol[0];
-	wbuffer[2] = (mask & 0x20) ? charcol : mcol[0];
-	wbuffer[3] = (mask & 0x10) ? charcol : mcol[0];
-	wbuffer[4] = (mask & 0x08) ? charcol : mcol[0];
-	wbuffer[5] = (mask & 0x04) ? charcol : mcol[0];
-	wbuffer[6] = (mask & 0x02) ? charcol : mcol[0];
-	wbuffer[7] = (mask & 0x01) ? charcol : mcol[0];
+	wbuffer[0] = col[mask >> 7];
+	wbuffer[1] = col[(mask & 0x40) >> 6];
+	wbuffer[2] = col[(mask & 0x20) >> 5];
+	wbuffer[3] = col[(mask & 0x10) >> 4];
+	wbuffer[4] = col[(mask & 0x08) >> 3];
+	wbuffer[5] = col[(mask & 0x04) >> 2];
+	wbuffer[6] = col[(mask & 0x02) >> 1];
+	wbuffer[7] = col[mask & 1];
 }
 
 // renders text without the reverse (all 256 chars)
 inline void TED::rv_text()
 {
-	unsigned char	chr;
-	unsigned char	charcol;
-	unsigned char	mask;
-	unsigned char	*wbuffer = scrptr + hshift;
+	const unsigned char col[] = { mcol[0], clrbuf[x] };
+	const unsigned char	chr = chrbuf[x];
+	unsigned char* wbuffer = scrptr + hshift;
+	unsigned char mask;
 
-	// get the actual physical character column
-	charcol=clrbuf[x];
-	chr=chrbuf[x];
-
-	if ((charcol)&0x80 && !crsrblinkon)
+	if (col[1] & 0x80 && !crsrblinkon)
 		mask = 00;
 	else if (VertSubActive)
-		mask = cset[(chr<<3)|vertSubCount];
+		mask = cset[(chr << 3) | vertSubCount];
 	else
 		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
-	if (crsrpos==((CharacterPosition+x)&0x3FF) && crsrblinkon )
-		mask ^= 0xFF;
+	mask ^= (crsrpos == ((CharacterPosition + x) & 0x3FF) && crsrblinkon) * 0xFF;
 
-	wbuffer[0] = (mask & 0x80) ? charcol : mcol[0];
-	wbuffer[1] = (mask & 0x40) ? charcol : mcol[0];
-	wbuffer[2] = (mask & 0x20) ? charcol : mcol[0];
-	wbuffer[3] = (mask & 0x10) ? charcol : mcol[0];
-	wbuffer[4] = (mask & 0x08) ? charcol : mcol[0];
-	wbuffer[5] = (mask & 0x04) ? charcol : mcol[0];
-	wbuffer[6] = (mask & 0x02) ? charcol : mcol[0];
-	wbuffer[7] = (mask & 0x01) ? charcol : mcol[0];
+	wbuffer[0] = col[mask >> 7];
+	wbuffer[1] = col[(mask & 0x40) >> 6];
+	wbuffer[2] = col[(mask & 0x20) >> 5];
+	wbuffer[3] = col[(mask & 0x10) >> 4];
+	wbuffer[4] = col[(mask & 0x08) >> 3];
+	wbuffer[5] = col[(mask & 0x04) >> 2];
+	wbuffer[6] = col[(mask & 0x02) >> 1];
+	wbuffer[7] = col[mask & 1];
 }
 
 // renders extended color text
@@ -1155,8 +1146,8 @@ inline void TED::ec_text()
 // renders multicolor text
 inline void TED::mc_text_rvs()
 {
-	unsigned char chr = chrbuf[x];
-	unsigned char charcol = clrbuf[x];
+	const unsigned char chr = chrbuf[x];
+	const unsigned char col[] = { mcol[0], clrbuf[x] };
 	unsigned char *wbuffer = scrptr + hshift;
 	unsigned char mask;
 
@@ -1165,9 +1156,9 @@ inline void TED::mc_text_rvs()
 	else
 		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
-	if (charcol&0x08) { // if character is multicolored
+	if (col[1] & 0x08) { // if character is multicolored
 
-		mcol[3]=charcol & 0xF7;
+		mcol[3] = col[1] & 0xF7;
 
 		wbuffer[0] = wbuffer[1] = mcol[mask >> 6];
 		wbuffer[2] = wbuffer[3] = mcol[(mask & 0x30) >> 4];
@@ -1176,22 +1167,22 @@ inline void TED::mc_text_rvs()
 
 	} else { // this is a normally colored character
 
-		wbuffer[0] = (mask & 0x80) ? charcol : mcol[0];
-		wbuffer[1] = (mask & 0x40) ? charcol : mcol[0];
-		wbuffer[2] = (mask & 0x20) ? charcol : mcol[0];
-		wbuffer[3] = (mask & 0x10) ? charcol : mcol[0];
-		wbuffer[4] = (mask & 0x08) ? charcol : mcol[0];
-		wbuffer[5] = (mask & 0x04) ? charcol : mcol[0];
-		wbuffer[6] = (mask & 0x02) ? charcol : mcol[0];
-		wbuffer[7] = (mask & 0x01) ? charcol : mcol[0];
+		wbuffer[0] = col[mask >> 7];
+		wbuffer[1] = col[(mask & 0x40) >> 6];
+		wbuffer[2] = col[(mask & 0x20) >> 5];
+		wbuffer[3] = col[(mask & 0x10) >> 4];
+		wbuffer[4] = col[(mask & 0x08) >> 3];
+		wbuffer[5] = col[(mask & 0x04) >> 2];
+		wbuffer[6] = col[(mask & 0x02) >> 1];
+		wbuffer[7] = col[mask & 1];
 	}
 }
 
 // renders multicolor text with reverse bit set
 inline void TED::mc_text()
 {
-	unsigned char charcol = clrbuf[x];
 	unsigned char chr = chrbuf[x] & 0x7F;
+	const unsigned char col[] = { mcol[0], clrbuf[x] };
 	unsigned char *wbuffer = scrptr + hshift;
 	unsigned char mask;
 
@@ -1200,9 +1191,9 @@ inline void TED::mc_text()
 	else
 		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
-	if ((charcol)&0x08) { // if character is multicolored
+	if (col[1] & 0x08) { // if character is multicolored
 
-		mcol[3] = charcol & 0xF7;
+		mcol[3] = col[1] & 0xF7;
 
 		wbuffer[0] = wbuffer[1] = mcol[mask >> 6];
 		wbuffer[2] = wbuffer[3] = mcol[(mask & 0x30) >> 4];
@@ -1211,39 +1202,41 @@ inline void TED::mc_text()
 
 	} else { // this is a normally colored character
 
-		wbuffer[0] = (mask & 0x80) ? charcol : mcol[0];
-		wbuffer[1] = (mask & 0x40) ? charcol : mcol[0];
-		wbuffer[2] = (mask & 0x20) ? charcol : mcol[0];
-		wbuffer[3] = (mask & 0x10) ? charcol : mcol[0];
-		wbuffer[4] = (mask & 0x08) ? charcol : mcol[0];
-		wbuffer[5] = (mask & 0x04) ? charcol : mcol[0];
-		wbuffer[6] = (mask & 0x02) ? charcol : mcol[0];
-		wbuffer[7] = (mask & 0x01) ? charcol : mcol[0];
+		wbuffer[0] = col[mask >> 7];
+		wbuffer[1] = col[(mask & 0x40) >> 6];
+		wbuffer[2] = col[(mask & 0x20) >> 5];
+		wbuffer[3] = col[(mask & 0x10) >> 4];
+		wbuffer[4] = col[(mask & 0x08) >> 3];
+		wbuffer[5] = col[(mask & 0x04) >> 2];
+		wbuffer[6] = col[(mask & 0x02) >> 1];
+		wbuffer[7] = col[mask & 1];
 	}
 }
 
 // renders hires bitmap graphics
 inline void TED::hi_bitmap()
 {
+	const unsigned char chr = chrbuf[x];
+	const unsigned char clr = clrbuf[x];
+	const unsigned char hcol0 = (chr & 0x0F) | (clr & 0x70);
+	const unsigned char hcol1 = (chr >> 4) | ((clr & 7) << 4);
+	const unsigned char col[] = { hcol0, hcol1 };
+	unsigned char* wbuffer = scrptr + hshift;
 	unsigned char mask;
-	unsigned char *wbuffer = scrptr + hshift;
-	// get the actual color attributes
-	hcol[0] = (chrbuf[x] & 0x0F) | (clrbuf[x] & 0x70);
-	hcol[1] = (chrbuf[x] >> 4) | ((clrbuf[x] & 0x07) << 4);
 
 	if (VertSubActive)
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) | vertSubCount];
 	else
 		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
-	wbuffer[0] = (mask & 0x80) ? hcol[1] : hcol[0];
-	wbuffer[1] = (mask & 0x40) ? hcol[1] : hcol[0];
-	wbuffer[2] = (mask & 0x20) ? hcol[1] : hcol[0];
-	wbuffer[3] = (mask & 0x10) ? hcol[1] : hcol[0];
-	wbuffer[4] = (mask & 0x08) ? hcol[1] : hcol[0];
-	wbuffer[5] = (mask & 0x04) ? hcol[1] : hcol[0];
-	wbuffer[6] = (mask & 0x02) ? hcol[1] : hcol[0];
-	wbuffer[7] = (mask & 0x01) ? hcol[1] : hcol[0];
+	wbuffer[0] = col[mask >> 7];
+	wbuffer[1] = col[(mask & 0x40) >> 6];
+	wbuffer[2] = col[(mask & 0x20) >> 5];
+	wbuffer[3] = col[(mask & 0x10) >> 4];
+	wbuffer[4] = col[(mask & 0x08) >> 3];
+	wbuffer[5] = col[(mask & 0x04) >> 2];
+	wbuffer[6] = col[(mask & 0x02) >> 1];
+	wbuffer[7] = col[mask & 1];
 }
 
 // renders multicolor bitmap graphics
@@ -1256,7 +1249,7 @@ inline void TED::mc_bitmap()
 	bmmcol[2] = (chrbuf[x] & 0x0F)|(clrbuf[x] & 0x70);
 
 	if (VertSubActive)
-		mask = grbank[ (((CharacterPosition+x)<<3)&0x1FFF)+vertSubCount ];
+		mask = grbank[ (((CharacterPosition + x) <<3 ) & 0x1FFF) + vertSubCount ];
 	else
 		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
@@ -1270,35 +1263,34 @@ inline void TED::mc_bitmap()
 //  the current data on the bus is displayed
 inline void TED::illegalbank()
 {
-	unsigned char	chr = chrbuf[x];
-	unsigned char	charcol = clrbuf[x];
+	const unsigned char	chr = chrbuf[x];
+	const unsigned char	clr = clrbuf[x];
+	const unsigned char col[] = { mcol[0], clrbuf[x] };
 	unsigned char	mask;
 	unsigned char	*wbuffer = scrptr + hshift;
 
-	if (charcol&0x80 && crsrblinkon)
+	if (col[1] & 0x80 && crsrblinkon)
 		mask = 00;
 	else {
-		if (BadLine==1)
-			mask = clrbuf[x];
-		else if (BadLine==2)
-			mask = chrbuf[x];
+		if (BadLine == 1)
+			mask = clr;
+		else if (BadLine == 2)
+			mask = chr;
 		else
 			mask = Read(VertSubActive ? cpuptr->getPC() : 0xFFFF);
 	}
 
-	if (chr&0x80)
-		mask ^= 0xFF;
-	if (crsrpos==((CharacterPosition+x)&0x3FF) && crsrblinkon)
-		mask ^= 0xFF;
+	mask ^= (chr >> 7) * 0xFF;
+	mask ^= (crsrpos == ((CharacterPosition + x) & 0x3FF) && crsrblinkon) * 0xFF;
 
-	wbuffer[0] = (mask & 0x80) ? charcol : mcol[0];
-	wbuffer[1] = (mask & 0x40) ? charcol : mcol[0];
-	wbuffer[2] = (mask & 0x20) ? charcol : mcol[0];
-	wbuffer[3] = (mask & 0x10) ? charcol : mcol[0];
-	wbuffer[4] = (mask & 0x08) ? charcol : mcol[0];
-	wbuffer[5] = (mask & 0x04) ? charcol : mcol[0];
-	wbuffer[6] = (mask & 0x02) ? charcol : mcol[0];
-	wbuffer[7] = (mask & 0x01) ? charcol : mcol[0];
+	wbuffer[0] = col[mask >> 7];
+	wbuffer[1] = col[(mask & 0x40) >> 6];
+	wbuffer[2] = col[(mask & 0x20) >> 5];
+	wbuffer[3] = col[(mask & 0x10) >> 4];
+	wbuffer[4] = col[(mask & 0x08) >> 3];
+	wbuffer[5] = col[(mask & 0x04) >> 2];
+	wbuffer[6] = col[(mask & 0x02) >> 1];
+	wbuffer[7] = col[mask & 1];
 }
 
 void TED::doDMA( unsigned char *Buf, unsigned int Offset )
@@ -1338,8 +1330,9 @@ void TED::doHRetrace()
 			if (TVScanLineCounter >= minLinessThreshold) {
 				const int linesInFrame = ntscMode ? 240 : 288;
 				scanlinesDone = int(TVScanLineCounter) - int(scanLineOffset) + 1;
+				if (retraceScanLine <= 22) scanlinesDone -= retraceScanLine + 2;
 				if (scanlinesDone < linesInFrame) {
-					const int linesSkipped = linesInFrame - scanlinesDone;
+					const int linesSkipped = (linesInFrame - scanlinesDone) / 2;
 					memset(scrptr, 0, SCR_HSIZE * linesSkipped);
 					// center the picture if fewer lines
 					const unsigned int pixelOffset = SCR_HSIZE * linesSkipped;
@@ -1472,7 +1465,7 @@ inline void TED::newLine()
 				VBlanking = false;
 			break;
 
-		case 261:
+		case 262:
 			if (!(Ram[0xFF07] & 0x40))
 				break;
 		case 512:
@@ -1481,8 +1474,11 @@ inline void TED::newLine()
 			CharacterPositionReload = 0;
 			if (displayEnable) {
 				if (!attribFetch) {
-					attribFetch = dmaAllowed = true;
+					attribFetch = true;
 					endOfScreen = true;
+				}
+				if (attribFetch) {
+					dmaAllowed = true;
 				}
 			}
 	}
@@ -1541,11 +1537,10 @@ void TED::ted_process(const unsigned int continuous)
 			case 9:
 				if (dmaAllowed) {
 					if (dmaFetchCountStart) {
-						CharacterCountReload = CharacterCount;
-					} else {
-						dmaFetchCountStart = 1;
-						CharacterCount = CharacterCountReload;
+						CharacterCountReload &= CharacterCount;
 					}
+					dmaFetchCountStart = 1;
+					CharacterCount = CharacterCountReload;
 				}
 				break;
 
@@ -1585,7 +1580,7 @@ void TED::ted_process(const unsigned int continuous)
 						CharacterCountReload = CharacterCount;
 					dmaFetchCountStart = 0;
 				}
-				if (ff1d_latch == 205) {
+				if (beamy == 205) {
 					CharacterCountReload = 0x03FF;
 				}
 				break;
@@ -1944,7 +1939,7 @@ inline void TEDFAST::dmaLineBased()
 	if (beamy == 204) {
 		clockingState = CLK_BORDER;
 		externalFetchWindow = false; // -?
-	} else if (beamy == 311 /*TED::RasterLinesPerFrame*/) {
+	} else if (beamy == (ntscMode ? 261 : 311)) {
 		CharacterPositionReload = CharacterPosition = 0;
 		charPosLatchFlag = false;
 		if (endOfScreen) {
