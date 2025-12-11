@@ -94,7 +94,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	// cursor stuff
 	unsigned int crsrpos;
 	int crsrphase;
-	bool crsrblinkon;
+	unsigned int crsrblinkon;
 	// CPU class pointer
 	CPU	*cpuptr;
 	// TED process (main loop of emulation)

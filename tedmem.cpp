@@ -149,7 +149,7 @@ TED::TED() : SaveState(), sidCard(0), crsrphase(0), ramExt(0), reuBank(3)
 	// setting the TAP::mem pointer to this MEM class
 	tap->mem=this;
 	tcbmbus = NULL;
-	crsrblinkon = false;
+	crsrblinkon = 0;
 	VertSubActive = false;
 	dmaAllowed = false;
 	externalFetchWindow = false;
@@ -907,7 +907,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 						case 0xFF1F :
 							vertSubCount=value&0x07;
 							if ((crsrphase & 0x0F) == 0x0F) {
-								if (value != 0x78) crsrblinkon = !crsrblinkon;
+								if (value != 0x78) crsrblinkon ^= 0xFF;
 							}
 							crsrphase=(value&0x78)>>3;
 							return;
@@ -1075,7 +1075,7 @@ inline void TED::hi_text()
 		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
 	mask ^= (chr >> 7) * 0xFF;
-	mask ^= (crsrpos == ((CharacterPosition + x) & 0x3FF) && crsrblinkon) * 0xFF;
+	mask ^= (crsrpos == ((CharacterPosition + x) & 0x3FF)) * crsrblinkon;
 
 	wbuffer[0] = col[mask >> 7];
 	wbuffer[1] = col[(mask & 0x40) >> 6];
@@ -1102,7 +1102,7 @@ inline void TED::rv_text()
 	else
 		mask = (clockingState & TDS) ? cpuptr->getcins() : Read(0xFFFF);
 
-	mask ^= (crsrpos == ((CharacterPosition + x) & 0x3FF) && crsrblinkon) * 0xFF;
+	mask ^= (crsrpos == ((CharacterPosition + x) & 0x3FF)) * crsrblinkon;
 
 	wbuffer[0] = col[mask >> 7];
 	wbuffer[1] = col[(mask & 0x40) >> 6];
@@ -1281,7 +1281,7 @@ inline void TED::illegalbank()
 	}
 
 	mask ^= (chr >> 7) * 0xFF;
-	mask ^= (crsrpos == ((CharacterPosition + x) & 0x3FF) && crsrblinkon) * 0xFF;
+	mask ^= (crsrpos == ((CharacterPosition + x) & 0x3FF)) * crsrblinkon;
 
 	wbuffer[0] = col[mask >> 7];
 	wbuffer[1] = col[(mask & 0x40) >> 6];
@@ -1432,7 +1432,7 @@ inline void TED::newLine()
 		case 205:
 			// cursor phase counter in TED register $1F
 			if ((++crsrphase&0x0F) == 0x0F)
-				crsrblinkon ^= 1;
+				crsrblinkon ^= 0xFF;
 			break;
 
 		case 226: // NTSC
