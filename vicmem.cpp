@@ -64,7 +64,7 @@ Vicmem::Vicmem()
 	via[0].setCheckIrqCallback(this, checkNmi);
 	via[1].setCheckIrqCallback(this, checkIrq);
 	//
-	Reset(true);
+	Reset(3);
 	// remove SID sound (inherited) from the list
 	SoundSource::remove(dynamic_cast<SoundSource*>(sidCard));
 	SaveState::remove(dynamic_cast<SaveState*>(sidCard));

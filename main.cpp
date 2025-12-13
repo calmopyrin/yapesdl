@@ -778,7 +778,7 @@ static void setEmulationLevel(unsigned int level)
 		if (oldCpr != newCpr) {
 			machineEnable1551(!g_bTrueDriveEmulation);
 			machine->Reset();
-			ted8360->Reset(false);
+			ted8360->Reset(0);
 			init_palette(ted8360);
 		} else {
 			// Restore TED register state
@@ -989,7 +989,6 @@ inline static void poll_events(void)
 								toggleCrtEmulation(NULL);
 								break;
 							case SDLK_r:
-								ted8360->Reset(false);
 								machineReset((event.key.keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT)) != 0);
 								break;
 							case SDLK_s:
@@ -1172,7 +1171,7 @@ static void machineInit()
 	machine = new CPU(ted8360, ted8360->getIrqReg(), &(ted8360->Ram[0x0100]));
 	ted8360->HookTCBM(tcbm);
 	ted8360->setCpuPtr(machine);
-	ted8360->Reset(true);
+	ted8360->Reset(0);
 	// Serial init
 	CSerial::InitPorts();
 	// calculate and initialise palette

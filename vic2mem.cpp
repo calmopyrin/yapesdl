@@ -128,7 +128,7 @@ Vic2mem::Vic2mem() : gamepin(1), exrom(1), reu(0)
 	// CIA's
 	cia[0].setIrqCallback(setCiaIrq, this);
 	//
-	Reset(true);
+	Reset(3);
 	// remove TED sound (inherited) from the list
 	SoundSource::remove(this);
 

@@ -176,10 +176,10 @@ void TED::flipRamMask(void *none)
 {
 	RAMMask = (RAMMask + (RAMMask == 0x7FFF ? 0x8000 : 0x4000)) & 0xFFFF;
 	TED *ted = instance_;
-	// only reset if not C64
-	if (ted->getEmulationLevel() != 2) {
+	// only reset if +4
+	if (ted->getEmulationLevel() < 2) {
 		ted->cpuptr->Reset();
-		ted->Reset(true);
+		ted->Reset(3);
 	}
 }
 
