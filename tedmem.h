@@ -199,7 +199,7 @@ protected:
 	void	hi_bitmap();
 	void	mc_bitmap();
 	void	illegalbank();
-	void	render();
+	void	render(const int scrmode);
 	bool	charrom;
 	int		rvsmode, grmode, ecmode;
 	int		scrattr, charbank;

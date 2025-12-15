@@ -1206,12 +1206,16 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				if (ScreenOn) {
 					SideBorderFlipFlop = true;
 					if (nrwscr) {
-						CharacterWindow = true;
-						if (hshift)
+						if (hshift) {
+							int oldX = x;
+							x = 39;
 							doXscrollChange(0, hshift);
+							x = oldX;
+						}
+						CharacterWindow = true;
 					}
+					x = 0;
 				}
-				x = 0;
 				break;
 
 			case 8:

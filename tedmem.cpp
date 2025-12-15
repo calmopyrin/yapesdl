@@ -1358,10 +1358,10 @@ void TED::doHRetrace()
 	endptr = scrptr + SCR_HSIZE;
 }
 
-inline void TED::render()
+inline void TED::render(const int scrmode)
 {
 	// call the relevant rendering function
-	switch (scrattr) {
+	switch (scrmode) {
 		case 0:
 			hi_text();
 			break;
@@ -1560,9 +1560,17 @@ void TED::ted_process(const unsigned int continuous)
 			case 16:
 				if (ScreenOn) {
 					SideBorderFlipFlop = true;
-					memset( scrptr, mcol[0], hshift);
-					if (nrwscr)
+					if (nrwscr) {
+						if (hshift) {
+							int oldX = x;
+							int oldXscroll = hshift;
+							x = 39; hshift = 0;
+							render(scrattr);
+							x = oldX;
+							hshift = oldXscroll;
+						}
 						CharacterWindow = true;
+					}
 					x = 0;
 				}
 				break;
@@ -1708,7 +1716,7 @@ void TED::ted_process(const unsigned int continuous)
 			if (!(HBlanking||VBlanking)) {
 				if (SideBorderFlipFlop) { // drawing the visible part of the screen
 					// call the relevant rendering function
-					render();
+					render(scrattr);
 					x = (x + 1) & 0x3F;
 				}
 				if (!CharacterWindow) {
@@ -2004,8 +2012,7 @@ void TEDFAST::renderLine()
 		screen = scrptr;
 
 		for(x = 0; x < 40; x++) {
-			//(this->*scrmode)();
-			render();
+			render(scrattr);
 			scrptr += 8;
 		}
 		if (!nrwscr) {
