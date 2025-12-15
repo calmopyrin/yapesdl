@@ -148,7 +148,7 @@ inline static void ShowFrameRate(unsigned int show)
 //-----------------------------------------------------------------------------
 inline static void DebugInfo()
 {
-	unsigned int hpos = (ted8360->getCyclesPerRow() == 456 ? 48 : 112), vpos = 10;
+	unsigned int hpos = (ted8360->getCyclesPerRow() == 456 ? 48 : 112), vpos = 9;
 
 	sprintf(textout, "OPCODE: %02X ", machine->getcins());
 	ted8360->texttoscreen(hpos, vpos, textout);
@@ -1180,9 +1180,16 @@ static void machineInit()
 	machine->Reset();
 }
 
-void machineShutDown()
+static void machineShutDown()
 {
-	machineEnable1551(true);
+	if (drive1541) {
+		delete drive1541;
+		drive1541 = NULL;
+	}
+	if (fsd1541) {
+		delete fsd1541;
+		fsd1541 = NULL;
+	}
 	delete fsdrive;
 	delete iec;
 	delete tcbm;
@@ -1192,7 +1199,6 @@ void machineShutDown()
 
 static void app_close()
 {
-	close_audio();
 	// Save settings if required
 	if (g_bSaveSettings)
 		SaveSettings(inifile);
@@ -1200,6 +1206,8 @@ static void app_close()
 		delete[] inifile;
 		inifile = NULL;
 	}
+	close_audio();
+	machineShutDown();
 	delete uinterface;
 	KEYS::closePcJoys();
 	if (sdlRenderer)
