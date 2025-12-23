@@ -7,11 +7,22 @@ void Via::write(unsigned int r, unsigned char value)
 {
 	switch (r & 0xF) {
 	case 0:
+		// IF THE CA2/CB2 CONTROL IN THE PCR IS SELECTED AS "INDEPENDENT"
+		// INTERRUPT INPUT, THEN READING OR WRITING THE OUTPUT REGISTER
+		// ORA / ORB WILL NOT CLEAR THE FLAG BIT
+		if ((pcr & 0xA0) != 0x20)
+			ifr &= ~IRQM_CB2;
+		// Clear CB1 IRQ flag
+		ifr &= ~IRQM_CB1;
+		checkIrqCallback(callBackParam, ifr & ier);
 		prb = value;
 		break;
 	case 1:
 	case 0xF: // same as #1, no handshake
+		if ((pcr & 0x0A) != 0x02)
+			ifr &= ~IRQM_CA2;
 		ifr &= ~IRQM_CA1;
+		checkIrqCallback(callBackParam, ifr & ier);
 		pra = value;
 		break;
 	case 2:
