@@ -408,13 +408,13 @@ void UI::show_file_list(menu_t * menu, UI_MenuClass type)
 	menu->nr_of_elements = nf;
 }
 
-void UI::openD64Item(const char *name)
+void UI::openD64Item(const char *name, bool autostart)
 {
 	machineEnable1551(false);
 	if (CTrueDrive::GetRoot()) {
 		CTrueDrive::SwapDisk(name);
 		const Uint8 *state = SDL_GetKeyboardState(NULL);
-		if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT]) {
+		if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT] || autostart) {
 			autostart_file(name);
 		}
 	}
@@ -517,14 +517,14 @@ bool UI::handle_menu_command( struct element_t *element)
 		case UI_TAP_ITEM:
 			{
 				const Uint8 *state = SDL_GetKeyboardState(NULL);
-				if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT]) {
+				if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT] || autoStartNext) {
 					autostart_file(element->name);
 				} else 
 					ted8360->tap->attachTape(element->name);
 			}
 			break;
 		case UI_D64_ITEM:
-			openD64Item(element->name);
+			openD64Item(element->name, autoStartNext);
 			break;
 		case UI_ZIP_ITEM:
 			start_file(element->name, true);
@@ -827,6 +827,26 @@ int UI::wait_events()
 					|| event.window.event == SDL_WINDOWEVENT_RESTORED) {
 					screen_update();
 				}
+				break;
+
+			case SDL_MOUSEWHEEL:
+				{
+					int y = event.wheel.y;
+					if (event.wheel.direction != SDL_MOUSEWHEEL_FLIPPED)
+						y = -y;
+					menuMove(y);
+				}
+				break;
+
+			case SDL_MOUSEBUTTONDOWN:
+				if (event.button.button == SDL_BUTTON_RIGHT) {
+					clear(0, 0);
+					return 1;
+				}
+				else if (event.button.button == SDL_BUTTON_X1)
+					menuMoveLeft();
+				else if (!menuEnter(event.button.button == SDL_BUTTON_MIDDLE))
+					return 1;
 				break;
 
 			case SDL_CONTROLLERAXISMOTION:

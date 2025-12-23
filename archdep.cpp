@@ -240,6 +240,14 @@ unsigned int ad_get_fps(unsigned int &framesDrawn)
 }
 #endif
 
+int ad_change_target_speed(int change)
+{
+	fpsInterval += change;
+	if (fpsInterval <= 0) fpsInterval = 1;
+	else if (fpsInterval > 2000) fpsInterval = 2000;
+	return 2000 / fpsInterval;
+}
+
 #if !defined(_WIN32)
 
 /* ---------- UNIX ---------- */

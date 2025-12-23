@@ -115,7 +115,7 @@ class UI {
 		void menuMove(int direction);
 		void menuMoveLeft();
 		int menuEnter(bool forceAutoRun);
-		void openD64Item(const char *name);
+		void openD64Item(const char *name, bool);
 		bool autoStartNext;
 		char storedPath[MAX_PATH];
 

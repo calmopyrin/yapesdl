@@ -1111,6 +1111,15 @@ inline static void poll_events(void)
 				}
 				break;
 
+			case SDL_MOUSEWHEEL:
+				{
+					int y = event.wheel.y;
+					if (event.wheel.direction != SDL_MOUSEWHEEL_FLIPPED)
+						y = -y;
+					PopupMsg(" SPEED: %u ", ad_change_target_speed(y));
+				}
+				break;
+
 			case SDL_DROPFILE:
 				{
 					const Uint8 *keystate = SDL_GetKeyboardState(NULL);
@@ -1123,13 +1132,8 @@ inline static void poll_events(void)
 				break;
 
 			case SDL_MOUSEBUTTONDOWN:
-				// stupid workaround for too early detection
-				if (ted8360->GetClockCount() > TED_REAL_CLOCK_M10 / 10) {
-					if (timeOutOverlayKeys) {
-					}
-					timeOutOverlayKeys = 192;
-					mouseBtnHeld = true;
-				}
+				if (event.button.button == SDL_BUTTON_RIGHT)
+					enterMenu();
 #ifdef __EMSCRIPTEN__
 				// FIXME, this is a hack
 				EM_ASM("var SDL2 = Module['SDL2']; if (SDL2.audioContext.state !== 'running') { SDL2.audioContext.resume(); }", 0);

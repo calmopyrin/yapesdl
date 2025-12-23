@@ -51,7 +51,8 @@ void	ad_exit_drive_selector();
 
 extern void				ad_vsync_init(unsigned int targetfps);
 extern bool				ad_vsync(bool sync);
-extern unsigned int		ad_get_fps(unsigned int &framesDrawn);
+extern unsigned int		ad_get_fps(unsigned int& framesDrawn);
+int						ad_change_target_speed(int change);
 
 extern bool zipOpen(const char *zipName, unsigned char **buffer, unsigned int &bufferSize, unsigned int &fileType);
 extern void unzipFiles(const char* zipFilename, const char* OutDir);
