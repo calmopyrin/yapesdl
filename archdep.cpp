@@ -238,7 +238,6 @@ unsigned int ad_get_fps(unsigned int &framesDrawn)
 		g_TotFrames++;
 	return speed;
 }
-#endif
 
 int ad_change_target_speed(int change)
 {
@@ -247,6 +246,7 @@ int ad_change_target_speed(int change)
 	else if (fpsInterval > 2000) fpsInterval = 2000;
 	return 2000 / fpsInterval;
 }
+#endif
 
 #if !defined(_WIN32)
 
@@ -415,6 +415,13 @@ unsigned int ad_get_fps(unsigned int &framesDrawn)
 	return fps << 1;
 }
 
+int ad_change_target_speed(int change)
+{
+    if (int(targetFps) - change > 0)
+        targetFps -= change;
+    return targetFps * 2;
+}
+
 #endif
 
 #if defined(__EMSCRIPTEN__) || defined(ZIP_SUPPORT)
@@ -426,7 +433,7 @@ bool zipOpen(const char *zipName, unsigned char **buffer, unsigned int &bufferSi
 	static unsigned int storedFileSize = 0;
 	unzFile zipFile = unzOpen(zipName);
 	fileType = 0;
-	   
+
 	if (zipFile) {
 		if (unzGoToFirstFile(zipFile) == UNZ_OK) {
 			unz_file_info zipfileinfo;
