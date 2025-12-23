@@ -37,7 +37,7 @@
 				<Option output="bin/Release/YapeSDL" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Release/" />
 				<Option type="1" />
-				<Option compiler="gnu_gcc_compiler_64-bit" />
+				<Option compiler="gcc-mingw64" />
 				<Option use_console_runner="0" />
 				<Compiler>
 					<Add option="-fomit-frame-pointer" />
