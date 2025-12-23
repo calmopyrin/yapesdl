@@ -470,22 +470,23 @@ void Vic2mem::doDelayedDMA()
 
 				if (!vicBusAccessCycleStart)
 					vicBusAccessCycleStart = CycleCounter;
-				//BadLine = 1;
-				if (!VertSubActive) {
+				if (!VertSubActive && beamx >=2 && beamx < 82) {
 					// FIXME one cycle delay
-					VertSubActive = true;
-					delay = (beamx <= 86) ? ((beamx) >> 1) + 0 : (beamx - 124) >> 0;
+					delay = ((beamx) >> 1);
 				} else {
 					delay = 0;
 				}
 				if (delay <= 40) {
 					delayedDMA = true;
 					dmaCount = 40 - delay;
-					if (CharacterPosition + dmaCount >= 0x0400) {
+					if (CharacterPosition + dmaCount > 0x0400) {
 						memcpy(chrbuf, VideoBase + CharacterPosition, 0x400 - CharacterPosition);
 						memcpy(chrbuf + 0x400 - CharacterPosition, VideoBase, (CharacterPosition + dmaCount) & 0x03FF);
+						memcpy(clrbuf, colorRAM + CharacterPosition, 0x400 - CharacterPosition);
+						memcpy(clrbuf + 0x400 - CharacterPosition, colorRAM, (CharacterPosition + dmaCount) & 0x03FF);
 					} else {
 						memcpy(chrbuf, VideoBase + CharacterPosition, dmaCount);
+						memcpy(clrbuf, colorRAM + CharacterPosition, dmaCount);
 					}
 				} else {
 					if (!VertSubActive)
@@ -625,7 +626,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 					case 0xD9:
 					case 0xDA:
 					case 0xDB:
-						return colorRAM[addr & 0x03FF];
+						return colorRAM[addr & 0x03FF] | (readFloatingBus(addr) & 0xF0);
 					case 0xDC: // CIA1
 						{
 							unsigned char retval;
@@ -749,8 +750,6 @@ skip:
 							case 0x12:
 								if ((irqline ^ value) & 0xFF )
 								{
-									/*fprintf(stderr, "Raster IRQ set to %03i(%03X) @ PC=0%04X @ cycle=%i\n",
-										irqline, value, cpuptr->getPC(), CycleCounter);	*/
 									irqline = (irqline & 0x100) | value;
 									if (beamy == irqline) {
 										vicReg[0x19] |= ((vicReg[0x1A] & 1) << 7) | 1;
@@ -784,8 +783,6 @@ skip:
 									ScreenOn = false;
 								}
 								doDelayedDMA();
-								/*fprintf(stderr, "d011: %02X @ X=%03i @ Y=%03i($%03X) BL=%u VSUB=%u DMA=%u CP=%04X PC=%04X\n", value, 
-									beamx, beamy, beamy, BadLine, vertSubCount, dmaCount, CharacterPosition, cpuptr->getPC());*/
 								break;
 							case 0x16:
 								// check for narrow screen (38 columns)
@@ -795,7 +792,6 @@ skip:
 									doXscrollChange(hshift, value & 0x07);
 								hshift = value & 0x07;
 								scrattr = (scrattr & ~(MULTICOLOR)) | (value & (MULTICOLOR));
-								//fprintf(stderr, "$D016 write: %02X @ PC=%04X @ X=%03i @ Y=%03i\n", value, cpuptr->getPC(), beamx, beamy);
 								break;
 							case 0x18:
 								vicReg[0x18] = value;
@@ -937,7 +933,7 @@ skip:
 					case 0xD9:
 					case 0xDA:
 					case 0xDB:
-						colorRAM[addr & 0x03FF] = value;
+						colorRAM[addr & 0x03FF] = value & 0x0F;
 						return;
 					case 0xDC: // CIA1
 						switch (addr & 0x0F) {
@@ -1096,8 +1092,8 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				// the beam reached a new line
 				doHRetrace();
 				newLine();
-				flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
 				sidCard->updateLastCycleCount(CycleCounter);
+				flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
 				if (attribFetch) {
 					BadLine = (vshift == (beamy & 7));
 					if (BadLine) {
@@ -1153,18 +1149,15 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				MOB_READ_ADDRESS(7);
 				DO_SPRITE_DMA(7);
 				STOP_SPRITE_DMA(6);
-				//dmaCount = 0;
 				break;
 
 			case 120:
 				// Stop sprite DMA
-				if (!BadLine)
-					vicBusAccessCycleStart = 0;
+				vicBusAccessCycleStart = 0;
 				spriteDMAmask = 0;
 				for (unsigned int i = 0; i < 8; i++) {
 					mob[i].sdb[1].dwSrDmaBuf = mob[i].sdb[0].dwSrDmaBuf;
 				}
-				CharacterPosition = CharacterPositionReload;
 				break;
 
 			case 122:
@@ -1184,25 +1177,30 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				if (BadLine && !delayedDMA) {
 					vertSubCount = 0;
 				}
+				CharacterPosition = CharacterPositionReload;
 				break;
 
 			case 2:
 				if (BadLine && !delayedDMA) {
 					if (CharacterPosition >= 0x03d9) {
-						memcpy(chrbuf, VideoBase + CharacterPosition, 0x400 - CharacterPosition);
-						memcpy(chrbuf + 0x400 - CharacterPosition, VideoBase, (CharacterPosition + 40) & 0x03FF);
+						const unsigned int lbCnt = 0x400 - CharacterPosition;
+						const unsigned int nbCnt = (CharacterPosition + 40) & 0x03FF;
+						memcpy(chrbuf, VideoBase + CharacterPosition, lbCnt);
+						memcpy(chrbuf + lbCnt, VideoBase, nbCnt);
+						memcpy(clrbuf, colorRAM + CharacterPosition, lbCnt);
+						memcpy(clrbuf + lbCnt, colorRAM, nbCnt);
 					} else {
 						memcpy(chrbuf, VideoBase + CharacterPosition, 40);
+						memcpy(clrbuf, colorRAM + CharacterPosition, 40);
 					}
-					//dmaCount = 40;
 				}
 				break;
 
 			case 4:
-				stopSpriteDMA(); // FIXME cycle 0
 				break;
 
 			case 6:
+				stopSpriteDMA(); // FIXME cycle 0
 				if (ScreenOn) {
 					SideBorderFlipFlop = true;
 					if (nrwscr) {
@@ -1225,6 +1223,8 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
 			case 82:
+				if (VertSubActive && !delayedDMA && !dmaCount)
+					dmaCount = 40;
 				checkSpriteEnable();
 				// On bad line with sprite 0 on, all CPU cycles are stolen
 				if (!checkSpriteDMA(0))
@@ -1232,10 +1232,9 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
 			case 84:
-				if (VertSubActive && !delayedDMA && !dmaCount)
-					dmaCount = 40;
 				if (!nrwscr)
 					SideBorderFlipFlop = CharacterWindow = false;
+				spriteReloadCounters();
 				break;
 
 			case 86:
@@ -1258,7 +1257,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				if (VertSubActive)
 					vertSubCount = (vertSubCount + 1) & 7;
 				//
-				spriteReloadCounters();
 				MOB_READ_ADDRESS(0);
 				DO_SPRITE_DMA(0);
 				break;
@@ -1354,25 +1352,34 @@ inline void Vic2mem::doXscrollChange(unsigned int oldXscr, unsigned int newXscr)
 
 inline unsigned char Vic2mem::readFloatingBus(unsigned int adr)
 {
-	unsigned int prevcycle = (124 + beamx) % 126;
+	const unsigned int prevcycle = beamx;
 	unsigned char c = cycleLookup[BadLine][prevcycle];
+	unsigned int tmpIx;
+
 	switch (c) {
-	default:
-		{
-			const unsigned int addrMask = (scrattr & EXTCOLOR) ? 0x39FF : 0x3FFF;
-			//unsigned int matrixAddr = (CharacterPosition + x) > 0x3FF ? 0 : (CharacterPosition + x);
-			const unsigned int matrixPos = (CharacterPosition + x);
-			const unsigned int addr = (matrixPos > 0x03FF) ? 0x1FFF : ((matrixPos << 3) | vertSubCount);
-			/*fprintf(stderr, "X=%u Y=%u PC=%04X: Floating bus read from addr %04X -> %02X\n", beamx, beamy,
-				cpuptr->getPC(), addr, grbank[addr]);*/
+	default: case 'g':
+		if (VertSubActive) {
 			if (scrattr & GRAPHMODE) {
-				return grbank[addr & addrMask];
+				tmpIx = (((CharacterPosition + x) << 3) & 0x1FF8) | vertSubCount;
+				return grbank[tmpIx];
 			} else {
-				unsigned int chr = chrbuf[x];
-				return cset[((chr << 3) & addrMask) | vertSubCount];
+				tmpIx = (chrbuf[x] << 3) | vertSubCount;
+				return cset[tmpIx & (scrattr & EXTCOLOR ? 0x1FF : 0x7FF)];
 			}
+		} else {
+			return vicBase[scrattr & EXTCOLOR ? 0x39FF : 0x3FFF];
 		}
 	case 'c':
+		return chrbuf[x];
+	case 's':
+	case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '0':
+		tmpIx = c == 's' ? 0 : c - '0'; 
+		return VideoBase[0x03F8 + tmpIx];
+	case 'r':
+		return vicBase[0x3F00 | (CycleCounter & 0xFF)];
+	case 'i':
+		return vicBase[0x3FFF];
+	case ' ': case '*':
 		return cpuptr->getcins();
 	}
 }
@@ -1385,7 +1392,7 @@ inline void Vic2mem::hi_text()
 	unsigned char	*wbuffer = scrptr + hshift;
 
 	if (VertSubActive) {
-		charcol = colorRAM[(CharacterPosition + x) & 0x03FF] & 0x0F;
+		charcol = clrbuf[x];
 		mask = cset[(chrbuf[x] << 3) | vertSubCount];
 	} else {
 		charcol = 0;
@@ -1412,7 +1419,7 @@ inline void Vic2mem::ec_text()
 	unsigned char *wbuffer = scrptr + hshift;
 
 	if (VertSubActive) {
-		charcol = colorRAM[(CharacterPosition + x) & 0x03FF] & 0x0F;
+		charcol = clrbuf[x];
 		chr = chrbuf[x];
 		mask = cset[((chr & 0x3F) << 3) | vertSubCount];
 		chr >>= 6;
@@ -1440,7 +1447,7 @@ inline void Vic2mem::mc_text()
 	unsigned char mask;
 
 	if (VertSubActive) {
-		charcol = colorRAM[(CharacterPosition + x) & 0x03FF] & 0x0F;
+		charcol = clrbuf[x];
 		chr = chrbuf[x];
 		mask = cset[(chr << 3) | vertSubCount];
 	} else {
@@ -1511,7 +1518,7 @@ inline void Vic2mem::mc_bitmap()
 		unsigned int cp = (CharacterPosition + x) & 0x03FF;
 		bmmcol[1] = (chrbuf[x] >> 4) | 0x40;
 		bmmcol[2] = chrbuf[x] & 0x0F;
-		bmmcol[3] = colorRAM[cp] & 0x0F;
+		bmmcol[3] = clrbuf[x];
 		mask = grbank[(cp << 3) | vertSubCount];
 	} else {// FIXME
 		bmmcol[1] = 0x40;
@@ -1534,7 +1541,7 @@ inline void Vic2mem::mcec()
 
 	if (VertSubActive) {
 		mask = cset[((chrbuf[x] & 0x3F) << 3) | vertSubCount];
-		charcol = colorRAM[(CharacterPosition + x) & 0x03FF] & 0x0F;
+		charcol = clrbuf[x];
 	} else {
 		mask = vicBase[0x39FF];
 		charcol = 0;
@@ -1847,11 +1854,11 @@ inline void Vic2mem::stopSpriteDMA()
 	unsigned int i = 7;
 
 	do {
-		unsigned int &dc = mob[i].dataCount;
+		//unsigned int &dc = mob[i].dataCount;
 		// check end of sprite DMA
 		if (mob[i].dataCountReload == 0x3F) {
 			mob[i].dmaState = mob[i].rendering = false;
-			mob[i].dataCountReload = dc;
+			//mob[i].dataCountReload = dc;
 		}
 	} while (i--);
 #endif
