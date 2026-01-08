@@ -466,31 +466,39 @@ void Vic2mem::doDelayedDMA()
 		bool nowBadLine = (vshift == (beamy & 7)) && (beamy != 247);
 		if (nowBadLine) {
 			if (!BadLine && (beamx <= 86 || beamx >= 124)) {
-				int delay;
+				unsigned int delay;
 
-				if (!vicBusAccessCycleStart)
+				if (!vicBusAccessCycleStart) {
 					vicBusAccessCycleStart = CycleCounter;
-				if (!VertSubActive && beamx >=2 && beamx < 82) {
 					// FIXME one cycle delay
 					delay = ((beamx) >> 1);
 				} else {
 					delay = 0;
 				}
 				if (delay <= 40) {
+					// FIXME it is different whether in idle state or not
+					const unsigned int illegalCnt = MIN(40 - delay, MIN(3, delay));
+					const unsigned int skippedCnt = delay - illegalCnt;
+					const unsigned char illegalClr = Read(cpuptr->getPC()) & 0x0F;
+					
+					unsigned int i = 0;
+					while (i < illegalCnt) {
+						chrbuf[i] = 0xFF;
+						clrbuf[i] = illegalClr;
+						i++;
+					}
 					delayedDMA = true;
 					dmaCount = 40 - delay;
-					if (CharacterPosition + dmaCount > 0x0400) {
-						memcpy(chrbuf, VideoBase + CharacterPosition, 0x400 - CharacterPosition);
-						memcpy(chrbuf + 0x400 - CharacterPosition, VideoBase, (CharacterPosition + dmaCount) & 0x03FF);
-						memcpy(clrbuf, colorRAM + CharacterPosition, 0x400 - CharacterPosition);
-						memcpy(clrbuf + 0x400 - CharacterPosition, colorRAM, (CharacterPosition + dmaCount) & 0x03FF);
+					if (CharacterPosition + dmaCount - illegalCnt > 0x0400) {
+						memcpy(chrbuf + illegalCnt, VideoBase + CharacterPosition, 0x400 - CharacterPosition - illegalCnt);
+						memcpy(chrbuf + illegalCnt + 0x400 - CharacterPosition, VideoBase, (CharacterPosition + dmaCount - illegalCnt) & 0x03FF);
+						memcpy(clrbuf + illegalCnt, colorRAM + CharacterPosition, 0x400 - CharacterPosition - illegalCnt);
+						memcpy(clrbuf + illegalCnt + 0x400 - CharacterPosition, colorRAM, (CharacterPosition + dmaCount - illegalCnt) & 0x03FF);
 					} else {
-						memcpy(chrbuf, VideoBase + CharacterPosition, dmaCount);
-						memcpy(clrbuf, colorRAM + CharacterPosition, dmaCount);
+						memcpy(chrbuf + illegalCnt, VideoBase + CharacterPosition, dmaCount - illegalCnt);
+						memcpy(clrbuf + illegalCnt, colorRAM + CharacterPosition, dmaCount - illegalCnt);
 					}
-				} else {
-					if (!VertSubActive)
-						dmaCount = 0;
+					dmaCount = 40;
 				}
 			}
 			/*fprintf(stderr, "Bad line (DMAdelay:%i) @ XSCR=%i X=%i Y=%i(%02X) VSC=%u CP=%04u DMAC=%i @ PC=%04X\n", delayedDMA,
