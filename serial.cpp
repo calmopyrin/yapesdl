@@ -562,7 +562,7 @@ void IecFakeSerial::update()
 					clkLine = CLK_HI; // ???
 					step = SM_RDY_TO_SEND;
 					timeout = cycleCount + TED::usec2cycles(100);
-#if IEC_DEBUG >= 0
+#if IEC_DEBUG >= 1
 					fprintf(stderr, "Timeout, no acknowledge, frame error!\n");
 #endif
 				}
@@ -576,9 +576,9 @@ void IecFakeSerial::update()
 						timeout = cycleCount + TED::usec2cycles(60);
 					} else {
 						// Listener missed the EOI or did not care...
-	#if IEC_DEBUG >= 1
+#if IEC_DEBUG >= 1
 						fprintf(stderr, "EOI _not_ acknowledged.\n");
-	#endif
+#endif
 						step = SM_BITTRANS;
 						timeout = cycleCount;
 					}
