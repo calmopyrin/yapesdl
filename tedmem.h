@@ -152,6 +152,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual void setNtscMode(bool on);
 	virtual bool isNtscMode() { return ntscMode; };
 	unsigned int getFrameRate() { return ntscMode ? 60 : 50; }
+	unsigned int getNumberOfLines() { return ntscMode ? 262 : 312; }
 	void setClockStep(unsigned int originalFreq, unsigned int samplingFreq);
 	//
 	static unsigned int sidCardEnabled;

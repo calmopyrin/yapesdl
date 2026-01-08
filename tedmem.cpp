@@ -456,8 +456,8 @@ unsigned char TED::Read(unsigned int addr)
 						case 0xFF19 : return (framecol&0xFF)|0x80;
 						case 0xFF1A : return (CharacterPositionReload >> 8) | 0xFC;
 						case 0xFF1B : return CharacterPositionReload & 0xFF;
-						case 0xFF1C : return (beamy>>8)|0xFE;
-						case 0xFF1D : return beamy&0xFF; /// 1-8. bit of the rasterline counter
+						case 0xFF1C : return ((beamx == 113 ? (ff1d_latch != 0 ? ff1d_latch - 1 : getNumberOfLines()) : beamy) >> 8) | 0xFE;
+						case 0xFF1D : return (beamx == 113 ? (ff1d_latch != 0 ? ff1d_latch - 1 : getNumberOfLines()) : beamy) & 0xFF;
 						case 0xFF1E : return ((98+beamx)<<1)%228; // raster column
 						case 0xFF1F :
 							{
@@ -878,11 +878,13 @@ void TED::Write(unsigned int addr, unsigned char value)
 							return;
 						case 0xFF1C:
 							beamy=((value&0x01)<<8)|(beamy&0xFF);
+							if (beamx == 112)
+								ff1d_latch = beamy;
 							return;
 						case 0xFF1D:
 							//log(0xff1d, value);
 							beamy=(beamy&0x0100)|value;
-							if (beamx == 113)
+							if (beamx == 112)
 								ff1d_latch = beamy;
 							return;
 						case 0xFF1E:
@@ -1402,7 +1404,6 @@ inline void TED::render(const int scrmode)
 inline void TED::newLine()
 {
 	beamx = 0;
-	beamy = ff1d_latch;
 	doHRetrace();
 	flushBuffer(CycleCounter, TED_SOUND_CLOCK);
 	switch (beamy) {
@@ -1644,8 +1645,12 @@ void TED::ted_process(const unsigned int continuous)
 				}
 				break;
 
-			case 113:
+			case 112:
 				ff1d_latch = beamy + 1;
+				break;
+
+			case 113:
+				beamy = ff1d_latch;
 				break;
 
 			case 114: // HSYNC end
@@ -1703,7 +1708,7 @@ void TED::ted_process(const unsigned int continuous)
 				default:;
 			}
 			CycleCounter += 2;
-			CharacterCount = (CharacterCount + (dmaFetchCountStart != 0)) & 0x3FF;
+			CharacterCount = (CharacterCount + dmaFetchCountStart) & 0x3FF;
 		} else {
 			if (t1on) { // Timer1 permitted?
 				if (!timer1) {
@@ -2063,6 +2068,7 @@ void TEDFAST::ted_process(const unsigned int continuous)
 			const unsigned int clkIx = clocksPerLine[clockingState + fastmode ? 0 : 3];
 
 			ff1d_latch = (beamy + 1) & 0x1FF;
+			beamy = ff1d_latch;
 			newLine();
 			dmaLineBased();
 			//if (isFrameRendered()) {
@@ -2095,6 +2101,7 @@ void TEDFAST::ted_process(const unsigned int continuous)
 			const unsigned int clkIx = clocksPerLine[clockingState + fastmode ? 0 : 3];
 
 			ff1d_latch = (beamy + 1) & 0x1FF;
+			beamy = ff1d_latch;
 			newLine();
 			dmaLineBased();
 			//if (isFrameRendered()) {
