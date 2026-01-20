@@ -199,12 +199,15 @@ protected:
 	void	rv_text();
 	void	hi_bitmap();
 	void	mc_bitmap();
+	void	renderPixelsGeneric(unsigned char msk, unsigned char chr, unsigned char charcol);
+	void	test_mode();
 	void	illegalbank();
 	void	render(const int scrmode);
 	bool	charrom;
 	int		rvsmode, grmode, ecmode;
 	int		scrattr, charbank;
 	void	changeCharsetBank();
+	bool	checkIllegalScreenMode();
 
 	// border color
 	unsigned int framecol;
