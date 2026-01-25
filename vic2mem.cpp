@@ -498,7 +498,9 @@ void Vic2mem::doDelayedDMA()
 						memcpy(chrbuf + illegalCnt, VideoBase + CharacterPosition, dmaCount - illegalCnt);
 						memcpy(clrbuf + illegalCnt, colorRAM + CharacterPosition, dmaCount - illegalCnt);
 					}
-					dmaCount = 40;
+				} else {
+					if (!VertSubActive)
+						dmaCount = 0;
 				}
 			}
 			/*fprintf(stderr, "Bad line (DMAdelay:%i) @ XSCR=%i X=%i Y=%i(%02X) VSC=%u CP=%04u DMAC=%i @ PC=%04X\n", delayedDMA,
@@ -526,7 +528,7 @@ void Vic2mem::UpdateSerialState(unsigned char newPort)
 		updateSerialDevices(serialPort[0]);
 		prevPort = newPort;
 #if LOG_SERIAL
-		fprintf(stderr, "$DD00 write : %02X @ PC=%04X in cycle:%llu\n", value, cpuptr->getPC(), CycleCounter);
+		fprintf(stderr, "$DD00 write : %02X @ PC=%04X in cycle:%llu\n", newPort, cpuptr->getPC(), CycleCounter);
 		fprintf(stderr, "  serial port written: %02X.\n", serialPort[0]);
 #endif
 	}
