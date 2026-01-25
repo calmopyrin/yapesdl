@@ -38,6 +38,7 @@ static const unsigned int maxFpsValues[] = { 100, 60, 50, 25, 10 };
 static unsigned int maxFps = 100;
 static unsigned int maxFpsIndex = 0;
 static unsigned int targetFps;
+static unsigned int fpsInterval;
 
 rvar_t archDepSettings[] = {
 	{ "Maximum framerate", "MaxFrameRate", flipMaxFps, &maxFps, RVAR_INT, NULL },
@@ -60,7 +61,6 @@ static BOOL showDriveLetters = FALSE;
 static DWORD driveBitFields;
 static UINT currentDriveIndex;
 static char currentDrive[MAX_PATH];
-static unsigned int fpsInterval;
 
 /* file management */
 void ad_exit_drive_selector()
@@ -231,6 +231,8 @@ unsigned int ad_get_fps(unsigned int &framesDrawn)
 	if (g_TotElapsed + measureIntervalMsec <= timeelapsed) {
 		g_TotElapsed = SDL_GetTicks64();
 		speed = g_TotFrames;
+		/*printf("TotFrames: %u TotElapsed:%llu FpsInterval:%u TargetFPS:%u MeasureInterval:%u \n", g_TotFrames, g_TotElapsed, fpsInterval, 
+			targetFps, measureIntervalMsec);*/
 		g_TotFrames = 0;
 		framesDrawn = framesShown * targetFps / 100;
 		framesShown = 0;

@@ -7,7 +7,7 @@
 	and/or modify it under certain conditions. For more information,
 	read 'Copying'.
 
-	(c) 2000, 2001, 2004, 2005, 2007, 2015-2025 Attila Grósz
+	(c) 2000, 2001, 2004, 2005, 2007, 2015-2026 Attila Grósz
 	(c) 2005 VENESZ Roland
 */
 
@@ -104,6 +104,11 @@ static unsigned int		g_iEmulationLevel = 0;
 static unsigned int		g_bTrueDriveEmulation = 0;
 static unsigned int		g_bVideoVsync = 0;
 static char				lastSnapshotName[512] = "";
+static unsigned int pixels[568 * SCR_VSIZE * 2];
+extern bool openGLInit(SDL_Window* wnd, unsigned int windowWidth, unsigned int windowHeight,
+	unsigned int width, unsigned int height, unsigned int sync);
+extern void openGLFrameUpdate(SDL_Window* wnd, void* texture, unsigned int width, unsigned int height, unsigned int sync);
+
 static rvar_t mainSettings[] = {
 	{ "Show framerate", "DisplayFrameRate", toggleShowSpeed, &g_FrameRate, RVAR_TOGGLE, NULL },
 	{ "Display debug info", "DisplayQuickDebugInfo", NULL, &g_inDebug, RVAR_TOGGLE, NULL },
@@ -413,8 +418,6 @@ static void showKeyboardOverlay()
 	SDL_RenderCopy(sdlRenderer, texture, NULL, &rc);
 }
 
-static unsigned int pixels[568 * SCR_VSIZE * 2];
-
 void frameUpdate(unsigned char *src, unsigned int *target)
 {
 	const unsigned int pixelsPerRow = ted8360->getCyclesPerRow();
@@ -424,6 +427,7 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 	unsigned int i, j;
 
 	//
+#ifndef USE_OPENGL
 	if (g_bUseOverlay) {
 		video_convert_buffer(target, pixelsPerRow, src);
 	} else {
@@ -454,6 +458,16 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 			timeOutOverlayKeys -= 4;
 	}
 	SDL_RenderPresent(sdlRenderer);
+#else
+	const unsigned int* palette = palette_get_rgb();
+	for (i = 0; i < SCREENY; i++) {
+		for (j = 0; j < SCREENX; j++) {
+			*target++ = palette[*src++];
+		}
+		src += sourcePitch;
+	}
+	openGLFrameUpdate(sdlWindow, (void*)texture, SCREENX, SCREENY, g_bVideoVsync);
+#endif
 }
 
 static void frameUpdate()
@@ -622,12 +636,32 @@ static bool getSerializedFilename(const char *name, const char *extension, char 
 	return !found;
 }
 
+#ifdef __EMSCRIPTEN__
+// JavaScript function to download files from the virtual FS
+EM_JS(void, download_file, (const char* filename), {
+	const fname = UTF8ToString(filename);
+
+	const data = FS.readFile(fname, { encoding: 'binary' });
+	const blob = new Blob([data], { type: "application/octet-stream" });
+
+	const a = document.createElement("a");
+	a.href = URL.createObjectURL(blob);
+	a.download = fname;
+	a.click();
+
+	URL.revokeObjectURL(a.href);
+});
+#endif
+
 void snapshotSave()
 {
 	getSerializedFilename("snapshot", "yss", lastSnapshotName);
 	SaveState::openSnapshot(lastSnapshotName, true);
 	PopupMsg(" Saving snapshot... ");
 	fprintf(stderr, "Saved emulator state to %s.\n", lastSnapshotName);
+#ifdef __EMSCRIPTEN__
+	download_file(lastSnapshotName);
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -642,6 +676,9 @@ static int SaveBitmap()
 	if (getSerializedFilename("yape", "bmp", bmpname)) {
 		if (saveScreenshotBMP(bmpname, sdlWindow, sdlRenderer)) {
 			fprintf(stderr, "Screenshot saved: %s\n", bmpname);
+#ifdef __EMSCRIPTEN__
+			download_file(bmpname);
+#endif
 			return true;
 		}
 	}
@@ -681,18 +718,20 @@ static void doSwapKeyset()
 
 static void enterMenu()
 {
-	unsigned int wasActive = g_bActive;
-	g_bActive = 0;
 	timeOutOverlayKeys = 0;
 	sound_pause();
 #ifdef __EMSCRIPTEN__
 	setMainLoop(0);
 #else
+	unsigned int wasActive = g_bActive;
+	g_bActive = 0;
 	uinterface->enterMenu();
 #endif
 	if (g_50Hz)
 		sound_resume();
+#ifndef __EMSCRIPTEN__
 	g_bActive = wasActive;
+#endif
 	if (!g_bActive) {
 		PopupMsg(" PAUSED ");
 		frameUpdate();
@@ -1272,11 +1311,17 @@ static void app_initialise()
 	sdlWindow = SDL_CreateWindow(NAME,
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		WINDOWX * g_iWindowMultiplier, WINDOWY * g_iWindowMultiplier,
+#ifdef USE_OPENGL
+		SDL_WINDOW_OPENGL | 
+#endif
 		SDL_WINDOW_RESIZABLE); // SDL_WINDOW_FULLSCREEN_DESKTOP
 	if (!sdlWindow) {
 		printf("Unable to create window: %s\n", SDL_GetError());
 		return;
 	}
+#ifdef USE_OPENGL
+	openGLInit(sdlWindow, WINDOWX * g_iWindowMultiplier, WINDOWY * g_iWindowMultiplier, WINDOWX, WINDOWY, g_bVideoVsync);
+#endif
 	setSDLIcon(sdlWindow);
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 	// check the video driver we have
@@ -1298,6 +1343,7 @@ static void app_initialise()
 	// Make target texture to render to
 	SDL_SetRenderTarget(sdlRenderer, sdlTexture);
 	init_audio();
+	ad_vsync_init(ted8360->getFrameRate());
 	if (!g_50Hz)
 		sound_pause();
 	KEYS::initPcJoys();
