@@ -118,6 +118,8 @@ class UI {
 		void openD64Item(const char *name, bool);
 		bool autoStartNext;
 		char storedPath[MAX_PATH];
+		char shortElemName[45];
+		char* getShortName(char* itemName);
 
 	public:
 		UI(class TED *ted);

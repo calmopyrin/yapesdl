@@ -162,6 +162,19 @@ static rvar_t *findRVar(char *name)
 	return NULL;
 }
 
+char* UI::getShortName(char* itemName)
+{
+	size_t origlen = strlen(itemName);
+	if (origlen > 40) {
+		strncpy(shortElemName, itemName, 20);
+		strncpy(shortElemName + 20, "...", 3);
+		strncpy(shortElemName + 23, itemName + origlen - 20, 20);
+		shortElemName[43] = 0;
+		return shortElemName;
+	}
+	return itemName;
+}
+
 UI::UI(class TED *ted) :
 	display(ted->screen), ted8360(ted)
 {
@@ -221,7 +234,6 @@ void UI::screen_update()
 void UI::clear(char color, char shade)
 {
 	memset(display, COLOR(color, shade), 568 * SCR_VSIZE);
-	//screen_update();
 }
 
 void UI::set_color(unsigned char foreground, unsigned char background)
@@ -259,7 +271,7 @@ void UI::hide_sel_bar(menu_t *menu)
 	else
 		set_color( COLOR(0,0), COLOR(1,5) );
 	texttoscreen(LISTOFFSET, 64 + (curr_menu->curr_line<<3),
-		menu->element[ curr_menu->curr_sel ].name);
+		getShortName(menu->element[ curr_menu->curr_sel ].name));
 	screen_update();
 }
 
@@ -267,7 +279,7 @@ void UI::show_sel_bar(menu_t * menu)
 {
 	set_color( COLOR(0,0), COLOR(15,7) );
 	texttoscreen(LISTOFFSET, 64 + (curr_menu->curr_line<<3),
-		menu->element[ curr_menu->curr_sel ].name);
+		getShortName(menu->element[ curr_menu->curr_sel ].name));
 	screen_update();
 }
 
@@ -690,7 +702,7 @@ void UI::show_menu(menu_t * menu)
 			else
 				set_color( COLOR(0,0), COLOR(1,5) );
 			// display menu list element
-			texttoscreen(LISTOFFSET, 64+(i<<3), elem.name);
+			texttoscreen(LISTOFFSET, 64+(i<<3), getShortName(elem.name));
 
 			// if interactive menu, find out what to do
 			if (elem.menufunction == UI_MENUITEM_CALLBACKS) {
