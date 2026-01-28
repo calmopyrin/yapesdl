@@ -81,9 +81,6 @@ unsigned int	TED::CharacterPositionReload;
 unsigned int	TED::TVScanLineCounter;
 bool TED::HBlanking;
 bool TED::VBlanking;
-bool TED::aligned_write;
-unsigned char *TED::aw_addr_ptr;
-unsigned char TED::aw_value;
 unsigned int TED::ff1d_latch;
 bool TED::charPosLatchFlag;
 bool TED::endOfScreen;
@@ -130,7 +127,7 @@ enum {
 	TRFSHDELAY = 1 << 11
 };
 
-TED::TED() : SaveState(), sidCard(0), crsrphase(0), ramExt(0), reuBank(3)
+TED::TED() : SaveState(), sidCard(0), crsrphase(0), ramExt(0), reuBank(3), alignedWriteFunctor(NULL)
 {
 	unsigned int i;
 
@@ -435,8 +432,8 @@ unsigned char TED::Read(unsigned int addr)
 					return prddr;
 				case 1:
 					{
-#if 0
-						CSerial *serialDevice = getRoot();
+#ifndef NO_SERIAL_DELAY
+						CSerial *serialDevice = CSerial::getRoot();
 						while (serialDevice) {
 							// Half cycle delay elapsed?
 							unsigned int devNr = serialDevice->getDeviceNumber();
@@ -598,13 +595,14 @@ void TED::UpdateSerialState(unsigned char portVal)
 		tap->setTapeMotor(CycleCounter, portVal&8);
 
 	if ((prevVal ^ portVal) & 7 ) {		// serial lines changed
-		serialPort[0] = ((portVal << 7) & 0x80)	// DATA OUT -> DATA IN
+		unsigned char newVal = ((portVal << 7) & 0x80)	// DATA OUT -> DATA IN
 			| ((portVal << 5) & 0x40)			// CLK OUT -> CLK IN
 			| ((portVal << 2) & 0x10);			// ATN OUT -> ATN IN (drive)
+#ifdef NO_SERIAL_DELAY
+		serialPort[0] = newVal;
 		updateSerialDevices(serialPort[0]);
-#if LOG_SERIAL
-		fprintf(stderr, "$01 write : %02X @ PC=%04X\n", portVal, cpuptr->getPC());
-		fprintf(stderr, "$01 written: %02X @ PC=%04X.\n", serialPort[0], cpuptr->getPC());
+#else
+		setAlignedWrite(&TED::writeSerialPort, newVal);
 #endif
 	}
 	prevVal = portVal;
@@ -764,14 +762,14 @@ void TED::Write(unsigned int addr, unsigned char value)
 										BadLine |= 1;
 									}
 								} else if (BadLine & 1) {
-									if (beamx>=94) {
+									if (beamx>=94 && beamx < 109) {
 										BadLine &= ~1;
-									} else if (beamx >= 91) {
+									}/* else if (beamx >= 91) {
 										unsigned char *tmpbuf = clrbuf;
 										clrbuf = tmpClrbuf;
 										tmpClrbuf = tmpbuf;
 										BadLine &= ~1;
-									}
+									}*/
 								}
 							}
 							return;
@@ -779,8 +777,8 @@ void TED::Write(unsigned int addr, unsigned char value)
 							Ram[0xFF07]=value;
 							// check for narrow screen (38 columns)
 							nrwscr=value&0x08;
-							// get horizontal offset of screen when smooth scroll
-							hshift=value&0x07;
+							// set horizontal offset of screen
+							setAlignedWrite(&TED::writeHorizShift, value);
 							// NTSC/PAL clock
 							clockDivisor = (value & 0x40) ? 8 : 10;
 							// check for reversed mode
@@ -949,20 +947,20 @@ void TED::Write(unsigned int addr, unsigned char value)
 								// inverted value must be written
 								unsigned int new_beamx=((~value))&0xFC;
 								new_beamx >>= 1;
+								//log(0xff1e, new_beamx);
 								if (new_beamx < 114)
 									new_beamx>=98 ?  new_beamx -= 98 : new_beamx += 16;
 								// writes are aligned to single clock cycles
 								if (low_x) {
-									aligned_write = true;
-									aw_addr_ptr = (unsigned char*)(&beamx);
-									aw_value = new_beamx;
+									setAlignedWrite(&TED::writeHorizontalCount, new_beamx);
 								} else {
 									beamx = new_beamx;
 								}
 							}
 							return;
 						case 0xFF1F :
-							vertSubCount=value&0x07;
+							//log(0xff1f, value);
+							setAlignedWrite(&TED::writeVerticalSubCount, value);
 							if ((crsrphase & 0x0F) == 0x0F) {
 								if (value != 0x78) crsrblinkon ^= 0xFF;
 							}
@@ -1108,6 +1106,12 @@ void TED::readState()
 	charrombank = rom[0] + (charbank & 0x7C00);
 	(charrom) ? cset = charrombank : cset = charrambank;
 	ChangeMemBankSetup();
+	ecol[0] = bmmcol[0] = mcol[0];
+	ecol[1] = bmmcol[3] = mcol[1];
+	ecol[2] = mcol[2];
+	grbank = charrom ? rom[0] + (((Ram[0xFF12] & 0x38) << 10) & 0x7000) : (Ram + ((Ram[0xFF12] & 0x38) << 10));
+	VideoBase = Ram + (((Ram[0xFF14] & 0xF8) << 8) & RAMMask);
+	checkIllegalScreenMode();
 }
 
 // when multi and extended color modes are all on the screen is blank
@@ -1509,7 +1513,8 @@ inline void TED::newLine()
 		case 204:
 			if (!fltscr) ScreenOn = false;
 			VertSubActive = false;
-			attribFetch = false;
+			if (!dmaAllowed)
+				attribFetch = false;
 			break;
 
 		case 205:
@@ -1556,7 +1561,6 @@ inline void TED::newLine()
 		case 512:
 		case 312:
 			beamy = ff1d_latch = 0;
-			CharacterPositionReload = 0;
 			if (displayEnable) {
 				if (!attribFetch) {
 					attribFetch = true;
@@ -1602,7 +1606,7 @@ void TED::ted_process(const unsigned int continuous)
 				}
 				break;
 
-			 case 4:
+			case 4:
 				if (dmaAllowed) {
 					BadLine |= (vshift == (ff1d_latch & 7));
 					if (BadLine) {
@@ -1666,7 +1670,7 @@ void TED::ted_process(const unsigned int continuous)
 				}
 				break;
 
-			case 89:
+			case 88:
 				//fprintf(stderr, "DMApos:%i |reload:%i,VC=%i,VSUB=%i,BL:%i,TVline:%i, VSHIFT=%i, frame:%i\n", CharacterCount, CharacterCountReload, beamy, vertSubCount, BadLine, TVScanLineCounter, vshift, crsrphase);
 				if (attribFetch) {
 					if (vertSubCount == 6)
@@ -1734,6 +1738,9 @@ void TED::ted_process(const unsigned int continuous)
 				break;
 
 			case 113:
+				// End of screen?
+				if (beamy == (ntscMode ? 261 : 311))
+					CharacterPositionReload = 0;
 				beamy = ff1d_latch;
 				break;
 
@@ -1766,6 +1773,10 @@ void TED::ted_process(const unsigned int continuous)
 				scrptr+=8;
 			else
 				doHRetrace();
+			if (alignedWriteFunctor) {
+				(this->*alignedWriteFunctor)();
+				alignedWriteFunctor = NULL;
+			}
 			switch (clockingState) {
 				case TRFSH:
 				case TSS:
@@ -1806,16 +1817,17 @@ void TED::ted_process(const unsigned int continuous)
 				if (SideBorderFlipFlop) { // drawing the visible part of the screen
 					// call the relevant rendering function
 					render(scrattr);
-					x = (x + 1) & 0x3F;
 				}
 				if (!CharacterWindow) {
 					// we are on the border area, so use the frame color
 					*((int*)scrptr) = framecol;
 				}
 			}
-			if (aligned_write) {
-				*aw_addr_ptr = aw_value;
-				aligned_write = false;
+			if (displayEnable)
+				x = (x + 1) & 0x3F;
+			if (alignedWriteFunctor) {
+				(this->*alignedWriteFunctor)();
+				alignedWriteFunctor = NULL;
 			}
 			switch (clockingState) {
 				case TSSDELAY:

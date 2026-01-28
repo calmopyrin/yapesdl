@@ -238,8 +238,8 @@ protected:
 	static bool HBlanking;
 	static bool VBlanking;
 	static bool aligned_write;
-	static unsigned char *aw_addr_ptr;
-	static unsigned char aw_value;
+	unsigned int aw_value;
+	delayedEventCallback alignedWriteFunctor;
 	static unsigned int ff1d_latch;
 	static bool charPosLatchFlag;
 	static bool endOfScreen;
@@ -256,10 +256,22 @@ protected:
 	void doHRetrace();
 	void doVRetrace();
 	void newLine();
-	void setAlignedWrite(unsigned char* addr, unsigned char value) {
-		aligned_write = true;
-		aw_addr_ptr = addr;
+	void setAlignedWrite(delayedEventCallback ftor, unsigned int value) {
+		alignedWriteFunctor = ftor;
 		aw_value = value;
+	}
+	void writeHorizontalCount() {
+		beamx = aw_value;
+	}
+	void writeSerialPort() {
+		serialPort[0] = aw_value & 0xFF;
+		updateSerialDevices(serialPort[0]);
+	}
+	void writeHorizShift() {
+		hshift = aw_value & 7;
+	}
+	void writeVerticalSubCount() {
+		vertSubCount = aw_value & 7;
 	}
 	static unsigned int clockDivisor;
 	//
