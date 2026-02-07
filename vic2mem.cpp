@@ -1411,12 +1411,12 @@ inline void Vic2mem::hi_text()
 	const unsigned char col[] = { mcol[0], charcol };
 
 	wbuffer[0] = col[mask >> 7];
-	wbuffer[1] = col[(mask & 0x40) >> 6];
-	wbuffer[2] = col[(mask & 0x20) >> 5];
-	wbuffer[3] = col[(mask & 0x10) >> 4];
-	wbuffer[4] = col[(mask & 0x08) >> 3];
-	wbuffer[5] = col[(mask & 0x04) >> 2];
-	wbuffer[6] = col[(mask & 0x02) >> 1];
+	wbuffer[1] = col[(mask >> 6) & 1];
+	wbuffer[2] = col[(mask >> 5) & 1];
+	wbuffer[3] = col[(mask >> 4) & 1];
+	wbuffer[4] = col[(mask >> 3) & 1];
+	wbuffer[5] = col[(mask >> 2) & 1];
+	wbuffer[6] = col[(mask >> 1) & 1];
 	wbuffer[7] = col[mask & 1];
 }
 
@@ -1478,12 +1478,12 @@ inline void Vic2mem::mc_text()
 		const unsigned char col[] = { mcol[0], charcol };
 
 		wbuffer[0] = col[mask >> 7];
-		wbuffer[1] = col[(mask & 0x40) >> 6];
-		wbuffer[2] = col[(mask & 0x20) >> 5];
-		wbuffer[3] = col[(mask & 0x10) >> 4];
-		wbuffer[4] = col[(mask & 0x08) >> 3];
-		wbuffer[5] = col[(mask & 0x04) >> 2];
-		wbuffer[6] = col[(mask & 0x02) >> 1];
+		wbuffer[1] = col[(mask >> 6) & 1];
+		wbuffer[2] = col[(mask >> 5) & 1];
+		wbuffer[3] = col[(mask >> 4) & 1];
+		wbuffer[4] = col[(mask >> 3) & 1];
+		wbuffer[5] = col[(mask >> 2) & 1];
+		wbuffer[6] = col[(mask >> 1) & 1];
 		wbuffer[7] = col[mask & 1];
 	}
 }
@@ -1509,12 +1509,12 @@ inline void Vic2mem::hi_bitmap()
 	const unsigned char col[] = { hcol0, hcol1 };
 
 	wbuffer[0] = col[mask >> 7];
-	wbuffer[1] = col[(mask & 0x40) >> 6];
-	wbuffer[2] = col[(mask & 0x20) >> 5];
-	wbuffer[3] = col[(mask & 0x10) >> 4];
-	wbuffer[4] = col[(mask & 0x08) >> 3];
-	wbuffer[5] = col[(mask & 0x04) >> 2];
-	wbuffer[6] = col[(mask & 0x02) >> 1];
+	wbuffer[1] = col[(mask >> 6) & 1];
+	wbuffer[2] = col[(mask >> 5) & 1];
+	wbuffer[3] = col[(mask >> 4) & 1];
+	wbuffer[4] = col[(mask >> 3) & 1];
+	wbuffer[5] = col[(mask >> 2) & 1];
+	wbuffer[6] = col[(mask >> 1) & 1];
 	wbuffer[7] = col[mask & 1];
 }
 
@@ -1537,9 +1537,9 @@ inline void Vic2mem::mc_bitmap()
 	}
 
 	wbuffer[0]= wbuffer[1] = bmmcol[mask >> 6];
-	wbuffer[2]= wbuffer[3] = bmmcol[(mask & 0x30) >> 4 ];
-	wbuffer[4]= wbuffer[5] = bmmcol[(mask & 0x0C) >> 2 ];
-	wbuffer[6]= wbuffer[7] = bmmcol[mask & 0x03];
+	wbuffer[2]= wbuffer[3] = bmmcol[(mask >> 4) & 3];
+	wbuffer[4]= wbuffer[5] = bmmcol[(mask >> 2) & 3];
+	wbuffer[6]= wbuffer[7] = bmmcol[mask & 3];
 }
 
 // when multi and extended color modes are all on the screen is blank
@@ -1559,9 +1559,9 @@ inline void Vic2mem::mcec()
 
 	if (charcol & 8) {
 		wbuffer[0] = wbuffer[1] = imcol[mask >> 6];
-		wbuffer[2] = wbuffer[3] = imcol[(mask & 0x30) >> 4];
-		wbuffer[4] = wbuffer[5] = imcol[(mask & 0x0C) >> 2];
-		wbuffer[6] = wbuffer[7] = imcol[mask & 0x03];
+		wbuffer[2] = wbuffer[3] = imcol[(mask >> 4) & 3];
+		wbuffer[4] = wbuffer[5] = imcol[(mask >> 2) & 3];
+		wbuffer[6] = wbuffer[7] = imcol[mask & 3];
 	} else {
 		wbuffer[0] = (mask & 0x80) ? 0 : 0x40;
 		wbuffer[1] = (mask & 0x40) ? 0 : 0x40;
@@ -1588,12 +1588,12 @@ inline void Vic2mem::hi_bmec()
 	}
 
 	wbuffer[0] = col[mask >> 7];
-	wbuffer[1] = col[(mask & 0x40) >> 6];
-	wbuffer[2] = col[(mask & 0x20) >> 5];
-	wbuffer[3] = col[(mask & 0x10) >> 4];
-	wbuffer[4] = col[(mask & 0x08) >> 3];
-	wbuffer[5] = col[(mask & 0x04) >> 2];
-	wbuffer[6] = col[(mask & 0x02) >> 1];
+	wbuffer[1] = col[(mask >> 6) & 1];
+	wbuffer[2] = col[(mask >> 5) & 1];
+	wbuffer[3] = col[(mask >> 4) & 1];
+	wbuffer[4] = col[(mask >> 3) & 1];
+	wbuffer[5] = col[(mask >> 2) & 1];
+	wbuffer[6] = col[(mask >> 1) & 1];
 	wbuffer[7] = col[mask & 1];
 }
 
@@ -1611,9 +1611,9 @@ inline void Vic2mem::mc_bmec()
 	}
 
 	wbuffer[0]= wbuffer[1] = imcol[mask >> 6];
-	wbuffer[2]= wbuffer[3] = imcol[(mask & 0x30) >> 4 ];
-	wbuffer[4]= wbuffer[5] = imcol[(mask & 0x0C) >> 2 ];
-	wbuffer[6]= wbuffer[7] = imcol[mask & 0x03];
+	wbuffer[2]= wbuffer[3] = imcol[(mask >> 4) & 3];
+	wbuffer[4]= wbuffer[5] = imcol[(mask >> 2) & 3];
+	wbuffer[6]= wbuffer[7] = imcol[mask & 3];
 }
 
 inline void Vic2mem::render()
@@ -1944,12 +1944,12 @@ inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
 			const unsigned char newReg = spriteCollisionReg | collisionLookup[spriteCollisions[i]];
 			if (!spriteCollisionReg && newReg) {
 				vicReg[0x19] |= ((vicReg[0x1A] & 4) << 5) | 4;
-				checkIRQflag();
 			}
 			spriteCollisionReg = newReg;
 			spriteCollisions[i] = 0;
 		}
 	}
+	checkIRQflag();
 }
 
 void Vic2mem::enableREU(unsigned int sizekb)

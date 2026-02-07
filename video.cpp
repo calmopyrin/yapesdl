@@ -148,7 +148,7 @@ void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned 
 	int i;
 	int Uc[4], Vc[4], Up[4], Vp[4];
 
-	const Yuv *yuvLookup = yuvPalette;
+	const Yuv *yuvBuffer = yuvPalette;
 	const int interlace = 0;
 //	const int thisFrameInterlaced = !evenFrame && doubleScan ? 1 : 0;
 	unsigned char *fb = screenptr;
@@ -162,7 +162,6 @@ void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned 
 		do {
 			int shade = doubleScan && !k ? interlacedShade : 100;
 			int j = 0;
-			const Yuv *yuvBuffer = yuvLookup;
 //            const unsigned int lineVphase = (i & 1) ^ thisFrameInterlaced;
 			const unsigned int invertPhase = 0; //(vPhase[0] ^ (lineVphase) && isPalMode) ? -1 : 0;
 			const unsigned int invertPhaseNext = 0; //((vPhase[1] ^ (lineVphase ^ 1))  && isPalMode) ? -1 : 0;
@@ -172,38 +171,37 @@ void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned 
 			Vc[0] = Vc[1] = Vc[2] = Vc[3] = yuv.v ^ invertPhase;
 
 			do {
-				int Y0, Y1;
 				const unsigned int dj = j << 1;
 				const unsigned int filtX = dj & 3;
 				const unsigned int filtNextX = (filtX + 1) & 3;
 
 				// current row
-				yuv = yuvBuffer[fb[dj]];
-				Y0 = (int)(yuv.y) * shade / 100;
-				Uc[filtX] = yuv.u;
-				Vc[filtX] = yuv.v ^ invertPhase;
+				Yuv c0 = yuvBuffer[fb[dj]];
 				// previous one
-				yuv = yuvBuffer[prevLine[dj]];
-				Up[filtX] = yuv.u;
-				Vp[filtX] = yuv.v ^ invertPhaseNext;
-
+				Yuv p0 = yuvBuffer[prevLine[dj]];
 				// move one pixel
-				yuv = yuvBuffer[fb[dj + 1]];
-				Y1 = (int)(yuv.y) * shade / 100;
-				Uc[filtNextX] = yuv.u;
-				Vc[filtNextX] = yuv.v ^ invertPhase;
+				Yuv c1 = yuvBuffer[fb[dj + 1]];
 				// previous row
-				yuv = yuvBuffer[prevLine[dj + 1]];
-				Up[filtNextX] = yuv.u;
-				Vp[filtNextX] = yuv.v ^ invertPhaseNext;
+				Yuv p1 = yuvBuffer[prevLine[dj + 1]];
+
+				Uc[filtX] = c0.u;
+				Vc[filtX] = c0.v ^ invertPhase;
+				Up[filtX] = p0.u;
+				Vp[filtX] = p0.v ^ invertPhaseNext;
+
+				Uc[filtNextX] = c1.u;
+				Vc[filtNextX] = c1.v ^ invertPhase;
+				Up[filtNextX] = p1.u;
+				Vp[filtNextX] = p1.v ^ invertPhaseNext;
 
 				// average color signal
 				// approximately a 13 -> 1.3 MHz Butterworth filter
 				const unsigned char U = (Uc[0] + Uc[1] + Uc[2] + Uc[3] +
-					Up[0] + Up[1] + Up[2] + Up[3]) / 8; // U
+					Up[0] + Up[1] + Up[2] + Up[3]) >> 3; // U
 				const unsigned char V = (Vc[0] + Vc[1] + Vc[2] + Vc[3] +
-					Vp[0] + Vp[1] + Vp[2] + Vp[3]) / 8; // V
-
+					Vp[0] + Vp[1] + Vp[2] + Vp[3]) >> 3; // V
+				const int Y0 = (int)(c0.y) * shade / 100;
+				const int Y1 = (int)(c1.y) * shade / 100;
 				// store result
 				*(pImage + j) =
 					(U << 0)

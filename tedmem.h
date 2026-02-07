@@ -268,10 +268,48 @@ protected:
 		updateSerialDevices(serialPort[0]);
 	}
 	void writeHorizShift() {
+		unsigned int oldXscr = hshift;
 		hshift = aw_value & 7;
+		if (CharacterWindow && !(HBlanking || VBlanking)) { 
+			int todo = hshift - oldXscr;
+			if (0 < todo) {
+				unsigned char a;
+				switch (scrattr & 0xF0) {
+				case GRAPHMODE:
+					if (scrattr & MULTICOLOR) {
+						a = mcol[0];
+					} else {
+						unsigned char chr = chrbuf[x];
+						unsigned char clr = clrbuf[x];
+						a = (chr & 0x0F) | (clr & 0x70);
+					}
+					break;
+				default:
+					a = mcol[0];
+					break;
+				}
+				for (int i = 0; i < todo; i++)
+					scrptr[i + oldXscr] = a;
+			}
+		}
 	}
 	void writeVerticalSubCount() {
 		vertSubCount = aw_value & 7;
+	}
+	inline void writeVerticalCount(unsigned int oldbeamy)
+	{
+		// latch is updated in cycle 112
+		if (beamx == 112)
+			ff1d_latch = beamy + 1;
+		if (beamy == 205) {
+			if (!dmaFetchCountStart)
+				CharacterCountReload = 0x03FF;
+		}
+		// raster IRQ is edge triggered
+		if (beamy == irqline && oldbeamy != irqline) {
+			Ram[0xFF09] |= ((Ram[0xFF0A] & 2) << 6) | 2;
+			irqFlag |= Ram[0xFF09] & 0x80;
+		}
 	}
 	static unsigned int clockDivisor;
 	//

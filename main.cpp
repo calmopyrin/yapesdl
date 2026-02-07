@@ -15,10 +15,10 @@
 #define WINDOWX SCREENX
 #define WINDOWY SCREENY
 
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <math.h>
+#include <cstdlib>
+#include <cstring>
+#include <cctype>
+#include <cmath>
 #include "keyboard.h"
 #include "cpu.h"
 #include "tedmem.h"
@@ -140,8 +140,8 @@ inline static void ShowFrameRate(unsigned int show)
 {
 	char fpstxt[16];
 	static unsigned int fps = 50;
-	unsigned int speed = ad_get_fps(fps);
 	if (show) {
+		unsigned int speed = ad_get_fps(fps);
 		sprintf(fpstxt, "%u%%/%ufps", speed, fps);
 		unsigned int s = (unsigned int) strlen(fpstxt) << 3;
 		ted8360->texttoscreen((ted8360->getCyclesPerRow() >= VIC_PIXELS_PER_ROW ? 472 : 408) - s, 9, fpstxt);

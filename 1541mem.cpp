@@ -115,7 +115,7 @@ void DRIVEMEM::UpdateSerialState(unsigned char newAtn)
 	if (oldAtnIn && !newAtn) {
 		//fprintf(stderr, "IEC irq: %i\n", devnr>>5);
 		// Set via interrupt on serial attention
-		via[0].ifr |= (via[0].pcr << 1);
+		via[0].ifr |= 2;
 		SetIRQflag(via[0].ifr & via[0].ier);
 	}
 	oldAtnIn = newAtn;

@@ -64,37 +64,67 @@ void TED::setSampleRate(unsigned int sampleRate)
 	setClockStep(originalFreq, sampleRate);
 }
 
-void TED::calcSamples(short *buffer, unsigned int nrsamples)
+void TED::calcSamples(short* buffer, unsigned int nrsamples)
 {
-	// Rendering...
-	// Calculate the buffer...
-	if (DAStatus) {// digi?
-		for (;nrsamples--;) {
+	if (DAStatus) {
+		while (nrsamples--)
 			*buffer++ = cachedDigiSample;
-		}
-	} else {
-		for (;nrsamples--;) {
-			// Channel 1
-			if (OscReload[0] != (0x3FF << PRECISION)) {
-				if ((oscCount[0] += oscStep) >= OSCRELOADVAL) {
-					FlipFlop ^= 0x10;
-					cachedSoundSample[0] = Volume | (FlipFlop & channelStatus[0]);
-					oscCount[0] = OscReload[0] + (oscCount[0] - OSCRELOADVAL);
-				}
-			}
-			// Channel 2
-			if (OscReload[1] != (0x3FF << PRECISION)) {
-				if ((oscCount[1] += oscStep) >= OSCRELOADVAL) {
-					FlipFlop ^= 0x20;
-					cachedSoundSample[1] = Volume | (FlipFlop & channelStatus[1]) | (noise[NoiseCounter] & SndNoiseStatus);
-					if (++NoiseCounter == 255)
-						NoiseCounter = 0;
-					oscCount[1] = OscReload[1] + (oscCount[1] - OSCRELOADVAL);
-				}
-			}
-			*buffer++ = volumeTable[cachedSoundSample[0] | cachedSoundSample[1]];
-		}   // for
+		return;
 	}
+
+	int osc0 = oscCount[0];
+	int osc1 = oscCount[1];
+	const int reload0 = OscReload[0];
+	const int reload1 = OscReload[1];
+	const bool ch0_active = reload0 != (0x3FF << PRECISION);
+	const bool ch1_active = reload1 != (0x3FF << PRECISION);
+	const int ch0_status = channelStatus[0];
+	const int ch1_status = channelStatus[1];
+	const int noise_status = SndNoiseStatus;
+
+	int css0 = cachedSoundSample[0];
+	int css1 = cachedSoundSample[1];
+	int cssOred = css0 | css1;
+	int ff = FlipFlop;
+
+	const int step = oscStep;
+
+	int nc = NoiseCounter;
+
+	while (nrsamples--) {
+		// Channel 1
+		if (ch0_active) {
+			osc0 += step;
+			if (osc0 >= OSCRELOADVAL) {
+				ff ^= 0x10;
+				css0 = Volume | (ff & ch0_status);
+				cssOred = css0 | css1;
+				osc0 -= OSCRELOADVAL;
+				osc0 += reload0;
+			}
+		}
+		// Channel 2
+		if (ch1_active) {
+			osc1 += step;
+			if (osc1 >= OSCRELOADVAL) {
+				ff ^= 0x20;
+				css1 = Volume | (ff & ch1_status) |
+					(noise[nc] & noise_status);
+				cssOred = css0 | css1;
+				nc = (nc + 1) % 0xFF;
+				osc1 -= OSCRELOADVAL;
+				osc1 += reload1;
+			}
+		}
+		*buffer++ = volumeTable[cssOred];
+	}
+
+	oscCount[0] = osc0;
+	oscCount[1] = osc1;
+	cachedSoundSample[0] = css0;
+	cachedSoundSample[1] = css1;
+	FlipFlop = ff;
+	NoiseCounter = nc;
 }
 
 inline void setFreq(unsigned int channel, int freq)

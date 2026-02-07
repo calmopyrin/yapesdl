@@ -32,12 +32,12 @@
 #define RENDER_HIRES(BUF, COLV, MSK) \
 	do { \
 		BUF[0] = COLV[MSK >> 7]; \
-		BUF[1] = COLV[(MSK & 0x40) >> 6]; \
-		BUF[2] = COLV[(MSK & 0x20) >> 5]; \
-		BUF[3] = COLV[(MSK & 0x10) >> 4]; \
-		BUF[4] = COLV[(MSK & 0x08) >> 3]; \
-		BUF[5] = COLV[(MSK & 0x04) >> 2]; \
-		BUF[6] = COLV[(MSK & 0x02) >> 1]; \
+		BUF[1] = COLV[(MSK >> 6) & 1]; \
+		BUF[2] = COLV[(MSK >> 5) & 1]; \
+		BUF[3] = COLV[(MSK >> 4) & 1]; \
+		BUF[4] = COLV[(MSK >> 3) & 1]; \
+		BUF[5] = COLV[(MSK >> 2) & 1]; \
+		BUF[6] = COLV[(MSK >> 1) & 1]; \
 		BUF[7] = COLV[MSK & 1]; \
 	} while (0);
 
@@ -56,8 +56,8 @@
 #define RENDER_MC(BUF, COLV, MSK) \
 	do { \
 		BUF[0] = BUF[1] = COLV[MSK >> 6]; \
-		BUF[2] = BUF[3] = COLV[(MSK & 0x30) >> 4]; \
-		BUF[4] = BUF[5] = COLV[(MSK & 0x0C) >> 2]; \
+		BUF[2] = BUF[3] = COLV[(MSK >> 4) & 3]; \
+		BUF[4] = BUF[5] = COLV[(MSK >> 2) & 3]; \
 		BUF[6] = BUF[7] = COLV[MSK & 0x03]; \
 	} while (0);
 
@@ -930,15 +930,19 @@ void TED::Write(unsigned int addr, unsigned char value)
 								charPosLatchFlag = false;
 							return;
 						case 0xFF1C:
-							beamy=((value&0x01)<<8)|(beamy&0xFF);
-							if (beamx == 112)
-								ff1d_latch = beamy + 1;
+							{
+								unsigned int oldbeamy = beamy;
+								beamy=((value&0x01)<<8)|(beamy&0xFF);
+								writeVerticalCount(oldbeamy);
+							}
 							return;
 						case 0xFF1D:
-							//log(0xff1d, value);
-							beamy=(beamy&0x0100)|value;
-							if (beamx == 112)
-								ff1d_latch = beamy + 1;
+							{
+								//log(0xff1d, value);
+								unsigned int oldbeamy = beamy;
+								beamy = (beamy & 0x0100) | value;
+								writeVerticalCount(oldbeamy);
+							}						
 							return;
 						case 0xFF1E:
 							{
@@ -1758,12 +1762,14 @@ void TED::ted_process(const unsigned int continuous)
 
 		if (beamx&1) {	// perform these only in every second cycle
 			if (t2on && !((timer2--)&0xFFFF)) {// Timer2 permitted
-				Ram[0xFF09] |= ((Ram[0xFF0A]&0x10) << 3) | 0x10; // interrupt
-				irqFlag |= Ram[0xFF09] & 0x80;
+				unsigned char irqbits = ((Ram[0xFF0A]&0x10) << 3) | 0x10; // interrupt
+				Ram[0xFF09] |= irqbits;
+				irqFlag |= irqbits & 0x80;
 			}
 			if (t3on && !((timer3--)&0xFFFF)) {// Timer3 permitted
-				Ram[0xFF09] |= ((Ram[0xFF0A]&0x40) << 1) | 0x40; // interrupt
-				irqFlag |= Ram[0xFF09] & 0x80;
+				unsigned char irqbits = ((Ram[0xFF0A]&0x40) << 1) | 0x40; // interrupt
+				Ram[0xFF09] |= irqbits;
+				irqFlag |= irqbits & 0x80;
 			}
 			if (!CharacterWindow && !HBlanking && !VBlanking) {
 				// we are on the border area, so use the frame color
@@ -1808,8 +1814,9 @@ void TED::ted_process(const unsigned int continuous)
 			if (t1on) { // Timer1 permitted?
 				if (!timer1) {
 					timer1 = t1start;
-					Ram[0xFF09] |= ((Ram[0xFF0A] & 0x08) << 4) | 8; // interrupt
-					irqFlag |= Ram[0xFF09] & 0x80;
+					unsigned char irqbits = ((Ram[0xFF0A] & 0x08) << 4) | 8; // interrupt
+					Ram[0xFF09] |= irqbits;
+					irqFlag |= irqbits & 0x80;
 				}
 				timer1--;
 			}
@@ -1825,8 +1832,9 @@ void TED::ted_process(const unsigned int continuous)
 			}
 			if (displayEnable)
 				x = (x + 1) & 0x3F;
-			if (alignedWriteFunctor) {
-				(this->*alignedWriteFunctor)();
+			auto fn = alignedWriteFunctor;
+			if (fn) {
+				(this->*fn)();
 				alignedWriteFunctor = NULL;
 			}
 			switch (clockingState) {
