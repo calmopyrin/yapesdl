@@ -2,13 +2,13 @@ README.SDL
 
 This is the README for the SDL port of Yape/SDL (Yet Another Plus/4 Emulator)
 
-Current version is 0.80.1
+Current version is 0.81.1
 
 LEGAL
 =====
 
   Yape for SDL is 
-  (C) 2000,2001,2004,2007,2008,2015-2024 Attila Grósz (gyros@freemail.hu)
+  (C) 2000,2001,2004,2007,2008,2015-2026 Attila Grósz (gyros@freemail.hu)
   http://yape.plus4.net
 
   This program is free software; you can redistribute it and/or
@@ -44,7 +44,7 @@ COMPILE
   
   To be able to compile on Linux, you must have the latest SDL
   package from http://libsdl.org. The recent stable release as of time of
-  this writing is 2.26.x. You will also need the development libraries.
+  this writing is 2.32.x. You will also need the development libraries.
   
   The provided makefile is written for the GNU C++ compiler but can also
   be easily adjusted for other compilers.
@@ -64,7 +64,7 @@ COMPILE
   
   If the compilation finished with no error, you can type:
   
-      ./yapesdl [PRG/P00/T64/TAP/D64/ZIP filename] [-c64]
+      ./yapesdl [PRG/P00/T64/TAP/D64/G64/ZIP filename] [-c64]
   
   to start the emulator, where [] means optional arguments.
 
@@ -83,8 +83,8 @@ COMPILE
   targeting 32 as well as 64-bit binary builds.
 
   It is recommended that you use the provided Microsoft Visual Studio 14 
-  solution file. The Community 2015 and 2017 Editions are terrific and free 
-  IDE's with an excellent debugger.
+  solution file. The Community 2015, 2017, 2019, 2022 or 2026 Editions are 
+  all terrific and free IDE's with an excellent debugger.
   
   Note that the 2.0.4 version of the Windows SDL runtime library had a
   serious crash in its DX9 driver. Upgrade to 2.0.5+ to avoid it.
@@ -115,8 +115,8 @@ COMPILE
 USAGE
 =====
 
-  The user interface isn't yet ready, so you MUST memorise a couple
-  of keyboard shortcuts:
+  The user interface isn't yet ready, so not all of the below keyboard shortcuts are available
+  via the menu:
   
   F12 or ESCAPE : exits the emulator
   F11 or Alt+R  : soft reset
@@ -127,7 +127,8 @@ USAGE
   F6		: press STOP on tape
   F7		: save screenshot to BMP file
   F8		: enter the user interface, press F8 again or ESC to quit.
-              You can move around in the menus with the arrow keys, press ENTER for selection.
+              You can move around in the menus with the arrow keys, press ENTER (or left mouse button) for selection.
+              Also available via the right mouse button.
   F9		: quick debugger
   F10		: save current settings to user's home directory
 
@@ -144,7 +145,10 @@ USAGE
   LALT + F6    : load emulator state
   LALT + F8	   : save memory pointed by $2B/$2C and $2D/$2E
   LALT + KPLUS : collate replay frequencies
-  
+
+  You can also navigate in the menu using mouseclicks and the mousewheel. Press the middle button for
+  autostart.
+
   Internal disk LOAD/SAVE operations are supported to the current
   file system directory - which is usually '/home/<username>/yape'.
   Any PRG files you may wish to load, should go there, although you can browse the directory tree
@@ -194,15 +198,16 @@ FEATURES
   - almost complete MOS 6569 aka 'VIC-II' chip emulation
   - almost complete MOS 6561 aka 'VIC' chip emulation
   - reasonable MOS 6581/8580 aka 'SID' chip emulation
+  - almost complete MOS 6522 aka 'VIA' emulation
+  - almost complete MOS 6525 aka 'TIA' emulation
   - somewhat incomplete MOS 6526 aka 'CIA' emulation
-  - somewhat incomplete MOS 6522 aka 'VIA' emulation
   - real 1541 drive emulation (Read/Write)
   - full ROM banking on +4
   - almost full tape emulation (MTAP, WAV images)
   - joystick emulation via cursor keys and gamepads
-  - PRG, P00, T64, D64 and TAP file format support
+  - PRG, P00, T64, D64, G64 and TAP file format support
   - partial CRT emulation
-  - serial IEC disk LOAD/SAVE to the file system
+  - serial (C64/VIC20) and parallel (+4) IEC disk LOAD/SAVE to the file system
   - REU 1700/1750/1764 and Hannes 256kB memory expansion support
   - snapshots / savestates
 
