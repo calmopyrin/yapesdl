@@ -1,26 +1,29 @@
 Package: yapesdl
-Version: 0.71.2-1
+Version: 0.81.1-1
 Section: non-free
 Priority: optional
 Architecture: amd64
 Depends: libsdl2-2.0-0 (>= 2.0), libstdc++6, libc6
-Installed-Size: 1154
+Installed-Size: 1210
 Maintainer: Attila Grosz <gaia@atilia.eu>
 Homepage: https://github.com/calmopyrin/yapesdl
-Description: YAPE/SDL is a decent no-nonsense Commodore 264 family (C16, plus/4 etc.) emulator.
-  YAPE is a decent no-nonsense Commodore 264 family (C16, plus/4 etc.) and Commodore 64 emulator.
+Description: YAPE/SDL is a decent no-nonsense 8-bit Commodore emulator.
+  yapeSDL is a decent no-nonsense Commodore family (C16, plus/4, C64, VIC20) emulator.
   It is being developed for 20+ years by now and is available in Windows as well as multiplatform (SDL) editions. The SDL version features:
   - full, cycle exact MOS 6502/6510/7501/8501 CPU emulation
   - almost full MOS 7360/8360 aka 'TED' chip emulation
   - almost complete MOS 6569 aka 'VIC-II' chip emulation
+  - almost complete MOS 6561 aka 'VIC' chip emulation
   - reasonable MOS 6581/8580 aka 'SID' chip emulation
+  - almost complete VIA 6522 aka 'VIA' emulation
+  - almost complete TIA 6525 aka 'TIA' emulation
   - somewhat incomplete CIA 6526 aka 'CIA' emulation
   - real 1541 drive emulation (Read/Write)
   - full ROM banking on +4
   - almost full tape emulation
   - joystick emulation via cursor keys and gamepads
-  - PRG, P00, T64, D64 and TAP file format support
+  - PRG, P00, T64, D64, G64 and TAP file format support
   - partial CRT emulation
-  - memory expansion emulation (Hannes/REU)
-  - serial IEC disk LOAD/SAVE to the file system
+  - REU 1700/1750/1764 and Hannes 256kB memory expansion support
+  - serial (C64/VIC20) and parallel (+4) IEC disk LOAD/SAVE to the file system
   - snapshots / savestates

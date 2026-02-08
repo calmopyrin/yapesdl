@@ -30,7 +30,7 @@ vic2mem.o \
 video.o
 
 EXENAME = yapesdl
-SRCPACKAGENAME = $(EXENAME)_0.80.1-1
+SRCPACKAGENAME = $(EXENAME)_0.81.1-1
 BINPACKAGENAME = $(SRCPACKAGENAME)_amd64
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LDFLAGS := $(shell sdl2-config --libs)
@@ -43,7 +43,7 @@ sourcefiles = $(filter-out $(hasnoheader),$(allfiles)) icon.h device.h mem.h mne
 				roms.h types.h Clockable.h 1541rom.h YapeSDL.cbp YapeSDL.Linux.cbp
 
 CC = g++
-cflags = -O3 -w $(SDL_CFLAGS)
+cflags = -O3 -w -fexpensive-optimizations $(SDL_CFLAGS)
 libs = $(SDL_LDFLAGS)
 
 yape : $(objects)
