@@ -37,7 +37,7 @@
 		A53DF12222BCA68B0033D6E2 /* tedsound.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BC01DFDAB1F006AD19D /* tedsound.cpp */; };
 		A53DF12322BCA68B0033D6E2 /* vic2mem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BC11DFDAB1F006AD19D /* vic2mem.cpp */; };
 		A53DF12422BCA68B0033D6E2 /* video.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A5CA5BC21DFDAB1F006AD19D /* video.cpp */; };
-		A54FE70722BCA9D50008C12D /* SDL2.framework in Copy SDL2.framework */ = {isa = PBXBuildFile; fileRef = A5CA5BDC1DFDAB99006AD19D /* SDL2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A54FE70722BCA9D50008C12D /* SDL2.framework in Copy SDL2.framework */ = {isa = PBXBuildFile; fileRef = A5CA5BDC1DFDAB99006AD19D /* SDL2.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A54FE70922BCAF5F0008C12D /* plus4.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A54FE70822BCAF5F0008C12D /* plus4.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -272,8 +272,7 @@
 				TargetAttributes = {
 					A53DF0F822BCA5B30033D6E2 = {
 						CreatedOnToolsVersion = 10.1;
-						DevelopmentTeam = VNV35Q55PD;
-						ProvisioningStyle = Automatic;
+						ProvisioningStyle = Manual;
 						SystemCapabilities = {
 							com.apple.HardenedRuntime = {
 								enabled = 1;
@@ -374,10 +373,12 @@
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_IDENTITY = "Mac Developer";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = VNV35Q55PD;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -386,9 +387,10 @@
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				INFOPLIST_FILE = yapeSDL/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = "-ffast-math";
 				PRODUCT_BUNDLE_IDENTIFIER = eu.atilia.gaia.yapeSDL;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WARNING_CFLAGS = "-Wno-undefined-var-template";
@@ -414,20 +416,24 @@
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_IDENTITY = "Mac Developer";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = VNV35Q55PD;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
 				);
 				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_OPTIMIZATION_LEVEL = 3;
 				INFOPLIST_FILE = yapeSDL/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = "-ffast-math";
 				PRODUCT_BUNDLE_IDENTIFIER = eu.atilia.gaia.yapeSDL;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WARNING_CFLAGS = "-Wno-undefined-var-template";
