@@ -84,7 +84,7 @@ void TED::calcSamples(short* buffer, unsigned int nrsamples)
 
 	int css0 = cachedSoundSample[0];
 	int css1 = cachedSoundSample[1];
-	int cssOred = css0 | css1;
+	int cachedVolSample = volumeTable[css0 | css1];
 	int ff = FlipFlop;
 
 	const int step = oscStep;
@@ -98,7 +98,7 @@ void TED::calcSamples(short* buffer, unsigned int nrsamples)
 			if (osc0 >= OSCRELOADVAL) {
 				ff ^= 0x10;
 				css0 = Volume | (ff & ch0_status);
-				cssOred = css0 | css1;
+				cachedVolSample = volumeTable[css0 | css1];
 				osc0 -= OSCRELOADVAL;
 				osc0 += reload0;
 			}
@@ -110,13 +110,13 @@ void TED::calcSamples(short* buffer, unsigned int nrsamples)
 				ff ^= 0x20;
 				css1 = Volume | (ff & ch1_status) |
 					(noise[nc] & noise_status);
-				cssOred = css0 | css1;
+				cachedVolSample = volumeTable[css0 | css1];
 				nc = (nc + 1) % 0xFF;
 				osc1 -= OSCRELOADVAL;
 				osc1 += reload1;
 			}
 		}
-		*buffer++ = volumeTable[cssOred];
+		*buffer++ = cachedVolSample;
 	}
 
 	oscCount[0] = osc0;
