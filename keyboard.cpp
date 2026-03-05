@@ -39,6 +39,7 @@ unsigned int KEYS::nrOfJoys;
 SDL_GameController *KEYS::sdlJoys[2];
 // both joysticks are active by default
 unsigned int KEYS::activejoy = 3;
+unsigned char KEYS::paddleValueX = 0xFF;
 
 rvar_t inputSettings[] = {
 	{ "Active keyset for joystick", "KeysetIndex", KEYS::swapKeyset, &KEYS::joystickScanCodeIndex, RVAR_STRING_FLIPLIST, &KEYS::activeJoyKeyset },
@@ -314,10 +315,10 @@ unsigned char KEYS::readPaddleAxis(unsigned short axis)
 	if (thisController) {
 		move = SDL_GameControllerGetAxis(thisController, (axis & 1 ) ? SDL_CONTROLLER_AXIS_LEFTY : SDL_CONTROLLER_AXIS_LEFTX);
 		//fprintf(stderr, "%u axis moved: %i\t%i\n", axis & 1, move, (((int)move + 32768) >> 8) ^ 0xFF);
-		retval = (unsigned char)((move ^ 0x7FFF) >> 8);
+		retval = (unsigned char)(((int)move + 32768) >> 8);
 	}
 	else
-		retval = 0;
+		retval = paddleValueX;
 
 	return retval;
 }
@@ -336,6 +337,14 @@ unsigned char KEYS::readPaddleFireButton(unsigned int paddleID)
 	}
 	//fprintf(stderr, "%u paddle button state: %02x\n", paddleID, retval);
 	return retval ^ 0xFF;
+}
+
+void KEYS::setPaddleValue(int value)
+{
+	int newValue = paddleValueX + value;
+	if (newValue < 0) newValue = 0;
+	else if (newValue > 255) newValue = 255;
+	paddleValueX = (unsigned char)newValue;
 }
 
 unsigned char KEYS::readSidcardJoyport()

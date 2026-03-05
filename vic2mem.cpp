@@ -127,6 +127,7 @@ Vic2mem::Vic2mem() : gamepin(1), exrom(1), reu(0)
 	keys64 = new KEYS64;
 	// CIA's
 	cia[0].setIrqCallback(setCiaIrq, this);
+	cia[1].setIrqCallback(setCiaNmi, &cpuptr);
 	//
 	Reset(3);
 	// remove TED sound (inherited) from the list
@@ -144,7 +145,7 @@ Vic2mem::~Vic2mem()
 void Vic2mem::triggerNMI()
 {
 	cia[1].icr |= 0x10;
-	cpuptr->triggerNmi();
+	cpuptr.triggerNmi();
 	if (cia[1].icr & cia[1].irq_mask & 0x7F) {
 		cia[1].icr |= 0x80;
 		//cpuptr->clearNmi();
@@ -290,7 +291,7 @@ void Vic2mem::loadromfromfile(int nr, const char fname[512], unsigned int offset
 				//
 				changeMemoryBank(prp | ~prddr, exrom, gamepin);
 				Reset(0);
-				cpuptr->Reset();
+				cpuptr.Reset();
 				return;
 			}
 		}
@@ -301,7 +302,7 @@ void Vic2mem::loadromfromfile(int nr, const char fname[512], unsigned int offset
 	changeMemoryBank(prp | ~prddr, exrom, gamepin);
 	if (restart) {
 		Reset(1);
-		cpuptr->Reset();
+		cpuptr.Reset();
 	}
 }
 
@@ -318,12 +319,6 @@ void Vic2mem::loadroms()
 	memset(mem_c000_ffff + 0x1D68, 0xEA, 0x24);
 	memcpy(mem_c000_ffff + 0x1D68, patch, sizeof(patch));
 #endif
-}
-
-void Vic2mem::setCpuPtr(CPU *cpu)
-{
-	cpuptr = cpu;
-	cia[1].setIrqCallback(setCiaNmi, cpuptr);
 }
 
 void Vic2mem::copyToKbBuffer(const char *text, unsigned int length)
@@ -479,7 +474,7 @@ void Vic2mem::doDelayedDMA()
 					// FIXME it is different whether in idle state or not
 					const unsigned int illegalCnt = MIN(40 - delay, MIN(3, delay));
 					const unsigned int skippedCnt = delay - illegalCnt;
-					const unsigned char illegalClr = Read(cpuptr->getPC()) & 0x0F;
+					const unsigned char illegalClr = Read(cpuptr.getPC()) & 0x0F;
 					
 					unsigned int i = 0;
 					while (i < illegalCnt) {
@@ -683,7 +678,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 							case 0xD:
 								{
 									unsigned char retval = cia[1].read(0xD);
-									cpuptr->clearNmi();
+									cpuptr.clearNmi();
 									/*fprintf(stderr, "CIA2(%02X) read:%02X @ PC=%04X @ cycle=%lli\n", addr & 0x1f, retval,
 										cpuptr->getPC(), CycleCounter);*/
 									return retval;
@@ -1299,9 +1294,9 @@ void Vic2mem::ted_process(const unsigned int continuous)
 
 		// CPU clocking
 		if (!vicBusAccessCycleStart)
-			cpuptr->process();
+			cpuptr.process();
 		else if (CycleCounter - vicBusAccessCycleStart < 3)
-			cpuptr->stopcycle();
+			cpuptr.stopcycle();
 
 		// drawing the visible part of the screen
 		if (!(HBlanking || VBlanking)) {
@@ -1390,7 +1385,7 @@ inline unsigned char Vic2mem::readFloatingBus(unsigned int adr)
 	case 'i':
 		return vicBase[0x3FFF];
 	case ' ': case '*':
-		return cpuptr->getcins();
+		return cpuptr.getcins();
 	}
 }
 

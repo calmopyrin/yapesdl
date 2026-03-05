@@ -32,8 +32,8 @@ Vicmem::Vicmem()
 		clocks_per_line = 65; // 65 for NTSC
 	}
 
-	cpuptr = NULL;
-	_delayedEventCallBack = NULL;
+	//cpuptr = NULL;
+	alignedWriteFunctor = NULL;
 	memset(mcol, 0, sizeof(mcol));
 	memset(firstmcol, 0, sizeof(firstmcol));
 	cset = vic20charset;
@@ -95,7 +95,7 @@ void Vicmem::flipVicramExpansion(void* none)
 			i++;
 		}
 		ramExpSizeKb = ramExpSizeArray[(i + 1) % ramExpSizeArraySize];
-		vicm->cpuptr->Reset();
+		vicm->cpuptr.Reset();
 		vicm->Reset(2);
 	}
 }
@@ -104,18 +104,18 @@ void Vicmem::checkNmi(void* cptr, unsigned char m)
 {
 	Vicmem* mh = reinterpret_cast<Vicmem*>(cptr);
 	if (m)
-		mh->cpuptr->triggerNmi();
+		mh->cpuptr.triggerNmi();
 	else
-		mh->cpuptr->clearNmi();
+		mh->cpuptr.clearNmi();
 }
 
 void Vicmem::triggerNMI()
 {
 	via[0].ifr |= Via::INPUTCA1;
 	if (via[0].ifr & via[0].ier & 0x7F) {
-		cpuptr->triggerNmi();
+		cpuptr.triggerNmi();
 		via[0].ifr |= 0x80;
-		cpuptr->clearNmi();
+		cpuptr.clearNmi();
 	}
 }
 
@@ -133,8 +133,8 @@ void Vicmem::Reset(unsigned int resetLevel)
 	soundReset();
 	via[0].reset();
 	via[1].reset();
-	if (cpuptr)
-		cpuptr->Reset();
+	//if (cpuptr)
+		cpuptr.Reset();
 }
 void Vicmem::dumpState()
 {
@@ -350,13 +350,11 @@ void Vicmem::updateColorRegs()
 	framecol = (mcol[BORDER] << 24) | (mcol[BORDER] << 16) | (firstmcol[BORDER] << 8) | firstmcol[BORDER];
 	// FIXME: changes to the reverse mode bit appear 3 hires pixels late!
 	reverseMode = vicReg[15] & 0x08;
-	_delayedEventCallBack = 0;
 }
 
 void Vicmem::updateFirstPixelColor()
 {
 	firstmcol[AUX] = vicReg[14] >> 4;
-	_delayedEventCallBack = 0;
 }
 
 unsigned char *Vicmem::changeVideoBase(int address)
@@ -420,8 +418,8 @@ inline void Vicmem::changeCharsetPtr(int value)
 
 unsigned char Vicmem::readUnconnected(unsigned int addr, bool isCpu)
 {
-	unsigned int cc = cpuptr->getcycle();
-	unsigned int lcb = cc ? cpuptr->getnextins() : cpuptr->getcins();
+	unsigned int cc = cpuptr.getcycle();
+	unsigned int lcb = cc ? cpuptr.getnextins() : cpuptr.getcins();
 	return !(beamx & 1) ? dataRead[0] : addr >> 8;
 }
 
@@ -468,14 +466,14 @@ void Vicmem::vic6560write(unsigned int addr, unsigned char value)
 		break;
 
 	case 0xE:
-		_delayedEventCallBack = (delayedEventCallback)&Vicmem::updateFirstPixelColor;
+		alignedWriteFunctor = (delayedEventCallback)&Vicmem::updateFirstPixelColor;
 		mcol[AUX] = value >> 4;
 		if ((vicReg[addr] ^ value) & 0xF)
 			soundWrite(4, value & 0xF);
 		break;
 
 	case 0xF:
-		_delayedEventCallBack = (delayedEventCallback) &Vicmem::updateColorRegs;
+		alignedWriteFunctor = (delayedEventCallback) &Vicmem::updateColorRegs;
 		mcol[SCRN] = value >> 4;
 		mcol[BORDER] = value & 7;
 		framecol = (mcol[BORDER] << 24) | (mcol[BORDER] << 16) | (firstmcol[BORDER] << 8) | firstmcol[BORDER];
@@ -967,7 +965,7 @@ void Vicmem::ted_process(const unsigned int continuous)
 			via[0].countTimers();
 			via[1].countTimers();
 			// CPU
-			cpuptr->process();
+			cpuptr.process();
 			// tape
 			if (tap->isMotorOn()) {
 				if (tap->getFallingEdgeState(CycleCounter * 2)) {
@@ -1037,8 +1035,9 @@ void Vicmem::ted_process(const unsigned int continuous)
 				//if (scrptr != endptr)
 				scrptr += 8;
 			}
-			if (_delayedEventCallBack) {
-				(this->*_delayedEventCallBack)();
+			if (alignedWriteFunctor) {
+				(this->*alignedWriteFunctor)();
+				alignedWriteFunctor = NULL;
 			}
 		}
 	} while (loop_continuous);

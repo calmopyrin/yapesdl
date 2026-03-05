@@ -27,7 +27,6 @@ class Vic2mem : public TED
 		virtual void Write(unsigned int addr, unsigned char value);
 		virtual void poke(unsigned int addr, unsigned char data) { Ram[addr & 0xffff] = data; }
 		virtual void ted_process(const unsigned int continuous);
-		virtual void setCpuPtr(CPU *cpu);
 		//virtual unsigned int getColorCount() { return 256; };
 		virtual Color getColor(unsigned int ix);
 		virtual unsigned int getCyclesPerRow() const { return 504; }

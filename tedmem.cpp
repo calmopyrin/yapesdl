@@ -127,7 +127,7 @@ enum {
 	TRFSHDELAY = 1 << 11
 };
 
-TED::TED() : SaveState(), sidCard(0), crsrphase(0), ramExt(0), reuBank(3), alignedWriteFunctor(NULL)
+TED::TED() : SaveState(), sidCard(0), crsrphase(0), ramExt(0), reuBank(3), alignedWriteFunctor(NULL), cpuptr(this, &irqFlag, Ram + 0x0100)
 {
 	unsigned int i;
 
@@ -208,7 +208,7 @@ void TED::flipRamMask(void *none)
 	TED *ted = instance_;
 	// only reset if +4
 	if (ted->getEmulationLevel() < 2) {
-		ted->cpuptr->Reset();
+		ted->cpuptr.Reset();
 		ted->Reset(3);
 	}
 }
@@ -362,7 +362,7 @@ ClockCycle TED::GetClockCount()
 void TED::log(unsigned int addr, unsigned int value)
 {
 	fprintf(stderr, "%04X<-%02X(%03d) Old:%02X HC:(%03d/$%02X) VC:(%03d/$%03X) XY:%03i/%03i PC:$%04X BL:%02X frm:%i cyc:%llu\n",
-		addr, value, value, Read(addr), getHorizontalCount(), getHorizontalCount(), beamy, beamy, beamx, TVScanLineCounter, cpuptr->getPC(), BadLine, crsrphase, CycleCounter);
+		addr, value, value, Read(addr), getHorizontalCount(), getHorizontalCount(), beamy, beamy, beamx, TVScanLineCounter, cpuptr.getPC(), BadLine, crsrphase, CycleCounter);
 }
 
 void TED::setNtscMode(bool on)
@@ -390,7 +390,7 @@ void TED::ChangeMemBankSetup()
 
 unsigned char TED::readOpenAddressSpace(unsigned int addr)
 {
-	unsigned int pc = cpuptr->getPC();
+	unsigned int pc = cpuptr.getPC();
 
 	switch (clockingState) {
 		default:
@@ -527,6 +527,13 @@ unsigned char TED::Read(unsigned int addr)
 					break;
 				case 0xFE:
 					switch (addr >> 4)  {
+						case 0xFE8: // SID Card
+						case 0xFE9:
+							if (sidCard) {
+								flushBuffer(CycleCounter, TED_SOUND_CLOCK);
+								return sidCard->read(addr & 0x1f);
+							}
+							return readOpenAddressSpace(addr);
 						case 0xFEC: // U9
 						case 0xFED:
 						case 0xFEE: // U8
@@ -560,7 +567,7 @@ unsigned char TED::Read(unsigned int addr)
 								flushBuffer(CycleCounter, TED_SOUND_CLOCK);
 								return sidCard->read(addr & 0x1f);
 							}
-							return 0xFD;
+							return readOpenAddressSpace(addr);
 						case 0xFD8: // Joyport on SID-card
 							if (sidCard) {
 								return keys->readSidcardJoyport();
@@ -732,7 +739,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 								if (vshift == (ff1d_latch & 7)) {
 									// Delayed DMA?
 									if (beamx>=3 && beamx<86) {
-										const unsigned char idleread = Read((cpuptr->getPC()+1)&0xFFFF);
+										const unsigned char idleread = Read((cpuptr.getPC()+1)&0xFFFF);
 										const unsigned int delay = (BadLine & 2) ? 0 : (beamx - 1) >> 1;
 										unsigned int invalidcount = (delay > 3) ? 3 : delay;
 										const unsigned int invalidpos = delay - invalidcount;
@@ -1144,7 +1151,7 @@ inline void TED::hi_text()
 	} else {
 		col[0] = mcol[0];
 		col[1] = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr->getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
 		mask ^= (((crsrpos - (x == 0)) & 0x3FF) == 0x3FF) * crsrblinkon;
 	}
 	RENDER_HIRES(wbuffer, col, mask);
@@ -1168,7 +1175,7 @@ inline void TED::rv_text()
 	} else {
 		col[0] = mcol[0];
 		col[1] = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr->getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
 		mask ^= (((crsrpos - (x == 0)) & 0x3FF) == 0x3FF) * crsrblinkon;
 	}
 	RENDER_HIRES(wbuffer, col, mask);
@@ -1189,7 +1196,7 @@ inline void TED::ec_text()
 		chr >>= 6;
 	} else {
 		charcol = chr = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr->getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
 	}
 
 	RENDER_EC(wbuffer, ecol, mask);
@@ -1209,7 +1216,7 @@ inline void TED::mc_text_rvs()
 	} else {
 		col[0] = mcol[0];
 		col[1] = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr->getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
 	}
 
 	if (col[1] & 0x08) { // if character is multicolored
@@ -1236,7 +1243,7 @@ inline void TED::mc_text()
 	} else {
 		col[0] = mcol[0];
 		col[1] = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr->getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
 	}
 
 	if (col[1] & 0x08) { // if character is multicolored
@@ -1264,7 +1271,7 @@ inline void TED::hi_bitmap()
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) | vertSubCount];
 	} else {
 		col[0] = col[1] = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr->getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
 	}
 
 	RENDER_HIRES(wbuffer, col, mask);
@@ -1283,7 +1290,7 @@ inline void TED::mc_bitmap()
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) + vertSubCount];
 	} else {
 		bmmcol[1] = bmmcol[2] = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr->getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
 	}
 
 	RENDER_MC(wbuffer, bmmcol, mask);
@@ -1377,7 +1384,7 @@ inline void TED::illegalbank()
 	else if (BadLine == 2)
 		mask = chr;
 	else {
-		mask = VertSubActive ? Read(cpuptr->getPC()) : Read(0xFFFF);
+		mask = VertSubActive ? Read(cpuptr.getPC()) : Read(0xFFFF);
 	}
 	renderPixelsGeneric(mask, chr, charcol);
 }
@@ -1655,12 +1662,16 @@ void TED::ted_process(const unsigned int continuous)
 					SideBorderFlipFlop = true;
 					if (nrwscr) {
 						if (hshift) {
-							int oldX = x;
-							int oldXscroll = hshift;
-							x = 39; hshift = 0;
-							render(scrattr);
-							x = oldX;
-							hshift = oldXscroll;
+							if (VertSubActive) {
+								int oldX = x;
+								int oldXscroll = hshift;
+								x = 39; hshift = 0;
+								render(scrattr);
+								x = oldX;
+								hshift = oldXscroll;
+							}
+							else
+								drawEmptyArea(0, hshift);
 						}
 						CharacterWindow = true;
 					}
@@ -1787,24 +1798,24 @@ void TED::ted_process(const unsigned int continuous)
 				case TRFSH:
 				case TSS:
 				case TDS:
-					cpuptr->process();
+					cpuptr.process();
 					break;
 				case TDMADELAY:
-					cpuptr->process();
+					cpuptr.process();
 					clockingState = THALT1;
 					break;
 				case THALT1:
 				case THALT2:
 				case THALT3:
-					cpuptr->stopcycle();
+					cpuptr.stopcycle();
 					clockingState <<= 1;
 					break;
 				case TSSDELAY:
-					cpuptr->process();
+					cpuptr.process();
 					break;
 				case TDSDELAY:
 					clockingState = TDS;
-					cpuptr->process();
+					cpuptr.process();
 					break;
 				default:;
 			}
@@ -1841,7 +1852,7 @@ void TED::ted_process(const unsigned int continuous)
 				case TSSDELAY:
 					clockingState = TSS;
 				case TDS:
-					cpuptr->process();
+					cpuptr.process();
 					break;
 				case TDSDELAY:
 					clockingState = TDS;
@@ -2186,7 +2197,7 @@ void TEDFAST::ted_process(const unsigned int continuous)
 			do {
 				unsigned int i = 0;
 
-				cpuptr->process();
+				cpuptr.process();
 				Clockable *device = drive;
 				do {
 					device->ClockCount += driveCycles;
@@ -2211,7 +2222,7 @@ void TEDFAST::ted_process(const unsigned int continuous)
 			//if (isFrameRendered()) {
 				renderLine();
 			//}
-			cpuptr->process(clkIx);
+			cpuptr.process(clkIx);
 			countTimers(57);
 			CycleCounter += 114;
 		}
@@ -2226,6 +2237,6 @@ void TEDFAST::process_debug(unsigned int continuous)
 unsigned int TEDFAST::getHorizontalCount()
 {
 	unsigned int cyclesPerLine = clocksPerLine[clockingState + fastmode ? 0 : 3];
-	return ((98 + ((cyclesPerLine - cpuptr->getRemainingCycles()) * 114
+	return ((98 + ((cyclesPerLine - cpuptr.getRemainingCycles()) * 114
 		/ cyclesPerLine)) << 1) % 228;
 }

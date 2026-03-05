@@ -84,7 +84,6 @@ class Vicmem : public TED
 		void renderBitmap(unsigned char* scr, unsigned int d, const unsigned int half);
 		unsigned char fetchCharBitmap(unsigned int cpos);
 		unsigned char* changeVideoBase(int address);
-		delayedEventCallback _delayedEventCallBack;
 		void updateColorRegs();
 		void updateFirstPixelColor();
 		unsigned char firstmcol[4];

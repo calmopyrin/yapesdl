@@ -1,14 +1,3 @@
-/*
-	YAPE - Yet Another Plus/4 Emulator
-
-	The program emulates the Commodore 264 family of 8 bit microcomputers
-
-	This program is free software, you are welcome to distribute it,
-	and/or modify it under certain conditions. For more information,
-	read 'Copying'.
-
-	(c) 2000, 2001, 2015 Attila Grósz
-*/
 #ifndef _KEYBOARD_H
 #define _KEYBOARD_H
 
@@ -22,6 +11,7 @@ class KEYS {
 		static unsigned int nrOfJoys;
 		static SDL_GameController *sdlJoys[2];
 		static unsigned int joystickScanCodes[][5];
+		static unsigned char paddleValueX;
 		unsigned char getPcJoyState(unsigned int joyNr, unsigned int activeJoy);
 		unsigned char latched;
 		unsigned char keyReadMatrixRow(unsigned int r);
@@ -51,6 +41,7 @@ class KEYS {
 		}
 		unsigned char readLatch() { return latched | blockMask; };
 		void block(bool isBlocked) { blockMask = isBlocked ? 0xFF : 0x00; };
+		static void setPaddleValue(int value);
 		static unsigned char readPaddleAxis(unsigned short axis);
 		static unsigned char readPaddleFireButton(unsigned int paddleID);
 		unsigned char readSidcardJoyport();

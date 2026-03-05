@@ -255,9 +255,9 @@ static void startd64(const char *fileName, bool autostart)
 	}
 	CTrueDrive::SwapDisk(fileName);
 	if (autostart)
-		ted8360->copyToKbBuffer("L\317\042*\042,8,1\rRUN:\r", 15);
+		ted8360->copyToKbBuffer("L\317\042*,P\042,8,1\rRUN:\r");
 	else
-		ted8360->copyToKbBuffer("L\317\042*\042,8,1\r\r", 11);
+		ted8360->copyToKbBuffer("L\317\042*,P\042,8,1\r\r");
 }
 
 bool openZipDisk(const char *fname, bool autostart)
@@ -431,13 +431,13 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 	if (g_bUseOverlay) {
 		video_convert_buffer(target, pixelsPerRow, src);
 	} else {
-		const unsigned int *palette = palette_get_rgb();
+		static unsigned int *palette = palette_get_rgb();
 		for(i = 0; i < SCREENY; i++) {
 			for(j = 0; j < SCREENX; j++) {
-				*target++ = palette[*src++];
+				target[j] = palette[src[j]];
 			}
-			src += sourcePitch;
-			target += targetPitch;
+			src += sourcePitch + SCREENX;
+			target += targetPitch + SCREENX;
 		}
 	}
 	// TODO: use SDL_LockTexture instead
@@ -459,12 +459,12 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 	}
 	SDL_RenderPresent(sdlRenderer);
 #else
-	const unsigned int* palette = palette_get_rgb();
+	static unsigned int* palette = palette_get_rgb();
 	for (i = 0; i < SCREENY; i++) {
 		for (j = 0; j < SCREENX; j++) {
-			*target++ = palette[*src++];
+			target[j] = palette[src[j]];
 		}
-		src += sourcePitch;
+		src += sourcePitch + SCREENX;
 	}
 	openGLFrameUpdate(sdlWindow, (void*)texture, SCREENX, SCREENY, g_bVideoVsync);
 #endif
@@ -774,14 +774,6 @@ static void setEmulationLevel(unsigned int level)
 		sound_pause();
 		// Back up RAM
 		memcpy(ram, ted8360->Ram, RAMSIZE);
-		// Back up TED
-		unsigned int oldCpr = ted8360->getCyclesPerRow();
-		unsigned int romEnabled = ram[0xff13] & 1;
-		for(i = 0; i < 0x20; i++) {
-			ram[0xFF00 + i] = ted8360->Read(0xFF00 + i);
-		}
-		unsigned char prddr = ted8360->Read(0);
-		unsigned char prp = ted8360->Read(1);
 		// destroy old TED object
 		if (ted8360)
 			delete ted8360;
@@ -805,30 +797,17 @@ static void setEmulationLevel(unsigned int level)
 				break;
 		}
 		uinterface->setNewMachine(ted8360);
-		unsigned int newCpr = ted8360->getCanvasX();
-		//ted8360->Reset();
-		machine->setMem(ted8360, ted8360->getIrqReg(), &(ted8360->Ram[0x0100]));
+		ted8360->cpuptr.setMem(ted8360, ted8360->getIrqReg(), &(ted8360->Ram[0x0100]));
 		ted8360->HookTCBM(tcbm);
-		ted8360->setCpuPtr(machine);
+		machine = &ted8360->cpuptr;
 		// restore RAM
 		memcpy(ted8360->Ram, ram, RAMSIZE);
 		// reload ROMs for machine type switch
 		ted8360->loadroms();
-		if (oldCpr != newCpr) {
-			machineEnable1551(!g_bTrueDriveEmulation);
-			machine->Reset();
-			ted8360->Reset(0);
-			init_palette(ted8360);
-		} else {
-			// Restore TED register state
-			for(i = 0; i < 0x20; i++) {
-				ted8360->Write(0xFF00 + i, ram[0xFF00 + i]);
-			}
-			ted8360->Write(0xFF3F - romEnabled, 0);
-			// processor ports
-			ted8360->Write(0, prddr);
-			ted8360->Write(1, prp & prddr);
-		}
+		ted8360->cpuptr.Reset();
+		machineEnable1551(!g_bTrueDriveEmulation);
+		ted8360->Reset(0);
+		init_palette(ted8360);
 		//
 		sound_resume();
 		g_bActive = 1;
@@ -1152,10 +1131,15 @@ inline static void poll_events(void)
 
 			case SDL_MOUSEWHEEL:
 				{
+					SDL_Keymod mods = SDL_GetModState();
 					int y = event.wheel.y;
-					if (event.wheel.direction != SDL_MOUSEWHEEL_FLIPPED)
-						y = -y;
-					PopupMsg(" SPEED: %u ", ad_change_target_speed(y));
+					if (mods & KMOD_ALT) {
+						if (event.wheel.direction != SDL_MOUSEWHEEL_FLIPPED)
+							y = -y;
+						PopupMsg(" SPEED: %u ", ad_change_target_speed(y));
+					} else {
+						KEYS::setPaddleValue(y * 8);
+					}
 				}
 				break;
 
@@ -1211,9 +1195,8 @@ static void machineInit()
 	// TED
 	//
 	ted8360 = new TED;
-	machine = new CPU(ted8360, ted8360->getIrqReg(), &(ted8360->Ram[0x0100]));
+	machine = ted8360->getCpuPtr();
 	ted8360->HookTCBM(tcbm);
-	ted8360->setCpuPtr(machine);
 	ted8360->Reset(0);
 	// Serial init
 	CSerial::InitPorts();
@@ -1236,7 +1219,7 @@ static void machineShutDown()
 	delete fsdrive;
 	delete iec;
 	delete tcbm;
-	delete machine;
+	machine = NULL;
 	delete ted8360;
 }
 
@@ -1479,7 +1462,7 @@ int main(int argc, char *argv[])
 	printf("LALT + 1-3   : set window size\n");
 	printf("LALT + I     : switch emulated joystick port\n");
 	printf("LALT + K     : flip keyset for joystick\n");
-	printf("LALT + L     : switch among emulators (C+4 cycle based; C+4 line based; C64 cycle based)\n");
+	printf("LALT + L     : switch among emulators (C+4 cycle based; C+4 line based; C64 cycle based; VIC-20 cycle based)\n");
 	printf("LALT + M     : enter console based external monitor and disassembler (currently deadlocks!)\n");
 	printf("LALT + P     : toggle CRT emulation\n");
 	printf("LALT + R     : machine reset (press Shift+F11 for hard reset)\n");

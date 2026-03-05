@@ -17,6 +17,7 @@
 #include "serial.h"
 #include "sound.h"
 #include "SaveState.h"
+#include "cpu.h"
 
 #define RAMSIZE 65536
 #define ROMSIZE 16384
@@ -45,10 +46,9 @@ class CTCBM;
 class SIDsound;
 struct Color;
 
-typedef void (TED::*delayedEventCallback)();
-
 class TED : public CSerial , public MemoryHandler, public SoundSource, public SaveState {
   public:
+	typedef void (TED::* delayedEventCallback)();
 	TED();
 	virtual ~TED();
 	TAP	*tap;
@@ -96,7 +96,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	int crsrphase;
 	unsigned int crsrblinkon;
 	// CPU class pointer
-	CPU	*cpuptr;
+	CPU	cpuptr;
 	// TED process (main loop of emulation)
 	virtual void ted_process(const unsigned int continuous);
 
@@ -108,7 +108,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	bool t1on, t2on, t3on;
 	unsigned int timer1, timer2, timer3, t1start;
 
-	virtual void setCpuPtr(CPU *cpu) { cpuptr = cpu; };
+	CPU* getCpuPtr() { return &cpuptr; };
 	void HookTCBM(CTCBM *pTcbmbus) { tcbmbus = pTcbmbus; };
 	ClockCycle GetClockCount();
 	void log(unsigned int addr, unsigned int value);
@@ -256,6 +256,29 @@ protected:
 	void doHRetrace();
 	void doVRetrace();
 	void newLine();
+	inline void drawEmptyArea(unsigned int xScr, int todo) {
+		unsigned char a;
+		switch (scrattr & 0xF0) {
+		case GRAPHMODE:
+			if (scrattr & MULTICOLOR) {
+				a = mcol[0];
+			}
+			else {
+				unsigned char chr = chrbuf[x];
+				unsigned char clr = clrbuf[x];
+				a = (chr & 0x0F) | (clr & 0x70);
+			}
+			break;
+		default:
+			a = mcol[0];
+			if (!(scrattr & (GRAPHMODE | MULTICOLOR | EXTCOLOR)) && crsrblinkon
+				&& (((crsrpos - (x == 0)) & 0x3FF) == 0x3FF))
+				a = 0;
+			break;
+		}
+		for (int i = 0; i < todo; i++)
+			scrptr[i + xScr] = a;
+	}
 	void setAlignedWrite(delayedEventCallback ftor, unsigned int value) {
 		alignedWriteFunctor = ftor;
 		aw_value = value;
@@ -273,23 +296,7 @@ protected:
 		if (CharacterWindow && !(HBlanking || VBlanking)) { 
 			int todo = hshift - oldXscr;
 			if (0 < todo) {
-				unsigned char a;
-				switch (scrattr & 0xF0) {
-				case GRAPHMODE:
-					if (scrattr & MULTICOLOR) {
-						a = mcol[0];
-					} else {
-						unsigned char chr = chrbuf[x];
-						unsigned char clr = clrbuf[x];
-						a = (chr & 0x0F) | (clr & 0x70);
-					}
-					break;
-				default:
-					a = mcol[0];
-					break;
-				}
-				for (int i = 0; i < todo; i++)
-					scrptr[i + oldXscr] = a;
+				drawEmptyArea(oldXscr, todo);
 			}
 		}
 	}

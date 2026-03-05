@@ -629,7 +629,7 @@ bool UI::handle_menu_command( struct element_t *element)
 			snapshotSave();
 			return true;
 		case UI_EMULATOR_MONITOR:
-			monitorEnter(ted8360->cpuptr);
+			monitorEnter(ted8360->getCpuPtr());
 			return true;
 		case UI_EMULATOR_RESUME:
 			void ();
