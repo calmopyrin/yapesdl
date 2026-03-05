@@ -44,14 +44,14 @@ bool PrgLoad(const char *fname, int loadaddress, TED *mem)
 		fseek(prg, p00offset, SEEK_SET);
 		fread(lpBufPtr, 1, fsize, prg);
 		fclose(prg);
+		if (fsize < 2)
+			return false;
 		// copy to memory
 		if (loadaddress&0x10000)
 			loadaddr = loadaddress&0xFFFF;
 		else
 			loadaddr = lpBufPtr[0]|(lpBufPtr[1] << 8);
 
-		if (fsize < 2)
-			return false;
 		fsize -= 2;
 
 		// Some VIC20 PRG's are actually cartridges
