@@ -183,6 +183,7 @@ int ad_makedirs(char *path)
 
 #if defined(_WIN32) || defined(__EMSCRIPTEN__)
 static Uint64 timeelapsed;
+static Uint64 nextFrameTime;
 
 void ad_vsync_init(unsigned int targetfps)
 {
@@ -193,13 +194,12 @@ void ad_vsync_init(unsigned int targetfps)
 		maxFpsIndex = 0;
 		maxFps = maxFpsValues[maxFpsIndex];
 	}
+	nextFrameTime = timeelapsed + (1000 / maxFps);
 }
 
 bool ad_vsync(bool sync)
 {
 	Uint64 time_limit = timeelapsed + fpsInterval;
-	static Uint64 nextFrameTime = timeelapsed + (1000 / maxFps);
-
 	timeelapsed = SDL_GetTicks64();
 	if (sync) {
 		if (time_limit > timeelapsed) {
@@ -215,7 +215,7 @@ bool ad_vsync(bool sync)
 	if (nextFrameTime > timeelapsed) {
 		return false;
 	} else {
-		nextFrameTime = timeelapsed + ((1000 + maxFps / 2) / maxFps);
+		nextFrameTime = timeelapsed + (1000 / maxFps);
 		framesShown++;
 		return true;
 	}
@@ -228,11 +228,12 @@ unsigned int ad_get_fps(unsigned int &framesDrawn)
 	static unsigned int g_TotFrames = 0;
 	const unsigned int measureIntervalMsec = 2000 - (targetFps - 50) * 40;
 
-	if (g_TotElapsed + measureIntervalMsec <= timeelapsed) {
-		g_TotElapsed = SDL_GetTicks64();
-		speed = g_TotFrames;
-		/*printf("TotFrames: %u TotElapsed:%llu FpsInterval:%u TargetFPS:%u MeasureInterval:%u \n", g_TotFrames, g_TotElapsed, fpsInterval, 
-			targetFps, measureIntervalMsec);*/
+	Uint64 now = SDL_GetTicks64();
+	if (now - g_TotElapsed >= measureIntervalMsec) {
+		// compute FPS over the interval
+		speed = g_TotFrames + 1;
+		// reset interval
+		g_TotElapsed = now;
 		g_TotFrames = 0;
 		framesDrawn = framesShown * targetFps / 100;
 		framesShown = 0;

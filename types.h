@@ -78,58 +78,73 @@ typedef unsigned char(*CallBackReadMemory)(unsigned short);
 // Simple linked list class
 template<typename T>
 class LinkedList {
-private:
-	T *next;
-	static T *root;
-	static T *last;
-	static unsigned int count;
 public:
 	LinkedList() {
+		next = nullptr;
+		prev = nullptr;
+		// Do NOT auto-add
+	}
+	virtual ~LinkedList() {
+		// Do NOT auto-remove
+	}
+	static T* getRoot() { return root; }
+	static T* getLast() { return last; }
+	static unsigned int getCount() { return count; }
+
+	T* getNext() const { return next; }
+	T* getPrev() const { return prev; }
+
+	// Add node to end of list
+	static void add(T* node) {
+		if (!node) return;
+
+		node->next = nullptr;
+		node->prev = last;
+
+		if (last)
+			last->next = node;
+		else
+			root = node;
+
+		last = node;
 		count++;
 	}
-	~LinkedList() {
-		count--;
-	}
-	static T *getRoot() { return root; }
-	T *getNext() { return next; }
-	void add(T *ss) {
-		if (root) {
-			last = last->next = ss;
-		} else {
-			last = root = ss;
-		}
-		next = 0;
-	}
-	void remove(T *ss) {
-		T *prevNode;
-		T *nextNode;
-		T *node = root;
-		if (!node)
-			return;
 
-	   prevNode = root;
-		do {
-			nextNode = node->next;
-			if (node == ss) {
-				if (node == root) {
-					root = nextNode;
-					if (!root)
-						last = 0;
-				}
-				if (node == last)
-					last = prevNode;
-				if (prevNode) {
-					prevNode->next = nextNode;
-					if (nextNode == last)
-						last = nextNode;
-				}
-			}
-			prevNode = node;
-			node = nextNode;
-		} while (node);
+	// Remove node from list
+	static void remove(T* node) {
+		if (!node) return;
+
+		if (node->prev)
+			node->prev->next = node->next;
+		else
+			root = node->next;
+
+		if (node->next)
+			node->next->prev = node->prev;
+		else
+			last = node->prev;
+
+		node->next = nullptr;
+		node->prev = nullptr;
+
+		if (count > 0)
+			count--;
 	}
-   // void cascadeCall()
+
+protected:
+	T* next;
+	T* prev;
+
+private:
+	static T* root;
+	static T* last;
+	static unsigned int count;
 };
+
+// static definitions
+template<typename T> T* LinkedList<T>::root = nullptr;
+template<typename T> T* LinkedList<T>::last = nullptr;
+template<typename T> unsigned int LinkedList<T>::count = 0;
 
 class Resettable : public LinkedList<Resettable> {
 public:

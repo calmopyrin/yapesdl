@@ -36,9 +36,6 @@ static short lastSample;
 static ClockCycle		lastUpdateCycle;
 static unsigned int		lastSamplePos;
 
-template<> unsigned int LinkedList<SoundSource>::count = 0;
-template<> SoundSource* LinkedList<SoundSource>::root = 0;
-template<> SoundSource* LinkedList<SoundSource>::last = 0;
 unsigned int SoundSource::sampleRate = SAMPLE_FREQ;
 static unsigned int soundEnabled = 1;
 static unsigned int soundPaused = 0;
