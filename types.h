@@ -84,9 +84,6 @@ public:
 		prev = nullptr;
 		// Do NOT auto-add
 	}
-	virtual ~LinkedList() {
-		// Do NOT auto-remove
-	}
 	static T* getRoot() { return root; }
 	static T* getLast() { return last; }
 	static unsigned int getCount() { return count; }

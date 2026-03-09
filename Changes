@@ -1,3 +1,15 @@
+Changes in v0.81.1
+==================
+
+- IEC emulation improvements
+- VIA 6522 improvements (passes all tests)
+- G64 disk image support
+- improved navigation in the menus (END key, mouse buttons & wheel)
+- optimizations
+- various TED improvements
+- support for more Hannes expansion memory size setups
+- various VIC-II improvements
+
 Changes in v0.80.1
 ==================
 

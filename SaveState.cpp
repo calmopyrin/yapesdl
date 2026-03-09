@@ -4,9 +4,6 @@
 const char SSSTRING[] = "YSS0";
 
 FILE *SaveState::ssfp = NULL;
-template<> unsigned int LinkedList<SaveState>::count = 0;
-template<> SaveState* LinkedList<SaveState>::root = 0;
-template<> SaveState* LinkedList<SaveState>::last = 0;
 
 SaveState::SaveState()
 {

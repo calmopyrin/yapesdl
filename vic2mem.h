@@ -53,6 +53,13 @@ class Vic2mem : public TED
 		virtual void triggerNMI();
 		virtual void setNtscMode(bool on) {};
 		virtual bool isNtscMode() { return false; };
+		virtual void getVMatrixParams(unsigned int& x, unsigned int& y, unsigned int& offset, bool& caps) {
+			unsigned int vicBase = getVicBaseAddress();
+			const unsigned int vmOffset = ((vicReg[0x18] & 0xF0) << 6);
+			offset = vicBase + vmOffset;
+			caps = !!(vicReg[0x18] & 2);
+			x = 40; y = 25;
+		}
 
 	protected:
 		void doHRetrace();

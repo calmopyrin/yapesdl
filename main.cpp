@@ -935,6 +935,19 @@ static void pasteFromClipboard()
 	}
 }
 
+static void copyToClipboard()
+{
+	char* b = new char[25 * 42 + 1];
+	if (b) {
+		ted8360->getVideoMatrixText(reinterpret_cast<unsigned char*>(b));
+		if (0 == SDL_SetClipboardText(b)) {
+			PopupMsg(" Video matrix copied to clipboard ");
+			showPopUpMessage();
+		}
+		delete[] b;
+	}
+}
+
 //-----------------------------------------------------------------------------
 // Name: poll_events()
 // Desc: polls SDL events if there's any in the message queue
@@ -989,6 +1002,10 @@ inline static void poll_events(void)
 									setWindowScale(mult);
 									PopupMsg(" WINDOW SIZE: %ux ", mult);
 								}
+								break;
+
+							case SDLK_c:
+								copyToClipboard();
 								break;
 
 							case SDLK_l:

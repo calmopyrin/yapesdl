@@ -23,8 +23,6 @@ class DRVMEM : public MemoryHandler {
 		unsigned int devnr;
 
 	public:
-		DRVMEM() { };
-		virtual ~DRVMEM() { };
 		virtual void Reset() = 0;
 		virtual void EmulateTick() = 0;
 		virtual unsigned char getLED() = 0;

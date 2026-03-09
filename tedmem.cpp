@@ -272,6 +272,65 @@ void TED::copyToKbBuffer(const char *text, unsigned int length)
 		Write(0x0527+length, text[length]);
 }
 
+static void convertToAscii(unsigned char* c, bool isCaps)
+{
+	// no reversed chars
+	unsigned char v = *c & 0x7F;
+
+	if (isCaps) {
+		// Control range - flip bit 6
+		if (v <= 0x1F)
+			v ^= 0x40;
+		// Lowercase PETSCII - uppercase ASCII
+		else if (v >= 0x60 && v <= 0x7F)
+			v -= 0x20;
+	} else {
+		// A–Z PETSCII - a–z ASCII
+		if (v >= 0x01 && v <= 0x1A)
+			v ^= 0x60;
+		// Symbols in 0x1B–0x1F - ASCII equivalents
+		else if (v >= 0x1B && v <= 0x1F)
+			v ^= 0x40;
+		// PETSCII NUL - ASCII '@'
+		else if (v == 0x00)
+			v = 0x40;
+		// DEL - _
+		else if (v == 0x7F)
+			v = 0x5F;
+	}
+	*c = v;
+}
+
+void TED::getVideoMatrixText(unsigned char* buffer)
+{
+	bool caps;
+	unsigned int offset, x, y;
+	getVMatrixParams(x, y, offset, caps);
+
+	unsigned char *csrc = Ram + offset;
+	unsigned char* cptr = buffer;
+	unsigned int i, j;
+
+	for (i = 0; i < y; ++i) {
+		memcpy(cptr, csrc, x);
+		cptr += x;
+		csrc += x;
+		// insert new line
+		*cptr++ = 0x0D;
+		*cptr++ = 0x0A;
+	}
+	cptr = buffer;
+	for (i = 0; i < y; i++) {
+		// make PETSCII -> ASCII conversion
+		for (j = 0; j < x; j++) {
+			convertToAscii(cptr, caps);
+			++cptr;
+		}
+		cptr += 2;
+	}
+	*cptr = 0;
+}
+
 void TED::chrtoscreen(int x,int y, unsigned int scrchr)
 {
 	unsigned int j, k;
@@ -319,7 +378,7 @@ void TED::loadromfromfile(int nr, const char fname[512], unsigned int offset)
 				if (!strncmp(fname, "BASIC", 5) || (!strncmp(fname, "*", 1) && offset == 0)) {
 					memcpy(rom[0] + offset, basic, ROMSIZE);
 					strcpy(romlopath[nr], "BASIC");
-				} 
+				}
 				else if (!strncmp(fname, "KERNAL", 6) || (!strncmp(fname, "*", 1) && offset == 0x4000)) {
 					memcpy(rom[0] + offset, kernal, ROMSIZE);
 					strcpy(romhighpath[nr], "KERNAL");
@@ -330,7 +389,7 @@ void TED::loadromfromfile(int nr, const char fname[512], unsigned int offset)
 					}
 				}
 				break;
-			case 1: 
+			case 1:
 				if (!strncmp(fname, "3PLUS1LOW", 9)) {
 					memcpy(rom[1] + offset, plus4lo, ROMSIZE);
 					strcpy(romlopath[nr], fname);
@@ -338,13 +397,13 @@ void TED::loadromfromfile(int nr, const char fname[512], unsigned int offset)
 				else if (!strncmp(fname, "3PLUS1HIGH", 10)) {
 					memcpy(rom[1] + offset, plus4hi, ROMSIZE);
 					strcpy(romhighpath[nr], fname);
-				} 
+				}
 				else {
 					memset(rom[1] + offset, 0, ROMSIZE);
 					strcpy(offset ? romhighpath[nr] : romlopath[nr], "");
 				}
 				break;
-			default: 
+			default:
 				memset(rom[nr] + offset, 0, ROMSIZE);
 				strcpy(offset ? romhighpath[nr] : romlopath[nr], "");
 		}
@@ -419,7 +478,7 @@ unsigned char TED::readOpenAddressSpace(unsigned int addr)
 }
 
 unsigned char* TED::getCharSetPtr()
-{ 
+{
 	return kernal + 0x1400;
 }
 
@@ -949,7 +1008,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 								unsigned int oldbeamy = beamy;
 								beamy = (beamy & 0x0100) | value;
 								writeVerticalCount(oldbeamy);
-							}						
+							}
 							return;
 						case 0xFF1E:
 							{
@@ -1917,7 +1976,7 @@ void TED::enableREU(unsigned int sizekb)
 		Ram[0xFD16] = maxBankIndex;
 		reuWrite(0);
 	}
-	else { 
+	else {
 		reuSizeKb = reuMemMask = 0;
 		delete[] ramExt;
 		ramExt = NULL;
@@ -1946,7 +2005,7 @@ void TED::reuWrite(unsigned char value)
 		actramBelow4000 = (value & 0x80) ? Ram : actram;
 	} else
 		actram = actramBelow4000 = Ram;
-	
+
 	ChangeMemBankSetup();
 }
 

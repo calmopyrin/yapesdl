@@ -103,7 +103,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	unsigned char Ram[RAMSIZE];
 	void ChangeMemBankSetup();
 
-	
+
 	// timer stuff
 	bool t1on, t2on, t3on;
 	unsigned int timer1, timer2, timer3, t1start;
@@ -151,6 +151,12 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual unsigned char *getCharSetPtr();
 	virtual void setNtscMode(bool on);
 	virtual bool isNtscMode() { return ntscMode; };
+	virtual void getVMatrixParams(unsigned int& x, unsigned int& y, unsigned int& offset, bool& caps) {
+		offset = ((Ram[0xFF14] & 0xF8) << 8) + 0x400;
+		caps = !!(Ram[0xFF13] & 4);
+		x = 40; y = 25;
+	}
+	void getVideoMatrixText(unsigned char* buffer);
 	unsigned int getFrameRate() { return ntscMode ? 60 : 50; }
 	unsigned int getNumberOfLines() { return ntscMode ? 262 : 312; }
 	void setClockStep(unsigned int originalFreq, unsigned int samplingFreq);
@@ -293,7 +299,7 @@ protected:
 	void writeHorizShift() {
 		unsigned int oldXscr = hshift;
 		hshift = aw_value & 7;
-		if (CharacterWindow && !(HBlanking || VBlanking)) { 
+		if (CharacterWindow && !(HBlanking || VBlanking)) {
 			int todo = hshift - oldXscr;
 			if (0 < todo) {
 				drawEmptyArea(oldXscr, todo);
@@ -345,7 +351,6 @@ protected:
 class TEDFAST : public TED {
 public:
 	TEDFAST();
-	virtual ~TEDFAST() {};
 	virtual void ted_process(const unsigned int continuous);
 	virtual void process_debug(unsigned int continuous);
 	virtual unsigned int getEmulationLevel() { return 1; }

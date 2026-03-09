@@ -71,6 +71,12 @@ class Vicmem : public TED
 		virtual void triggerNMI();
 		virtual void setNtscMode(bool on) {};
 		virtual bool isNtscMode() { return false; };
+		virtual void getVMatrixParams(unsigned int& x, unsigned int& y, unsigned int &offset, bool &caps) {
+			const unsigned int vbv = videoBaseValue;
+			offset = ((vbv & 0x3FFF) > 0x2000) ? (offset ^ 0x8000) & 0x83FF : vbv;
+			caps = !!(vicCharsetBase & 0x0800);
+			x = 22; y = 23;
+		}
 		//virtual void enableREU(unsigned int sizekb);
 		//
 		void vic6560write(unsigned int addr, unsigned char value);
