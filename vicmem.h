@@ -77,6 +77,7 @@ class Vicmem : public TED
 			caps = !!(vicCharsetBase & 0x0800);
 			x = 22; y = 23;
 		}
+		virtual bool getCaps() { return !!(vicCharsetBase & 0x0800); }
 		//virtual void enableREU(unsigned int sizekb);
 		//
 		void vic6560write(unsigned int addr, unsigned char value);

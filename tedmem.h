@@ -156,6 +156,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 		caps = !!(Ram[0xFF13] & 4);
 		x = 40; y = 25;
 	}
+	virtual bool getCaps() { return !!(Ram[0xFF13] & 4); }
 	void getVideoMatrixText(unsigned char* buffer);
 	unsigned int getFrameRate() { return ntscMode ? 60 : 50; }
 	unsigned int getNumberOfLines() { return ntscMode ? 262 : 312; }

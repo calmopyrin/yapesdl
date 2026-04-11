@@ -920,7 +920,7 @@ static void pasteFromClipboard()
 		while (t) {
 			unsigned int chunkSize = (unsigned int)MIN(10, t);
 			strncpy(bufferdata, lptstr, chunkSize);
-			UI::stringToPETSCII((unsigned char*)bufferdata, chunkSize);
+			UI::stringToPETSCII((unsigned char*)bufferdata, chunkSize, ted8360->getCaps());
 			bufferdata[chunkSize] = 0;
 			ted8360->copyToKbBuffer(bufferdata, chunkSize);
 			unsigned int maxFrames = 200;

@@ -60,6 +60,7 @@ class Vic2mem : public TED
 			caps = !!(vicReg[0x18] & 2);
 			x = 40; y = 25;
 		}
+		virtual bool getCaps() { return !!(vicReg[0x18] & 2); }
 
 	protected:
 		void doHRetrace();

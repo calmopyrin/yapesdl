@@ -42,7 +42,7 @@ $RECYCLE.BIN/
 *.htm
 *.depend
 *.cache
-
+*.layout
 *.tap
 
 # =========================
@@ -136,17 +136,12 @@ Emscripten/ReleaseEmbedPrg/YapeSDL.html
 Emscripten/ReleaseEmbedPrg/YapeSDL.VS14.vcxproj.FileListAbsolute.txt
 x64/Release/YapeSDL.VS14.vcxproj.FileListAbsolute.txt
 zlib/Emscripten/Debug/unzip.vcxproj.FileListAbsolute.txt
-YapeSDL.depend
-YapeSDL.layout
-YapeSDL.layout
+*.depend
 *.layout
 YapeSDL.layout
 /Emscripten/Release/Index.html
 /zlib/Emscripten/Release/unzip.vcxproj.FileListAbsolute.txt
-YapeSDL.layout
-YapeSDL.layout
-YapeSDL.layout
-*.layout
+*.depend
 *.layout
 >>>>>>> Stashed changes
 
@@ -165,7 +160,5 @@ yapesdl.xcodeproj/xcuserdata/
 *.lock
 yapesdl_0.80.1-1/usr/local/bin/yapesdl
 /.vs
-YapeSDL.depend
-YapeSDL.layout
-YapeSDL.layout
-YapeSDL.depend
+*.depend
+*.layout
