@@ -613,6 +613,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 							case 0x2D:
 							case 0x2E:
 								return vicReg[addr] | 0xF0;
+							default:
 							case 0x2F: // unconnected
 								return 0xFF;
 						}

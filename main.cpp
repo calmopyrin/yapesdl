@@ -255,7 +255,7 @@ static void startd64(const char *fileName, bool autostart)
 	}
 	CTrueDrive::SwapDisk(fileName);
 	if (autostart)
-		ted8360->copyToKbBuffer("L\317\042*,P\042,8,1\rRUN:\r");
+		ted8360->copyToKbBuffer("L\317\042*,P\042,8,1\rRu:\r");
 	else
 		ted8360->copyToKbBuffer("L\317\042*,P\042,8,1\r\r");
 }
