@@ -15,6 +15,8 @@ keys64.o \
 keysvic.o \
 main.o \
 monitor.o 	\
+OPL2Sound.o \
+opl3.o \
 prg.o \
 SaveState.o	\
 serial.o	\
@@ -98,6 +100,12 @@ main.o : main.cpp
 	$(CC) $(cflags) -c $<
 
 monitor.o : monitor.cpp
+	$(CC) $(cflags) -c $<
+
+OPL2Sound.o : OPL2Sound.cpp
+	$(CC) $(cflags) -c $<
+
+opl3.o : opl3/opl3.c
 	$(CC) $(cflags) -c $<
 
 prg.o : prg.cpp prg.h
