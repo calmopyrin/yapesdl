@@ -45,6 +45,7 @@ class TAP;
 class CTCBM;
 class SIDsound;
 struct Color;
+class OPL2Sound;
 
 class TED : public CSerial , public MemoryHandler, public SoundSource, public SaveState {
   public:
@@ -259,6 +260,7 @@ protected:
 	//
 	void doDMA( unsigned char *Buf, unsigned int Offset  );
 	SIDsound *sidCard;
+	OPL2Sound* soundX = NULL;
 	//
 	void doHRetrace();
 	void doVRetrace();

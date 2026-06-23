@@ -55,8 +55,7 @@
     <ProjectGuid>{88A75874-9C6D-4364-8C94-78AA1A8BFB99}</ProjectGuid>
     <RootNamespace>YapeSDL</RootNamespace>
     <Keyword>Win32Proj</Keyword>
-    <WindowsTargetPlatformVersion>
-    </WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>7.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -88,6 +87,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <PlatformToolset>v141_xp</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseEmbedPrg|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -534,6 +534,7 @@
     <ClInclude Include="mem.h" />
     <ClInclude Include="mnemonic.h" />
     <ClInclude Include="monitor.h" />
+    <ClInclude Include="OPL2Sound.h" />
     <ClInclude Include="prg.h" />
     <ClInclude Include="roms.h" />
     <ClInclude Include="SaveState.h" />
@@ -567,6 +568,8 @@
     <ClCompile Include="keysvic.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="monitor.cpp" />
+    <ClCompile Include="opengl.cpp" />
+    <ClCompile Include="OPL2Sound.cpp" />
     <ClCompile Include="prg.cpp" />
     <ClCompile Include="SaveState.cpp" />
     <ClCompile Include="serial.cpp" />
@@ -584,6 +587,11 @@
   <ItemGroup>
     <None Include="Changes" />
     <None Include="README.SDL" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="opl3\opl3.vcxproj">
+      <Project>{5d995ac8-b924-49b0-8605-774d4db34df2}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

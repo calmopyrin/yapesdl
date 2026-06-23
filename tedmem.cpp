@@ -13,7 +13,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include "tedmem.h"
 #include "Sid.h"
 #include "sound.h"
@@ -24,6 +23,7 @@
 #include "tcbm.h"
 #include "Clockable.h"
 #include "video.h"
+#include "OPL2Sound.h"
 
 #define RETRACESCANLINEMAX 360
 #define RETRACESCANLINEMIN (SCR_VSIZE - (RETRACESCANLINEMAX - SCR_VSIZE))
@@ -631,6 +631,12 @@ unsigned char TED::Read(unsigned int addr)
 							if (sidCard) {
 								return keys->readSidcardJoyport();
 							}
+							return readOpenAddressSpace(addr);
+						case 0xFDE:
+							if (soundX && ((addr & 0xE) == 4)) {
+								flushBuffer(CycleCounter, TED_SOUND_CLOCK);
+								return soundX->read(0);
+							}
 					}
 					return readOpenAddressSpace(addr);
 				case 0xFC:
@@ -1084,6 +1090,17 @@ void TED::Write(unsigned int addr, unsigned char value)
 							actromlo = rom[addr&0x03];
 							actromhi = rom[(addr&0x0c)>>2] + 0x4000;
 							ChangeMemBankSetup();
+							return;
+						case 0xFDE:
+							if ((addr & 0xE) == 4) {
+								if (!soundX)
+									soundX = new OPL2Sound(SoundSource::sampleRate);
+								if (soundX) {
+									// update buffer
+									flushBuffer(CycleCounter, TED_SOUND_CLOCK);
+									soundX->write(addr & 1, value);
+								}
+							}
 							return;
 						case 0xFEC:
 						case 0xFED:

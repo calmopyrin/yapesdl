@@ -1,13 +1,16 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36414.22 d17.14
+VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "YapeSDL", "YapeSDL.VS14.vcxproj", "{88A75874-9C6D-4364-8C94-78AA1A8BFB99}"
 	ProjectSection(ProjectDependencies) = postProject
+		{5D995AC8-B924-49B0-8605-774D4DB34DF2} = {5D995AC8-B924-49B0-8605-774D4DB34DF2}
 		{E4BB004B-BC89-4195-9879-B952073907F9} = {E4BB004B-BC89-4195-9879-B952073907F9}
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "unzip", "zlib\unzip.vcxproj", "{E4BB004B-BC89-4195-9879-B952073907F9}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "opl3", "opl3\opl3.vcxproj", "{5D995AC8-B924-49B0-8605-774D4DB34DF2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +36,14 @@ Global
 		{E4BB004B-BC89-4195-9879-B952073907F9}.Release|Win32.Build.0 = Release|Win32
 		{E4BB004B-BC89-4195-9879-B952073907F9}.Release|x64.ActiveCfg = Release|x64
 		{E4BB004B-BC89-4195-9879-B952073907F9}.Release|x64.Build.0 = Release|x64
+		{5D995AC8-B924-49B0-8605-774D4DB34DF2}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5D995AC8-B924-49B0-8605-774D4DB34DF2}.Debug|Win32.Build.0 = Debug|Win32
+		{5D995AC8-B924-49B0-8605-774D4DB34DF2}.Debug|x64.ActiveCfg = Debug|x64
+		{5D995AC8-B924-49B0-8605-774D4DB34DF2}.Debug|x64.Build.0 = Debug|x64
+		{5D995AC8-B924-49B0-8605-774D4DB34DF2}.Release|Win32.ActiveCfg = Release|Win32
+		{5D995AC8-B924-49B0-8605-774D4DB34DF2}.Release|Win32.Build.0 = Release|Win32
+		{5D995AC8-B924-49B0-8605-774D4DB34DF2}.Release|x64.ActiveCfg = Release|x64
+		{5D995AC8-B924-49B0-8605-774D4DB34DF2}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
