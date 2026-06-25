@@ -9,6 +9,7 @@
 #include "keys64.h"
 #include "sound.h"
 #include "tape.h"
+#include "OPL2Sound.h"
 
 #define NEWSDMA 1
 
@@ -140,6 +141,10 @@ Vic2mem::~Vic2mem()
 {
 	delete[] colorRAM;
 	delete keys64;
+	if (soundX) {
+		delete soundX;
+		soundX = NULL;
+	}
 }
 
 void Vic2mem::triggerNMI()
@@ -371,8 +376,8 @@ Color Vic2mem::getColor(unsigned int ix)
 
 void Vic2mem::soundReset()
 {
-	if (sidCard)
-		sidCard->reset();
+	if (sidCard) sidCard->reset();
+	if (soundX)	soundX->reset();
 }
 
 unsigned int Vic2mem::getVicBaseAddress()
@@ -702,6 +707,12 @@ unsigned char Vic2mem::Read(unsigned int addr)
 						if (reu) {
 							return reu->Read(addr);
 						}
+						if ((addr & 0xDFEF) == 0xDF40) {
+							if (soundX) {
+								flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
+								return soundX->read(0);
+							}
+						}
 					default: // open address space
 						return readFloatingBus(addr);
 				}
@@ -986,6 +997,14 @@ skip:
 					case 0xDF:
 						if (reu) {
 							reu->Write(addr, value);
+						}
+						if ((addr & 0xDFEF) == 0xDF40) {
+							if (!soundX)
+								soundX = new OPL2Sound(SoundSource::sampleRate);
+							if (soundX) {
+								flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
+								return soundX->write((addr >> 4) & 1, value);
+							}
 						}
 						return;
 					default: // $DExx/$DFxx open I/O

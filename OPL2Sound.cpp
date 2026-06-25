@@ -13,7 +13,7 @@ OPL2Sound::~OPL2Sound()
 	chip = NULL;
 }
 
-void OPL2Sound::reset()
+void OPL2Sound::reset(bool hard)
 {
 	OPL3_Reset(chip, sampleRate);
 }

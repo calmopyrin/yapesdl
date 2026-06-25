@@ -3,12 +3,12 @@
 #include "sound.h"
 #include "opl3/opl3.h"
 
-class OPL2Sound :  public SoundSource
+class OPL2Sound :  public SoundSource, public Resettable
 {
 public:
 	OPL2Sound(unsigned int sampleRate_);
 	virtual ~OPL2Sound();
-	virtual void reset();
+	virtual void reset(bool hard = false);
 	virtual void setSampleRate(unsigned int sampleRate_);
 	virtual void setFrequency(unsigned int frequency);
 	virtual void calcSamples(short* buf, unsigned int count);

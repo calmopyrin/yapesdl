@@ -216,6 +216,7 @@ void TED::flipRamMask(void *none)
 void TED::soundReset()
 {
 	if (sidCard) sidCard->reset();
+	if (soundX) soundX->reset();
 }
 
 void TED::Reset(unsigned int resetLevel)
@@ -2059,6 +2060,10 @@ TED::~TED()
 	}
 	if (sidCard)
 		enableSidCard(false, 0);
+	if (soundX) {
+		delete soundX;
+		soundX = NULL;
+	}
 }
 
 //--------------------------------------------------------------
