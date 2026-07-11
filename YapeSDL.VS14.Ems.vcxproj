@@ -399,7 +399,8 @@
       <SubSystem>Console</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <AdditionalOptions>-s USE_ZLIB=1 -s USE_SDL=2 -s ASYNCIFY=1 -s ASYNCIFY_IMPORTS=[emscripten_wget]  %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-s USE_ZLIB=1 -s USE_SDL=2 -s ASYNCIFY=1 -s ASYNCIFY_IMPORTS=[emscripten_wget] -s ASYNCIFY_STACK_SIZE=32768 -s DISABLE_EXCEPTION_CATCHING=0 -s NO_EXIT_RUNTIME=1
+-s ASSERTIONS=0 %(AdditionalOptions)</AdditionalOptions>
       <RunJavaScriptOptimization>NotSpecified</RunJavaScriptOptimization>
       <RunLLVMOptimization>NotSpecified</RunLLVMOptimization>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
@@ -532,6 +533,7 @@
     <ClInclude Include="mem.h" />
     <ClInclude Include="mnemonic.h" />
     <ClInclude Include="monitor.h" />
+    <ClInclude Include="opl3\opl3.h" />
     <ClInclude Include="prg.h" />
     <ClInclude Include="roms.h" />
     <ClInclude Include="SaveState.h" />
@@ -571,6 +573,8 @@
     <ClCompile Include="keysvic.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="monitor.cpp" />
+    <ClCompile Include="OPL2Sound.cpp" />
+    <ClCompile Include="opl3\opl3.c" />
     <ClCompile Include="prg.cpp" />
     <ClCompile Include="SaveState.cpp" />
     <ClCompile Include="serial.cpp" />

@@ -81,6 +81,7 @@
 		<Unit filename="Cia.h" />
 		<Unit filename="FdcGcr.cpp" />
 		<Unit filename="FdcGcr.h" />
+		<Unit filename="OPL2Sound.cpp" />
 		<Unit filename="SaveState.cpp" />
 		<Unit filename="SaveState.h" />
 		<Unit filename="Sid.cpp" />
@@ -112,6 +113,9 @@
 		<Unit filename="main.cpp" />
 		<Unit filename="mem.h" />
 		<Unit filename="monitor.cpp" />
+		<Unit filename="opl3/opl3.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="prg.cpp" />
 		<Unit filename="prg.h" />
 		<Unit filename="roms.h" />
