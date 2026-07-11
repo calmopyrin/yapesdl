@@ -144,7 +144,7 @@ void SIDsound::setModel(unsigned int model)
 
 void SIDsound::setPaddleReadCallback(CallBackReadMemory func)
 {
-	readPaddle_ = func;
+	readPaddle_ = func ? func : readPaddleEmpty;
 }
 
 // Static data members
@@ -310,7 +310,7 @@ inline int SIDsound::getWaveSample(SIDVoice &v)
 		case WAVE_NOISE:
 			return v.waveNoiseOut;
 		case WAVE_NONE:
-			return 0x000;
+			return v.lastWaveFormOutput;
 		default:
 			return 0x000;
 	}
@@ -330,7 +330,7 @@ unsigned char SIDsound::read(unsigned int adr)
 		case 0x1B:
 			lastByteWritten = 0;
 			{
-				unsigned int bits = voice[2].wave & 0xF;
+				unsigned int bits = (voice[2].wave >> 4) & 0xF;
 				// check if power of 2, i.e. no combined waveform
 				unsigned char mask = !(bits & (bits - 1)) ? 0xFF : combinedWaveFormMask;
 				return (unsigned char)(voice[2].lastWaveFormOutput >> 4) & (mask);
@@ -402,28 +402,22 @@ void SIDsound::write(unsigned int adr, unsigned char value)
 			}
 			v.sync = value & 2;
 			v.ring = value & 4;
-			// Latch wave output if waveform 0 is selected
-			// Waveform 0 outputs the previous oscillator value (with analogue fade in the real chip)
-			// Note: we would not need this if SID emulation was cycle based
-			if (v.wave && !(value >> 4)) {
-				v.lastWaveFormOutput = getWaveSample(voice[2]);
-			}
 			if ((value & 8) && !v.test) {
 				v.accu = 0;
-				unsigned int bit19 = (v.shiftReg >> 19) & 1;
-				v.shiftReg = (v.shiftReg & 0x7ffffd) | ((bit19^1) << 1);
+				v.shiftReg = 0x7fffff;
 				v.test = 0xFFF;
 			} else if (v.test && !(value & 8)) {
-				unsigned int bit0 = ((v.shiftReg >> 22) ^ (v.shiftReg >> 17)) & 0x1;
-				v.shiftReg <<= 1;
-				v.shiftReg &= 0x7fffff;
-				v.shiftReg |= bit0;
 				v.test = 0x000;
 			}
 			v.wave = (value >> 4) & 0x0F;
 			if (v.wave > 8) {
 				v.shiftReg &= 0x7fffff^(1<<22)^(1<<20)^(1<<16)^(1<<13)^(1<<11)^(1<<7)^(1<<4)^(1<<2);
 				v.waveNoiseOut = 0;
+			} else if (!v.wave) {
+				// Latch wave output if waveform 0 is selected
+				// Waveform 0 outputs the previous oscillator value (with analogue fade in the real chip)
+				// Note: we would not need this if SID emulation was cycle based
+				v.lastWaveFormOutput = getWaveSample(v);
 			}
 			break;
 
@@ -570,11 +564,10 @@ inline void SIDsound::SIDVoice::doEnvelopeGenerator(const unsigned int cycles)
 
 	do {
 		unsigned int LFSR = envCounter;
-		if (LFSR != RateCountPeriod[envCounterCompare & 0x0f]) {
-			const unsigned int feedback = ((LFSR >> 14) ^ (LFSR >> 13)) & 1;
-			LFSR = ((LFSR << 1) | feedback) & 0x7FFF;
-			envCounter = LFSR;
-		} else {
+		const unsigned int feedback = ((LFSR >> 14) ^ (LFSR >> 13)) & 1;
+		LFSR = ((LFSR << 1) | feedback) & 0x7FFF;
+		envCounter = LFSR;
+		if (LFSR == RateCountPeriod[envCounterCompare & 0x0f]) {
 			// LFSR = 0x7fff reset LFSR
 			envCounter = 0x7fff;
 
@@ -594,27 +587,29 @@ inline void SIDsound::SIDVoice::doEnvelopeGenerator(const unsigned int cycles)
 
 				case EG_DECAY:
 					if (envCurrLevel != envSustainLevel) {
-						--envCurrLevel &= 0xFF;
+						if (envCurrLevel > 0) {
+							--envCurrLevel &= 0xFF;
+							if (!envCurrLevel)
+								egState = EG_FROZEN;
+						}
+					}
+					break;
+
+				case EG_RELEASE:
+					if (envCurrLevel > 0) {
+						envCurrLevel = (envCurrLevel - 1) & 0xFF;
 						if (!envCurrLevel)
 							egState = EG_FROZEN;
 					}
 					break;
 
-				case EG_RELEASE:
-					envCurrLevel = (envCurrLevel - 1) & 0xFF;
-					if (!envCurrLevel)
-						egState = EG_FROZEN;
-					break;
-
 				case EG_FROZEN:
-					envCurrLevel = 0;
+					//envCurrLevel = 0; // case currently edged out
 					break;
 				}
 			}
 		}
 	} while (--count);
-
-//	return v.envCurrLevel & 0xFF; // envelope is 8 bits
 }
 
 inline void SIDsound::SIDVoice::doAccuCycles(const unsigned int cyclesToDo)
