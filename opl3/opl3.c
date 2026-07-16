@@ -1580,7 +1580,7 @@ void OPL3_GenerateStreamMono(opl3_chip* chip, int16_t* sndptr, uint32_t numsampl
 
 static uint32_t OPL3_samples_per_timer_tick(opl3_chip* chip, uint32_t usec)
 {
-    uint32_t samplerate = (chip->rateratio * 49716) >> RSM_FRAC;
+    const uint32_t samplerate = 49716;
     return (usec * samplerate + 500000) / 1000000;
 }
 
