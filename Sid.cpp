@@ -623,31 +623,26 @@ inline void SIDsound::SIDVoice::doAccuCycles(const unsigned int cyclesToDo)
 		// noise shift register is updating even when waveform is not selected
 		unsigned int accNext = accPrev;
 		do {
+			const unsigned int accOld = accNext;
 			accNext += freq;
 			// Update noise shift register when bit 19 is rising high (FIXME: this is delayed by 2 cycles)
-			if (!(accPrev & 0x080000) && (accNext & 0x080000))
+			if (!(accOld & 0x080000) && (accNext & 0x080000))
 				updateShiftReg();
 		} while (accNext < accu);
 		// accu is 24 bit
 		accu &= 0xFFFFFF;
 	}
+	msbAccuRisingEdge = !(accPrev & 0x800000) && (accu & 0x800000);
 }
 
 inline void SIDsound::SIDVoice::applySync()
 {
 #if EXACT_SYNC
-	if (modulatesThis->sync && !(accPrev & 0x800000) && (accu & 0x800000)
-		&& !(sync && !(modulatedBy->accPrev & 0x800000) && (modulatedBy->accu & 0x800000))
-		)
+	if (modulatesThis->sync && msbAccuRisingEdge && !(sync && !(modulatedBy->msbAccuRisingEdge)))
 		modulatesThis->accu = 0;
 #else
-	if (sync && !(modulatedBy->accPrev & 0x800000) && (modulatedBy->accu & 0x800000)
-		/*&& !(modulatedBy->sync && !(modulatedBy->accPrev & 0x80000) &&
-			((modulatedBy->accu + add) & 0x80000))*/
-		)
-	{
-		accu = (modulatedBy->accu - 0x800000) & 0xFFFFFF;
-	}
+	if (modulatesThis->sync && msbAccuRisingEdge && !(sync && !(modulatedBy->msbAccuRisingEdge)))
+		modulatesThis->accu = (accu - 0x800000) & 0xFFFFFF;
 #endif
 }
 

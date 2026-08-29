@@ -82,6 +82,7 @@ private:
 		unsigned int accPrev;	// previous accu value (for ring modulation)
 		unsigned int shiftReg;	// shift register for noise waveform
 		unsigned int waveNoiseOut; // stored value of noise output
+		bool msbAccuRisingEdge;
 		int lastWaveFormOutput;
 
 		unsigned int freq;	// voice frequency
