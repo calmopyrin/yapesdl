@@ -28,7 +28,7 @@ protected:
 	void CloseAllChannels();
 	virtual unsigned char OpenFile(int channel, char *filename) = 0;
 	virtual unsigned char OpenDirectory(int channel, char *filename) = 0;
-	virtual void ExecuteCommand(char *command) = 0;
+	virtual void ExecuteCommand(unsigned char *command) = 0;
 	// 1541/1551 error codes
 	enum {
 		ERR_OK,				// 00 OK

@@ -66,7 +66,7 @@
 
 static unsigned char cycleLookup[][128] = {
 // SCREEN:             |===========0102030405060708091011121314151617181920212223242526272829303132333435363738391111=========
-//     coordinate:                                                                                    111111111111111111111111111111
+//     coordinate:                                                                                     111111111111111111111111111111
 // 0000000000111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999000000000011111111112222222222
 // 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
 // first cycles:
@@ -629,8 +629,8 @@ unsigned char Vic2mem::Read(unsigned int addr)
 					case 0xD6:
 					case 0xD7:
 						if (sidCard) {
-							//flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
-							sidCard->catchUpOnState(CycleCounter);
+							flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
+							//sidCard->catchUpOnState(CycleCounter);
 							return sidCard->read(addr & 0x1F);
 						}
 						return 0xD4;
@@ -1098,7 +1098,7 @@ inline void Vic2mem::newLine()
 			break;
 	}
 	// is there raster interrupt?
-	if (beamy == irqline) {
+	if (beamy == irqline && irqline) {
 		vicReg[0x19] |= ((vicReg[0x1A] & 1) << 7) | 1;
 		checkIRQflag();
 	}

@@ -424,11 +424,11 @@ void UI::openD64Item(const char *name, bool autostart)
 {
 	machineEnable1551(false);
 	if (CTrueDrive::GetRoot()) {
-		CTrueDrive::SwapDisk(name);
 		const Uint8 *state = SDL_GetKeyboardState(NULL);
 		if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT] || autostart) {
 			autostart_file(name);
-		}
+		} else
+			CTrueDrive::SwapDisk(name);
 	}
 }
 

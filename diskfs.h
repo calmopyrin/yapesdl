@@ -23,7 +23,7 @@ private:
 	virtual unsigned char OpenFile(int channel, char *filename);
 	virtual unsigned char OpenDirectory(int channel, char *filename);
 	virtual void ParseFileName(char *srcname, char *destname, int *filemode, int *filetype, bool *wildflag);
-	virtual void ExecuteCommand(char *command);
+	virtual void ExecuteCommand(unsigned char *command);
 	bool findFirstFile(char *name);
 	bool ChangeDir(char *dirpath);
 	void ChangeDirCmd(char *dirpath);

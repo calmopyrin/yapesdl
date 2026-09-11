@@ -45,7 +45,7 @@ unsigned char CIECFSDrive::Open(int channel)
 	SetError(ERR_OK, 0, 0);
 
 	if (channel == 15) {
-		ExecuteCommand(cmd_buffer);
+		ExecuteCommand(reinterpret_cast<unsigned char*>(cmd_buffer));
 		return ST_OK;
 	}
 
@@ -397,7 +397,7 @@ Uint8 CIECFSDrive::Write(int channel, unsigned char data, unsigned int cmd, bool
 	}
 }
 
-void CIECFSDrive::ExecuteCommand(char *command)
+void CIECFSDrive::ExecuteCommand(unsigned char *command)
 {
 	unsigned short adr;
 	int len, i;
@@ -434,7 +434,7 @@ void CIECFSDrive::ExecuteCommand(char *command)
 			if (command[1] != ':')
 				SetError(ERR_SYNTAX30, 0, 0);
 			else
-				ChangeDirCmd(&command[2]);
+				ChangeDirCmd(reinterpret_cast<char*>(command + 2));
 			break;
 
 		case 'M':
@@ -457,7 +457,7 @@ void CIECFSDrive::ExecuteCommand(char *command)
 						len = command[5];
 						if (adr<0x1000)
 							for (i=0; i<len; i++)
-								ram[(adr+i)&0x0FFF] = command[i+6];
+								ram[(adr + i) & 0x7FF] = command[i + 6];
 						break;
 
 					case 'E':
