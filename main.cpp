@@ -344,7 +344,7 @@ bool start_file(const char *szFile, bool autostart = true)
 
 bool autostart_file(const char *szFile, bool autostart)
 {
-	machineReset(true);
+	machineReset(1);
 	// do some frames
 	unsigned int frames = ted8360->getAutostartDelay();
 	machineDoSomeFrames(frames);
@@ -516,6 +516,7 @@ bool SaveSettings(char *inifileName)
 		fprintf(ini, "EmulationLevel = %u\n", g_iEmulationLevel);
 		fprintf(ini, "JoystickKeysIndex = %u\n", KEYS::joystickScanCodeIndex);
 		fprintf(ini, "Vic20RamExpSize = %u\n", Vicmem::ramExpSizeKb);
+		fprintf(ini, "YM2149Frequency = %u\n", TED::ym2149Frequency);
 
 		fclose(ini);
 		return true;
@@ -590,6 +591,11 @@ bool LoadSettings(char *inifileName)
 					KEYS::joystickScanCodeIndex = atoi(value) % 3;
 				else if (!strcmp(keyword, "Vic20RamExpSize"))
 					Vicmem::ramExpSizeKb = atoi(value);
+				else if (!strcmp(keyword, "YM2149Frequency")) {
+					TED::ym2149Frequency = atoi(value);
+					if (g_iEmulationLevel < 2)
+						ted8360->enableYM2149();
+				}
 			}
 		}
 		fclose(ini);

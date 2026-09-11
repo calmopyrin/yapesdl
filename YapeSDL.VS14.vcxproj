@@ -550,6 +550,7 @@
     <ClInclude Include="vic2mem.h" />
     <ClInclude Include="vicmem.h" />
     <ClInclude Include="video.h" />
+    <ClInclude Include="YM2149.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="1541mem.cpp" />
@@ -583,6 +584,7 @@
     <ClCompile Include="vic2mem.cpp" />
     <ClCompile Include="vicmem.cpp" />
     <ClCompile Include="video.cpp" />
+    <ClCompile Include="YM2149.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Changes" />
@@ -591,6 +593,9 @@
   <ItemGroup>
     <ProjectReference Include="opl3\opl3.vcxproj">
       <Project>{5d995ac8-b924-49b0-8605-774d4db34df2}</Project>
+    </ProjectReference>
+    <ProjectReference Include="ym2149\ym2149.vcxproj">
+      <Project>{4bd38b51-bcd4-4a9d-98cd-ef0690eb9787}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

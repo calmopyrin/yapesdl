@@ -549,6 +549,8 @@
     <ClInclude Include="vic2mem.h" />
     <ClInclude Include="vicmem.h" />
     <ClInclude Include="video.h" />
+    <ClInclude Include="YM2149.h" />
+    <ClInclude Include="ym2149\emu2149.h" />
     <ClInclude Include="zlib\crypt.h" />
     <ClInclude Include="zlib\ioapi.h" />
     <ClInclude Include="zlib\unzip.h" />
@@ -588,6 +590,8 @@
     <ClCompile Include="vic2mem.cpp" />
     <ClCompile Include="vicmem.cpp" />
     <ClCompile Include="video.cpp" />
+    <ClCompile Include="YM2149.cpp" />
+    <ClCompile Include="ym2149\emu2149.c" />
     <ClCompile Include="zlib\ioapi.c" />
     <ClCompile Include="zlib\unzip.c" />
     <ClCompile Include="zlib\zip.c" />

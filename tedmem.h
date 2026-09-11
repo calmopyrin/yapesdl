@@ -46,6 +46,7 @@ class CTCBM;
 class SIDsound;
 struct Color;
 class OPL2Sound;
+class YM2149;
 
 class TED : public CSerial , public MemoryHandler, public SoundSource, public SaveState {
   public:
@@ -75,6 +76,8 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	// RAM expansions
 	static unsigned int reuSizeKb;
 	static void flipRamExpansion(void* none);
+	void enableYM2149();
+	static void flipYM2149(void* none);
 	virtual void enableREU(unsigned int sizekb);
 	// /ram/rom path/load variables
 	virtual void loadroms(void);
@@ -164,6 +167,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	void setClockStep(unsigned int originalFreq, unsigned int samplingFreq);
 	//
 	static unsigned int sidCardEnabled;
+	static unsigned int ym2149Frequency;
 	static rvar_t tedSettings[];
 
 private:
@@ -261,6 +265,7 @@ protected:
 	void doDMA( unsigned char *Buf, unsigned int Offset  );
 	SIDsound *sidCard;
 	OPL2Sound* soundX = NULL;
+	YM2149* ym2149 = NULL;
 	//
 	void doHRetrace();
 	void doVRetrace();

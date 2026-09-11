@@ -24,6 +24,7 @@
 #include "Clockable.h"
 #include "video.h"
 #include "OPL2Sound.h"
+#include "YM2149.h"
 
 #define RETRACESCANLINEMAX 360
 #define RETRACESCANLINEMIN (SCR_VSIZE - (RETRACESCANLINEMAX - SCR_VSIZE))
@@ -98,6 +99,7 @@ unsigned int TED::reuSizeKb;
 unsigned int TED::RAMMask = 0xFFFF;
 unsigned int TED::sidCardEnabled;
 unsigned int TED::dmaFetchCountStart = 0;
+unsigned int TED::ym2149Frequency = 0;
 
 rvar_t TED::tedSettings[] = {
 	//{ "Sid card", "SidCardEnabled", TED::toggleSidCard, &TED::sidCardEnabled, RVAR_TOGGLE, NULL },
@@ -110,6 +112,7 @@ rvar_t TED::tedSettings[] = {
 	//{ "rom c2 hi", "ROMC2HIGH", NULL, TED::romhighpath[2], RVAR_STRING },
 	{ "C264 RAM mask", "RamMask", TED::flipRamMask, &TED::RAMMask, RVAR_HEX, NULL },
 	{ "RAM expansion (REU) in kB", "256KBRAM", TED::flipRamExpansion, &TED::reuSizeKb, RVAR_INT, NULL },
+	{ "YM2149 Frequency (0 = OFF)", "YM2149Freq", TED::flipYM2149, &TED::ym2149Frequency, RVAR_INT, NULL },
 	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };
 
@@ -199,6 +202,9 @@ TED::TED() : SaveState(), sidCard(0), crsrphase(0), ramExt(0), reuBank(3), align
 	if (enableSidCard(true, 0)) {
 		//sidCard->setModel(SID8580DB);
 	}
+	if (ym2149Frequency && !ym2149) {
+		ym2149 = new YM2149(ym2149Frequency);
+	}
 	enableREU(reuSizeKb);
 }
 
@@ -217,6 +223,7 @@ void TED::soundReset()
 {
 	if (sidCard) sidCard->reset();
 	if (soundX) soundX->reset();
+	if (ym2149) ym2149->reset();
 }
 
 void TED::Reset(unsigned int resetLevel)
@@ -617,7 +624,9 @@ unsigned char TED::Read(unsigned int addr)
 							}
 							return readOpenAddressSpace(addr);
 						}
-						case 0xFD2: // Speech hardware
+						case 0xFD2: // Speech hardware & DIGIMUZ (YM2149)
+							if (ym2149)
+								ym2149->read(addr & 3);
 							return readOpenAddressSpace(addr);
 						case 0xFD3:
 							return Ram[0xFD30];
@@ -1061,8 +1070,12 @@ void TED::Write(unsigned int addr, unsigned char value)
 				case 0xFD:
 					switch (addr>>4) {
 						default:
+						case 0xFD2: // Speech hardware & DIGIMUZ (YM2149)
+							if (ym2149) {
+								flushBuffer(CycleCounter, TED_SOUND_CLOCK);
+								ym2149->write(addr & 3, value);
+							}
 						case 0xFD0: // RS232
-						case 0xFD2: // Speech hardware
 							return;
 						case 0xFD1: // User port/PIO & Hannes RAM expansion
 							if (ramExt) {
@@ -2009,6 +2022,23 @@ void TED::flipRamExpansion(void* none)
 	m->enableREU(reuSizeKb);
 }
 
+void TED::enableYM2149()
+{
+	if (ym2149) {
+		delete ym2149;
+		ym2149 = NULL;
+	}
+	if (ym2149Frequency)
+		ym2149 = new YM2149(ym2149Frequency);
+}
+
+void TED::flipYM2149(void* none)
+{
+	TED* m = instance_;
+	ym2149Frequency = (ym2149Frequency == 1879600U ? 0 : (ym2149Frequency == 0 ? TED_SOUND_CLOCK : 1879600U));
+	m->enableYM2149();
+}
+
 void TED::reuWrite(unsigned char value)
 {
 	unsigned int mask = REU_BANK_MASK;
@@ -2063,6 +2093,10 @@ TED::~TED()
 	if (soundX) {
 		delete soundX;
 		soundX = NULL;
+	}
+	if (ym2149) {
+		delete ym2149;
+		ym2149 = NULL;
 	}
 }
 
