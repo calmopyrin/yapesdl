@@ -18,11 +18,11 @@ void Via::write(unsigned int r, unsigned char value)
 		prb = value;
 		break;
 	case 1:
-	case 0xF: // same as #1, no handshake
 		if ((pcr & 0x0A) != 0x02)
 			ifr &= ~IRQM_CA2;
 		ifr &= ~IRQM_CA1;
 		checkIrqCallback(callBackParam, ifr & ier);
+	case 0xF: // same as #1, no handshake
 		pra = value;
 		break;
 	case 2:
@@ -123,12 +123,12 @@ unsigned char Via::read(unsigned int r)
 		return ((prb | ~ddrb) & ~(acr & 0x80)) | pb67;
 	default:
 	case 1:
-	case 0xF:
 		if ((pcr & 0x0A) != 0x02)
 			ifr &= ~IRQM_CA2;
 		// Clear CA1 IRQ flag
 		ifr &= ~IRQM_CA1;
 		checkIrqCallback(callBackParam, ifr & ier);
+	case 0xF:
 		return pra | ~ddra;
 	case 2:
 		return ddrb;
