@@ -7,6 +7,7 @@ dis.o	\
 diskfs.o \
 dos.o \
 drive.o \
+emu2149.o \
 FdcGcr.o \
 iec.o \
 interface.o		\
@@ -29,7 +30,8 @@ tedsound.o \
 Via.o \
 vicmem.o \
 vic2mem.o \
-video.o
+video.o \
+YM2149.o
 
 EXENAME = yapesdl
 SRCPACKAGENAME = $(EXENAME)_0.81.1-1
@@ -76,6 +78,9 @@ dos.o : dos.cpp
 	$(CC) $(cflags) -c $<
 
 drive.o : drive.cpp iec.cpp drive.h device.h diskfs.h iec.h tcbm.h
+	$(CC) $(cflags) -c $<
+
+emu2149.o : ym2149/emu2149.c
 	$(CC) $(cflags) -c $<
 
 FdcGcr.o : FdcGcr.cpp
@@ -145,6 +150,9 @@ Via.o : Via.cpp Via.h
 	$(CC) $(cflags) -c $<
 
 video.o : video.cpp
+	$(CC) $(cflags) -c $<
+
+YM2149.o : YM2149.cpp
 	$(CC) $(cflags) -c $<
 
 clean :
