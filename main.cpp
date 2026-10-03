@@ -968,7 +968,8 @@ inline static void poll_events(void)
 			SDL_ShowCursor(0);
 	}
 
-	if ( SDL_PollEvent(&event) ) {
+	// Drain pending SDL events so controller axis updates are not delayed.
+	while ( SDL_PollEvent(&event) ) {
 		switch (event.type) {
 
 			case SDL_WINDOWEVENT:
@@ -1141,6 +1142,12 @@ inline static void poll_events(void)
 
 			case SDL_JOYBUTTONUP:
 				//printf("joy: %u, button: %u was pressed!\n", event.jbutton.which, event.jbutton.button);
+				// Set YAPE_PADKEYS=off to disable the built-in menu button mapping.
+				{
+					const char *pk = getenv("YAPE_PADKEYS");
+					if (pk && !strcmp(pk, "off"))
+						break;
+				}
 				if (event.jbutton.button == 5 || event.jbutton.button == 14) { // START button
 					enterMenu();
 				} else if (event.jbutton.button == 4) {
