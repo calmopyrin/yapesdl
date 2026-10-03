@@ -1355,9 +1355,67 @@ static void app_initialise()
 	KEYS::initPcJoys();
 }
 
+/* ---------- test hooks (Paradroid tests) ---------- */
+#include <signal.h>
+static volatile sig_atomic_t g_sigMon = 0, g_sigShot = 0;
+static void onSigMon(int) { g_sigMon = 1; }
+static void onSigShot(int) { g_sigShot = 1; }
+
+static void testHooks()
+{
+	if (g_sigMon) {
+		g_sigMon = 0;
+		monitorEnter(machine);
+		printf("MONITOR LEFT\n");
+	}
+	static int shotLeft = 0, shotIdx = 0, shotSeries = 0;
+	if (g_sigShot) {
+		g_sigShot = 0;
+		const char *n = getenv("YAPE_SHOTN");
+		shotLeft = n ? atoi(n) : 1;
+		shotSeries = n != NULL;
+		shotIdx = 0;
+	}
+	if (shotLeft) {
+		shotLeft--;
+		const char *f0 = getenv("YAPE_SHOT");
+		char f[1024], tmp[1100];
+		FILE *fp = NULL;
+		if (f0) {
+			if (shotSeries)
+				snprintf(f, sizeof f, "%s.%03d", f0, shotIdx++);
+			else
+				snprintf(f, sizeof f, "%s", f0);
+			snprintf(tmp, sizeof tmp, "%s.tmp", f);
+			fp = fopen(tmp, "wb");
+		}
+		if (fp) {
+			const unsigned int cpr = ted8360->getCyclesPerRow();
+			const unsigned char *src = ted8360->getScreenData() + (cpr - 384 - 8) / 2;
+			const unsigned int *pal = palette_get_rgb();
+			fprintf(fp, "P6\n%d %d\n255\n", SCREENX, SCREENY);
+			for (unsigned int y = 0; y < SCREENY; y++)
+				for (unsigned int x = 0; x < SCREENX; x++) {
+					unsigned int c = pal[src[y * cpr + x]];
+					fputc((c >> 16) & 255, fp);
+					fputc((c >> 8) & 255, fp);
+					fputc(c & 255, fp);
+				}
+			fclose(fp);
+			rename(tmp, f);
+			if (!shotLeft)
+				printf("SHOT SAVED %s\n", f);
+		} else {
+			shotLeft = 0;
+			printf("SHOT FAILED\n");
+		}
+	}
+}
+
 /* ---------- MAIN LOOP ---------- */
 static void mainLoop()
 {
+	testHooks();
 	// hook into the emulation loop if active
 	if (g_bActive) {
 		ted8360->ted_process(1);
@@ -1413,6 +1471,9 @@ static void printSpecialKeys()
 /* ---------- MAIN ---------- */
 int main(int argc, char *argv[])
 {
+	setvbuf(stdout, NULL, _IONBF, 0);
+	signal(SIGUSR1, onSigMon);
+	signal(SIGUSR2, onSigShot);
 	machineInit();
 	uinterface = new UI(ted8360);
 
@@ -1501,6 +1562,8 @@ int main(int argc, char *argv[])
 	setMainLoop(1);
 #else
 	printSpecialKeys();
+	if (getenv("YAPE_WARP") && g_50Hz)
+		toggleFullThrottle(NULL);
 	ad_vsync_init(50);
 	for (;;) {
 		mainLoop();

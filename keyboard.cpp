@@ -1,3 +1,4 @@
+#include <sys/time.h>
 /*
 	YAPE - Yet Another Plus/4 Emulator
 
@@ -283,6 +284,19 @@ unsigned char KEYS::feedjoy(unsigned char latch)
 			tmp &= joy_trans(2);
 		if (sdlJoys[activePcJoy2ix])
 			tmp &= getPcJoyState(activePcJoy2ix, 1);
+	}
+	// YAPE_JOYLOG: log each change to the joystick state read by the machine.
+	{
+		static int log = -1;
+		static unsigned char last = 0xFF;
+		if (log < 0)
+			log = getenv("YAPE_JOYLOG") != NULL;
+		if (log && tmp != last && (latch & 0x06) != 0x06) {
+			struct timeval tv;
+			gettimeofday(&tv, NULL);
+			printf("JOY %ld.%03ld %02X\n", (long) tv.tv_sec, (long) tv.tv_usec / 1000, tmp);
+			last = tmp;
+		}
 	}
 	return tmp;
 }
