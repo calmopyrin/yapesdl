@@ -1441,7 +1441,9 @@ int main(int argc, char *argv[])
 		ad_get_curr_dir(tmpStr);
 		fprintf(stderr, "IEC drive path: %s\n", tmpStr);
 		setEmulationLevel(g_iEmulationLevel);
-		machineReset(true);
+		// power on with the ROMs the settings name: a plain reset kept the
+		// built-in ones until the next hard reset (shift+F11)
+		machineReset(3);
 	} else
 		fprintf(stderr,"Error loading settings or no .ini file present...\n");
 #endif
