@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstring>
 #include "types.h"
 
 #define WL_CIA_CORE
@@ -152,7 +153,11 @@ public:
 		prbTimerOut = 0;
 		prbTimerMode = 0;
 		prbTimerToggle = 0;
+		sdr = 0;
 		sdrShiftCnt = 0;
+		memset(&tod, 0, sizeof(tod));
+		memset(&todLatch, 0, sizeof(todLatch));
+		memset(&alm, 0, sizeof(alm));
 		todCount = 60 * 60 * 50;
 		alarmCount = -1;
 		tod.latched = false;
@@ -197,6 +202,31 @@ public:
 		}
 	}
 
+	void writeTod(unsigned int addr, unsigned char value) {
+		const bool alarm = (crb & 0x80) != 0;
+		TOD& t = alarm ? alm : tod;
+		unsigned int& cnt = alarm ? alarmCount : todCount;
+		frames2tod(cnt, t, todIn);
+		switch (addr) {
+		case 0x08: t.tenths = value & 0x0F; break;
+		case 0x09: t.sec = value & 0x7F; break;
+		case 0x0A: t.min = value & 0x7F; break;
+		case 0x0B:
+			if (alarm) {
+				t.hr = value & 0x9F;
+			}
+			else {
+				unsigned int hours = value & 0x3F;
+				if (value & 0x80) hours += 16;
+				t.hr = hours;
+			}
+			break;
+		}
+		cnt = tod2frames(t);
+		if (addr == 0x08) tod.halt = 0;
+		else if (addr == 0x0B) tod.halt = 1;
+	}
+
 	void write(unsigned int addr, unsigned char value) {
 		addr &= 0x0F;
 		reg[addr] = value;
@@ -224,7 +254,7 @@ public:
 		case 0x09:
 		case 0x0A:
 		case 0x0B:
-			tod.halt = (addr == 0x0B) ? 1 : 0;
+			writeTod(addr, value);
 			break;
 		case 0x0C: sdr = value; sdrShiftCnt = 8; break;
 		case 0x0D:
@@ -325,6 +355,24 @@ public:
 		case 0x05: return ta >> 8;
 		case 0x06: return tb & 0xFF;
 		case 0x07: return tb >> 8;
+		case 0x08:
+			tod.latched = false;
+			frames2tod(todCount, tod, todIn);
+			return tod.tenths;
+		case 0x09:
+			if (tod.latched) return todLatch.sec;
+			frames2tod(todCount, tod, todIn);
+			return tod.sec;
+		case 0x0A:
+			if (tod.latched) return todLatch.min;
+			frames2tod(todCount, tod, todIn);
+			return tod.min;
+		case 0x0B:
+			if (!tod.halt) frames2tod(todCount, tod, todIn);
+			tod.latched = true;
+			todLatch = tod;
+			return todLatch.hr | tod.ampm;
+		case 0x0C: return sdr;
 		case 0x0D: {
 			unsigned char retval = icr;
 			if (icr & irq_mask & 0x1F) {
@@ -341,6 +389,12 @@ public:
 	}
 
 	void countTimers() {
+		if ((cra & 0x40) && sdrShiftCnt) {
+			if (--sdrShiftCnt == 0) {
+				setIRQflag(0x08);
+			}
+		}
+
 		if (dwDelay & CountA3) {
 			ta--;
 		}
