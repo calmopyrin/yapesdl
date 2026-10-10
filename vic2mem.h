@@ -87,6 +87,7 @@ class Vic2mem : public TED
 			unsigned int reloadFlipFlop;
 			bool dmaState;
 			bool rendering;
+			bool display;
 			bool finished;
 			union SpriteDma {
 				unsigned char shiftRegBuf[4];
@@ -142,7 +143,8 @@ class Vic2mem : public TED
 		unsigned char readFloatingBus(unsigned int adr);
 		void checkSpriteEnable();
 		void stopSpriteDMA();
-		void spriteReloadCounters();
+		void checkSpriteExpansion();
+		void checkSpriteDisplay();
 		unsigned int lpLatchX, lpLatchY;
 		bool lpLatched;
 		unsigned int gamepin, exrom;

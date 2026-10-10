@@ -49,13 +49,12 @@
 	do { \
 		if (mob[X].dmaState) { \
 			unsigned int &dc = mob[X].dataCount; \
-			unsigned int &dcReload = mob[X].dataCountReload; \
-			unsigned char *sData = vicBase + mob[X].dataAddress + dcReload; \
+			unsigned char *sData = vicBase + mob[X].dataAddress + dc; \
 			unsigned char *sBuf = mob[X].sdb[0].shiftRegBuf; \
 			sBuf[0] = sData[0]; \
 			sBuf[1] = sData[1]; \
 			sBuf[2] = sData[2]; \
-			dc = (dcReload + 3) & 0x3F; \
+			dc = (dc + 3) & 0x3F; \
 		} \
 	} while (0);
 #else
@@ -179,7 +178,8 @@ void Vic2mem::Reset(unsigned int resetLevel)
 	for (int i = 0; i < 8; i++) {
 		mob[i].dataCount = 0;
 		mob[i].dataCountReload = 0;
-		mob[i].reloadFlipFlop = 0;
+		mob[i].reloadFlipFlop = 1;
+		mob[i].display = false;
 		mob[i].x = 0;
 		mob[i].y = 0;
 		mob[i].dmaState = false;
@@ -486,8 +486,12 @@ void Vic2mem::doDelayedDMA()
 							clrbuf[i] = illegalClr;
 						}
 						delayedDMA = true;
-						dmaCount = 40 - delay;
-						const unsigned int real = dmaCount - illegalCnt;
+						// the video counter advances by one for every graphics fetch of the line;
+						// a line that was in display state already makes all of them, otherwise
+						// only the ones after the bad line condition turned the display state on
+						const unsigned int fetchCnt = 40 - delay;
+						dmaCount = VertSubActive ? 40 : fetchCnt;
+						const unsigned int real = fetchCnt - illegalCnt;
 						if (CharacterPosition + real > 0x0400) {
 							const unsigned int n1 = 0x400 - CharacterPosition;
 							const unsigned int n2 = CharacterPosition + real - 0x400;
@@ -898,23 +902,22 @@ skip:
 								SET_BITS(mob[i].enabled, value);
 								break;
 							case 0x17:
-								// sprite crunch?
-								if (beamx == 2) {
-									unsigned int i = 7; 
-									do {
-										unsigned int bit = (1 << i);
-										unsigned int newBitOn = value & bit;
-										if ((vicReg[0x17] & bit) && !newBitOn) {
-											unsigned int &dcReload = mob[i].dataCountReload;
-											unsigned int dc = (dcReload + 3) & 0x3F;
-											dcReload = (0x2A & dcReload & dc) | (0x15 & (dcReload | dc));
-										}
-										mob[i].expandY = mob[i].reloadFlipFlop = !!newBitOn;
-									} while(i--);
-								} else 
+								// clearing a Y expansion bit while its flip-flop is low sets the flip-flop,
+								// in cycle 15 the sprite counters are corrupted as well (sprite crunch)
 								{
-									SET_BITS(mob[i].expandY, value);
-									SET_BITS(mob[i].reloadFlipFlop, value);
+									unsigned int i = 7;
+									do {
+										const unsigned int newBitOn = (value >> i) & 1;
+										if (!newBitOn && !mob[i].reloadFlipFlop) {
+											if (beamx == 2) {
+												const unsigned int mc = mob[i].dataCount;
+												const unsigned int mcBase = mob[i].dataCountReload;
+												mob[i].dataCount = (0x2A & mcBase & mc) | (0x15 & (mcBase | mc));
+											}
+											mob[i].reloadFlipFlop = 1;
+										}
+										mob[i].expandY = newBitOn;
+									} while (i--);
 								}
 								break;
 							case 0x1B:
@@ -1260,6 +1263,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				if (VertSubActive && !delayedDMA && !dmaCount)
 					dmaCount = 40;
 				checkSpriteEnable();
+				checkSpriteExpansion();
 				// On bad line with sprite 0 on, all CPU cycles are stolen
 				if (!checkSpriteDMA(0))
 					vicBusAccessCycleStart = 0;
@@ -1268,7 +1272,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 			case 84:
 				if (!nrwscr)
 					SideBorderFlipFlop = CharacterWindow = false;
-				spriteReloadCounters();
+				checkSpriteEnable();
 				break;
 
 			case 86:
@@ -1278,6 +1282,7 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				break;
 
 			case 88:
+				checkSpriteDisplay();
 				if (vertSubCount == 7) {// FIXME
 					CharacterPositionReload = (CharacterPosition + dmaCount) & 0x3FF;
 					dmaCount = 0;
@@ -1438,14 +1443,7 @@ inline void Vic2mem::hi_text()
 	}
 	const unsigned char col[] = { mcol[0], charcol };
 
-	wbuffer[0] = col[mask >> 7];
-	wbuffer[1] = col[(mask >> 6) & 1];
-	wbuffer[2] = col[(mask >> 5) & 1];
-	wbuffer[3] = col[(mask >> 4) & 1];
-	wbuffer[4] = col[(mask >> 3) & 1];
-	wbuffer[5] = col[(mask >> 2) & 1];
-	wbuffer[6] = col[(mask >> 1) & 1];
-	wbuffer[7] = col[mask & 1];
+	drawBits8(wbuffer, mask, col[0], col[1]);
 }
 
 // renders extended color text
@@ -1466,14 +1464,7 @@ inline void Vic2mem::ec_text()
 		charcol = chr = 0;
 	}
 
-	wbuffer[0] = (mask & 0x80) ? charcol : ecol[chr];
-	wbuffer[1] = (mask & 0x40) ? charcol : ecol[chr];
-	wbuffer[2] = (mask & 0x20) ? charcol : ecol[chr];
-	wbuffer[3] = (mask & 0x10) ? charcol : ecol[chr];
-	wbuffer[4] = (mask & 0x08) ? charcol : ecol[chr];
-	wbuffer[5] = (mask & 0x04) ? charcol : ecol[chr];
-	wbuffer[6] = (mask & 0x02) ? charcol : ecol[chr];
-	wbuffer[7] = (mask & 0x01) ? charcol : ecol[chr];
+	drawBits8(wbuffer, mask, ecol[chr], charcol);
 }
 
 // renders multicolor text with reverse bit set
@@ -1505,14 +1496,7 @@ inline void Vic2mem::mc_text()
 	} else { // this is a normally colored character
 		const unsigned char col[] = { mcol[0], charcol };
 
-		wbuffer[0] = col[mask >> 7];
-		wbuffer[1] = col[(mask >> 6) & 1];
-		wbuffer[2] = col[(mask >> 5) & 1];
-		wbuffer[3] = col[(mask >> 4) & 1];
-		wbuffer[4] = col[(mask >> 3) & 1];
-		wbuffer[5] = col[(mask >> 2) & 1];
-		wbuffer[6] = col[(mask >> 1) & 1];
-		wbuffer[7] = col[mask & 1];
+		drawBits8(wbuffer, mask, col[0], col[1]);
 	}
 }
 
@@ -1536,14 +1520,7 @@ inline void Vic2mem::hi_bitmap()
 	}
 	const unsigned char col[] = { hcol0, hcol1 };
 
-	wbuffer[0] = col[mask >> 7];
-	wbuffer[1] = col[(mask >> 6) & 1];
-	wbuffer[2] = col[(mask >> 5) & 1];
-	wbuffer[3] = col[(mask >> 4) & 1];
-	wbuffer[4] = col[(mask >> 3) & 1];
-	wbuffer[5] = col[(mask >> 2) & 1];
-	wbuffer[6] = col[(mask >> 1) & 1];
-	wbuffer[7] = col[mask & 1];
+	drawBits8(wbuffer, mask, col[0], col[1]);
 }
 
 // renders multicolor bitmap graphics
@@ -1591,14 +1568,7 @@ inline void Vic2mem::mcec()
 		wbuffer[4] = wbuffer[5] = imcol[(mask >> 2) & 3];
 		wbuffer[6] = wbuffer[7] = imcol[mask & 3];
 	} else {
-		wbuffer[0] = (mask & 0x80) ? 0 : 0x40;
-		wbuffer[1] = (mask & 0x40) ? 0 : 0x40;
-		wbuffer[2] = (mask & 0x20) ? 0 : 0x40;
-		wbuffer[3] = (mask & 0x10) ? 0 : 0x40;
-		wbuffer[4] = (mask & 0x08) ? 0 : 0x40;
-		wbuffer[5] = (mask & 0x04) ? 0 : 0x40;
-		wbuffer[6] = (mask & 0x02) ? 0 : 0x40;
-		wbuffer[7] = (mask & 0x01) ? 0 : 0x40;
+		drawBits8(wbuffer, mask, 0x40, 0);
 	}
 }
 
@@ -1615,14 +1585,7 @@ inline void Vic2mem::hi_bmec()
 		mask = vicBase[0x39FF];
 	}
 
-	wbuffer[0] = col[mask >> 7];
-	wbuffer[1] = col[(mask >> 6) & 1];
-	wbuffer[2] = col[(mask >> 5) & 1];
-	wbuffer[3] = col[(mask >> 4) & 1];
-	wbuffer[4] = col[(mask >> 3) & 1];
-	wbuffer[5] = col[(mask >> 2) & 1];
-	wbuffer[6] = col[(mask >> 1) & 1];
-	wbuffer[7] = col[mask & 1];
+	drawBits8(wbuffer, mask, col[0], col[1]);
 }
 
 inline void Vic2mem::mc_bmec()
@@ -1855,16 +1818,42 @@ void Vic2mem::renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsign
 inline void Vic2mem::checkSpriteEnable()
 {
 #if NEWSDMA
+	// cycles 55 and 56: the sprite DMA starts when the Y coordinate matches
+	const unsigned int rasterY = beamy & 0xFF;
 	unsigned int i = 7;
 	do {
-		if (mob[i].enabled && mob[i].y == beamy /*&& !mob[i].dmaState*/) {
+		if (mob[i].enabled && mob[i].y == rasterY && !mob[i].dmaState) {
 			mob[i].dmaState = true;
 			mob[i].dataCountReload = 0;
-			mob[i].dataCount = 0;
-			mob[i].reloadFlipFlop = mob[i].expandY ^ 1;
+			mob[i].reloadFlipFlop = 1;
 		}
 	} while (i--);
 #endif
+}
+
+inline void Vic2mem::checkSpriteExpansion()
+{
+	// cycle 55: the Y expansion flip-flop toggles while the sprite DMA is on
+	unsigned int i = 7;
+	do {
+		if (mob[i].dmaState && mob[i].expandY)
+			mob[i].reloadFlipFlop ^= 1;
+	} while (i--);
+}
+
+inline void Vic2mem::checkSpriteDisplay()
+{
+	// cycle 58: the sprite counters are loaded and the display is switched on or off
+	const unsigned int rasterY = beamy & 0xFF;
+	unsigned int i = 7;
+	do {
+		mob[i].dataCount = mob[i].dataCountReload;
+		if (mob[i].dmaState) {
+			if (mob[i].enabled && mob[i].y == rasterY)
+				mob[i].display = true;
+		} else
+			mob[i].display = false;
+	} while (i--);
 }
 
 inline bool Vic2mem::checkSpriteDMA(unsigned int i)
@@ -1892,30 +1881,12 @@ inline void Vic2mem::stopSpriteDMA()
 	unsigned int i = 7;
 
 	do {
-		// HW (cycle 16): check end of sprite DMA
-		// if the expansion flip-flop is set, MCBASE := MC, and DMA ends when it reaches 63
-		if (mob[i].dmaState && !mob[i].reloadFlipFlop && mob[i].dataCount == 0x3F)
-			mob[i].dmaState = false; // drawSpritesPerLine() clears 'rendering' after the last row (not cycle exact...)
-	} while (i--);
-#endif
-}
-
-inline void Vic2mem::spriteReloadCounters()
-{
-#if NEWSDMA
-	unsigned int i = 7;
-
-	do {
-		if (mob[i].dmaState) {
-			unsigned int &dc = mob[i].dataCount;
-			unsigned int &flipFlop = mob[i].reloadFlipFlop;
-
-			flipFlop ^= 1;
-			if (flipFlop) {
-				mob[i].dataCountReload = dc;
-				// set flipflop to Y expension bit
-				flipFlop = mob[i].expandY;
-			}
+		// cycle 16: the base counter follows the sprite counter while the expansion
+		// flip-flop is set, the DMA ends when the sprite data is used up
+		if (mob[i].reloadFlipFlop) {
+			mob[i].dataCountReload = mob[i].dataCount;
+			if (mob[i].dataCountReload == 0x3F)
+				mob[i].dmaState = false;
 		}
 	} while (i--);
 #endif
@@ -1924,6 +1895,8 @@ inline void Vic2mem::spriteReloadCounters()
 inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
 {
 	unsigned int i = 7;
+	// horizontal range of the collision buffer touched in this line
+	unsigned int collLo = VIC_PIXELS_PER_ROW, collHi = 0;
 
 	do {
 #if !NEWSDMA
@@ -1943,6 +1916,8 @@ inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
 			unsigned char *d = vicBase + mob[i].dataAddress + dcReload;
 			unsigned char *p = lineBuf + tvX;
 			renderSprite(d, p, mob[i], tvX, 1 << i);
+			if (tvX < collLo) collLo = tvX;
+			if (tvX > collHi) collHi = tvX;
 			// check end of sprite DMA
 			if (dc == 0x3F) {
 				mob[i].dmaState = false;
@@ -1955,17 +1930,19 @@ inline void Vic2mem::drawSpritesPerLine(unsigned char *lineBuf)
 				unsigned char *d = mob[i].sdb[1].shiftRegBuf;
 				unsigned char *p = lineBuf + tvX;
 				renderSprite(d, p, mob[i], tvX, 1 << i);
+				if (tvX < collLo) collLo = tvX;
+				if (tvX > collHi) collHi = tvX;
 			}
-			if (!mob[i].dmaState) {
-				mob[i].rendering = false;
-			}
-		} else if (mob[i].dmaState) {
-			mob[i].rendering = true;
-#endif
 		}
+		mob[i].rendering = mob[i].display;
+#endif
 	} while (i--);
-	// check collisions
-	for(i = 0; i < VIC_PIXELS_PER_ROW; i++) {
+	// check collisions: a sprite writes at most 48 (expanded) pixels from its start
+	// position, so only the range touched in this line needs to be scanned
+	unsigned int collEnd = collHi + 48;
+	if (collEnd > VIC_PIXELS_PER_ROW)
+		collEnd = VIC_PIXELS_PER_ROW;
+	for(i = collLo; i < collEnd; i++) {
 		if (spriteCollisions[i]) {
 			const unsigned char newReg = spriteCollisionReg | collisionLookup[spriteCollisions[i]];
 			if (!spriteCollisionReg && newReg) {

@@ -29,6 +29,8 @@
 #define TED_REAL_CLOCK_NTSC_M10 14318180
 #define TED_SOUND_CLOCK (TED_CLOCK / clockDivisor)
 
+#include <string.h>
+
 #define TEXTMODE	0x00000000
 #define MULTICOLOR	0x00000010
 #define GRAPHMODE	0x00000020
@@ -37,6 +39,17 @@
 #define ILLEGAL		0x0000000F
 
 #define DRAW_BORDER(OFFS,COL) { *((unsigned int *) (scrptr + OFFS)) = COL; };
+
+// Draws 8 pixels at once: pixel n gets 'fg' when bit (7-n) of 'mask' is set, otherwise 'bg'.
+// bitExpand8[m] holds one byte (0 or 1) per bit of m, the most significant bit first in memory
+// order, so that bit * (fg ^ bg) ^ bg selects the colour in every byte lane without carries.
+extern const unsigned long long *bitExpand8;
+static inline void drawBits8(unsigned char *dst, unsigned int mask, unsigned int bg, unsigned int fg)
+{
+	const unsigned long long v = (bitExpand8[mask & 0xFF] * (unsigned long long) ((bg ^ fg) & 0xFF))
+		^ ((bg & 0xFF) * 0x0101010101010101ULL);
+	memcpy(dst, &v, 8);
+}
 
 class TED;
 class CPU;

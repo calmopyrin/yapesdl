@@ -40,26 +40,12 @@
 
 #define RENDER_HIRES(BUF, COLV, MSK) \
 	do { \
-		BUF[0] = COLV[MSK >> 7]; \
-		BUF[1] = COLV[(MSK >> 6) & 1]; \
-		BUF[2] = COLV[(MSK >> 5) & 1]; \
-		BUF[3] = COLV[(MSK >> 4) & 1]; \
-		BUF[4] = COLV[(MSK >> 3) & 1]; \
-		BUF[5] = COLV[(MSK >> 2) & 1]; \
-		BUF[6] = COLV[(MSK >> 1) & 1]; \
-		BUF[7] = COLV[MSK & 1]; \
+		drawBits8(BUF, MSK, COLV[0], COLV[1]); \
 	} while (0);
 
 #define RENDER_EC(BUF, COLV, MSK) \
 	do { \
-		BUF[0] = (MSK & 0x80) ? charcol : COLV[chr]; \
-		BUF[1] = (MSK & 0x40) ? charcol : COLV[chr]; \
-		BUF[2] = (MSK & 0x20) ? charcol : COLV[chr]; \
-		BUF[3] = (MSK & 0x10) ? charcol : COLV[chr]; \
-		BUF[4] = (MSK & 0x08) ? charcol : COLV[chr]; \
-		BUF[5] = (MSK & 0x04) ? charcol : COLV[chr]; \
-		BUF[6] = (MSK & 0x02) ? charcol : COLV[chr]; \
-		BUF[7] = (MSK & 0x01) ? charcol : COLV[chr]; \
+		drawBits8(BUF, MSK, COLV[chr], charcol); \
 	} while(0)
 
 #define RENDER_MC(BUF, COLV, MSK) \
@@ -75,6 +61,19 @@ bool			TED::vertSubIncrAllowed;
 unsigned int	TED::vertSubCount;
 int				TED::x;
 unsigned char	*TED::VideoBase;
+
+static unsigned long long bitExpandTable[256];
+static const unsigned long long *initBitExpand()
+{
+	for (unsigned int m = 0; m < 256; m++) {
+		unsigned char b[8];
+		for (unsigned int i = 0; i < 8; i++)
+			b[i] = (m >> (7 - i)) & 1;
+		memcpy(&bitExpandTable[m], b, 8);
+	}
+	return bitExpandTable;
+}
+const unsigned long long *bitExpand8 = initBitExpand();
 
 unsigned int TED::masterClock;
 ClockCycle TED::CycleCounter;
