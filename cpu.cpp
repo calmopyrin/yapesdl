@@ -832,11 +832,20 @@ CPU_NOINLINE void CPU::step()
 // opcode dispatch
 #define CASE_RUN(code, m, o)	case code: step<M_##m, O_##o, false>(); break;
 #define CASE_HALT(code, m, o)	case code: step<M_##m, O_##o, true>(); break;
+// The IRQ line is level sensitive: when its source is released again before the
+// interrupt sequence has started the pending interrupt is dropped. 
+// NMI is edge triggered and stays latched until it is serviced.
+#define SAMPLE_IRQ() \
+	if (IRQcount | *irq_register) { \
+		if (!*irq_register && irqVector != INTERRUPT_NMI) \
+			IRQcount = 0; \
+		else if (IRQcount || (!irq_sequence && !(ST & 0x04))) \
+			IRQcount++; \
+}
 
 void CPU::process()
 {
-	if (IRQcount || (*irq_register && !irq_sequence && !(ST&0x04)))
-		IRQcount++;
+	SAMPLE_IRQ();
 
 	if (cycle) {
 		switch (currins & 0xFF) {
@@ -868,9 +877,7 @@ void CPU::process()
 // (the RDY line of the CPU is low, read cycles are stalled)
 void CPU::stopcycle()
 {
-	// the IRQ line is sampled in the stalled cycles as well
-	if (IRQcount || ((*irq_register) && !irq_sequence && !(ST & 0x04)))
-		IRQcount++;
+	SAMPLE_IRQ();
 
 	if (!cycle)
 		return;					// the opcode fetch is a read cycle
