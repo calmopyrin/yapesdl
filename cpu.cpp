@@ -1,18 +1,55 @@
+// -----------------------------------------------------------------------------
+// 6502/6510/7501/8501 CPU core - cycle exact bus behaviour
+//
+// Every call of process() executes exactly ONE bus cycle of the current
+// instruction and performs the bus access of the real NMOS 6502 in that cycle:
+//
+//  - the opcode is fetched in cycle 1, the operand bytes in the cycles that
+//    follow (nothing is prefetched), so the data bus carries the right byte
+//    in every cycle
+//  - read-modify-write instructions write the old value back first
+//  - stopcycle() is the RDY-low variant of process(): read cycles stall
+//    (nothing happens), write cycles proceed
+//  - the "dummy" reads of the internal cycles (indexed / indirect addressing,
+//    implied instructions, branches) are only done when CPU_DUMMY_READS is 1;
+//    they cost time and only matter if the bus latch / I/O side effects of
+//    those reads are emulated
+//  - the stack page is accessed directly through the 'stack' pointer,
+//    define CPU_STACK_VIA_BUS 1 to send stack cycles to memory
+//
+// Speed: the decoder is resolved at compile time. step<mode, operation, rdy>()
+// is instantiated for each opcode and process() dispatches with one switch,
+// so there is no run time table lookup or mode/operation decoding.
+// -----------------------------------------------------------------------------
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
 #include "cpu.h"
 
-// this one is much quicker
-#define push(VALUE) (stack[SP--]=(VALUE))
-#define pull() (stack[SP])
+// one function per opcode (resolved at compile time) is faster out of line
+#ifndef CPU_NOINLINE
+#if defined(_MSC_VER)
+#define CPU_NOINLINE __declspec(noinline)
+#elif defined(__GNUC__)
+#define CPU_NOINLINE __attribute__((noinline))
+#else
+#define CPU_NOINLINE
+#endif
+#endif
+
+#ifndef CPU_DUMMY_READS
+#define CPU_DUMMY_READS 0
+#endif
 
 bool CPU::bp_active = false;
 bool CPU::bp_reached = false;
 const unsigned int CPU::nr_of_bps = 11;
-static unsigned int stats[255];
+static unsigned int stats[256];
+template<> unsigned int LinkedList<Debuggable>::count = 0;
+template<> Debuggable* LinkedList<Debuggable>::root = 0;
+template<> Debuggable* LinkedList<Debuggable>::last = 0;
 
-CPU::CPU( MemoryHandler *memhandler, unsigned char *irqreg, unsigned char *cpustack)
+CPU::CPU( MemoryHandler *memhandler, unsigned char *irqreg, unsigned char *cpustack) 
 	: mem(memhandler), irq_register(irqreg), stack(cpustack)
 {
 	irq_sequence = 0;
@@ -120,2840 +157,137 @@ inline void CPU::DoCompare(unsigned char reg, unsigned char value)
 	SETFLAGS_ZN( reg - value);
 }
 
-void CPU::process()
-{
-	if (IRQcount || (*irq_register && !irq_sequence && !(ST&0x04)))
-		IRQcount++;
+// -----------------------------------------------------------------------------
+// instruction decoder tables
+// -----------------------------------------------------------------------------
+enum {
+	M_IMP, M_IMM, M_ZP, M_ZPX, M_ZPY, M_ABS, M_ABX, M_ABY, M_IZX, M_IZY, M_REL,
+	M_BRK, M_JSR, M_RTI, M_RTS, M_PSH, M_PUL, M_JMP, M_JMPI, M_JAM
+};
 
-	if (!cycle) {		// in the first cycle the CPU fetches the opcode
-		if (IRQcount>=3 && currins != 0x58) {
-			IRQcount = 0;
-			if (!(ST&0x04) || currins == 0x78 || irqVector == INTERRUPT_NMI) { //
-				irq_sequence = 0x10; // this is 0x10 to match the B flag later
-				currins = 0x00;	 // we could use BRK for the IRQ routine!
-				cycle = 1;
-				return;
-			}
-		}
-		currins=mem->Read(PC);				// fetch opcode
-		nextins=mem->Read(PC+1);			// prefetch next opcode/operand
-		cycle = 1;							// increment the CPU cycle counter
-		PC=(PC+1)&0xFFFF;
-#ifdef CPUS_STATS
-		stats[currins]++;
+enum {
+	// operations reading their operand
+	O_ORA, O_AND, O_EOR, O_ADC, O_SBC, O_CMP, O_CPX, O_CPY, O_LDA, O_LDX, O_LDY,
+	O_BIT, O_LAX, O_LAS, O_NOP, O_ANC, O_ALR, O_ARR, O_XAA, O_LXA, O_SBX,
+	// operations storing a value
+	O_STA, O_STX, O_STY, O_SAX, O_SHA, O_SHX, O_SHY, O_TAS,
+	// read-modify-write operations
+	O_ASL, O_ROL, O_LSR, O_ROR, O_INC, O_DEC, O_SLO, O_RLA, O_SRE, O_RRA, O_DCP, O_ISB,
+	// implied operations
+	O_ASLA, O_ROLA, O_LSRA, O_RORA, O_INX, O_INY, O_DEX, O_DEY, O_TAX, O_TXA, O_TAY, O_TYA,
+	O_TSX, O_TXS, O_CLC, O_SEC, O_CLI, O_SEI, O_CLV, O_CLD, O_SED,
+	// branches
+	O_BPL, O_BMI, O_BVC, O_BVS, O_BCC, O_BCS, O_BNE, O_BEQ,
+	// stack, jumps, interrupts
+	O_PHA, O_PHP, O_PLA, O_PLP, O_BRK, O_JSR, O_RTI, O_RTS, O_JMP, O_JMPI, O_JAM
+};
+
+// opcode -> addressing mode, operation
+#define OPCODE_LIST(X) \
+	X(0x00,BRK,BRK) X(0x01,IZX,ORA) X(0x02,JAM,JAM) X(0x03,IZX,SLO) X(0x04,ZP,NOP) X(0x05,ZP,ORA) X(0x06,ZP,ASL) X(0x07,ZP,SLO) X(0x08,PSH,PHP) X(0x09,IMM,ORA) X(0x0A,IMP,ASLA) X(0x0B,IMM,ANC) X(0x0C,ABS,NOP) X(0x0D,ABS,ORA) X(0x0E,ABS,ASL) X(0x0F,ABS,SLO) \
+	X(0x10,REL,BPL) X(0x11,IZY,ORA) X(0x12,JAM,JAM) X(0x13,IZY,SLO) X(0x14,ZPX,NOP) X(0x15,ZPX,ORA) X(0x16,ZPX,ASL) X(0x17,ZPX,SLO) X(0x18,IMP,CLC) X(0x19,ABY,ORA) X(0x1A,IMP,NOP) X(0x1B,ABY,SLO) X(0x1C,ABX,NOP) X(0x1D,ABX,ORA) X(0x1E,ABX,ASL) X(0x1F,ABX,SLO) \
+	X(0x20,JSR,JSR) X(0x21,IZX,AND) X(0x22,JAM,JAM) X(0x23,IZX,RLA) X(0x24,ZP,BIT) X(0x25,ZP,AND) X(0x26,ZP,ROL) X(0x27,ZP,RLA) X(0x28,PUL,PLP) X(0x29,IMM,AND) X(0x2A,IMP,ROLA) X(0x2B,IMM,ANC) X(0x2C,ABS,BIT) X(0x2D,ABS,AND) X(0x2E,ABS,ROL) X(0x2F,ABS,RLA) \
+	X(0x30,REL,BMI) X(0x31,IZY,AND) X(0x32,JAM,JAM) X(0x33,IZY,RLA) X(0x34,ZPX,NOP) X(0x35,ZPX,AND) X(0x36,ZPX,ROL) X(0x37,ZPX,RLA) X(0x38,IMP,SEC) X(0x39,ABY,AND) X(0x3A,IMP,NOP) X(0x3B,ABY,RLA) X(0x3C,ABX,NOP) X(0x3D,ABX,AND) X(0x3E,ABX,ROL) X(0x3F,ABX,RLA) \
+	X(0x40,RTI,RTI) X(0x41,IZX,EOR) X(0x42,JAM,JAM) X(0x43,IZX,SRE) X(0x44,ZP,NOP) X(0x45,ZP,EOR) X(0x46,ZP,LSR) X(0x47,ZP,SRE) X(0x48,PSH,PHA) X(0x49,IMM,EOR) X(0x4A,IMP,LSRA) X(0x4B,IMM,ALR) X(0x4C,JMP,JMP) X(0x4D,ABS,EOR) X(0x4E,ABS,LSR) X(0x4F,ABS,SRE) \
+	X(0x50,REL,BVC) X(0x51,IZY,EOR) X(0x52,JAM,JAM) X(0x53,IZY,SRE) X(0x54,ZPX,NOP) X(0x55,ZPX,EOR) X(0x56,ZPX,LSR) X(0x57,ZPX,SRE) X(0x58,IMP,CLI) X(0x59,ABY,EOR) X(0x5A,IMP,NOP) X(0x5B,ABY,SRE) X(0x5C,ABX,NOP) X(0x5D,ABX,EOR) X(0x5E,ABX,LSR) X(0x5F,ABX,SRE) \
+	X(0x60,RTS,RTS) X(0x61,IZX,ADC) X(0x62,JAM,JAM) X(0x63,IZX,RRA) X(0x64,ZP,NOP) X(0x65,ZP,ADC) X(0x66,ZP,ROR) X(0x67,ZP,RRA) X(0x68,PUL,PLA) X(0x69,IMM,ADC) X(0x6A,IMP,RORA) X(0x6B,IMM,ARR) X(0x6C,JMPI,JMPI) X(0x6D,ABS,ADC) X(0x6E,ABS,ROR) X(0x6F,ABS,RRA) \
+	X(0x70,REL,BVS) X(0x71,IZY,ADC) X(0x72,JAM,JAM) X(0x73,IZY,RRA) X(0x74,ZPX,NOP) X(0x75,ZPX,ADC) X(0x76,ZPX,ROR) X(0x77,ZPX,RRA) X(0x78,IMP,SEI) X(0x79,ABY,ADC) X(0x7A,IMP,NOP) X(0x7B,ABY,RRA) X(0x7C,ABX,NOP) X(0x7D,ABX,ADC) X(0x7E,ABX,ROR) X(0x7F,ABX,RRA) \
+	X(0x80,IMM,NOP) X(0x81,IZX,STA) X(0x82,IMM,NOP) X(0x83,IZX,SAX) X(0x84,ZP,STY) X(0x85,ZP,STA) X(0x86,ZP,STX) X(0x87,ZP,SAX) X(0x88,IMP,DEY) X(0x89,IMM,NOP) X(0x8A,IMP,TXA) X(0x8B,IMM,XAA) X(0x8C,ABS,STY) X(0x8D,ABS,STA) X(0x8E,ABS,STX) X(0x8F,ABS,SAX) \
+	X(0x90,REL,BCC) X(0x91,IZY,STA) X(0x92,JAM,JAM) X(0x93,IZY,SHA) X(0x94,ZPX,STY) X(0x95,ZPX,STA) X(0x96,ZPY,STX) X(0x97,ZPY,SAX) X(0x98,IMP,TYA) X(0x99,ABY,STA) X(0x9A,IMP,TXS) X(0x9B,ABY,TAS) X(0x9C,ABX,SHY) X(0x9D,ABX,STA) X(0x9E,ABY,SHX) X(0x9F,ABY,SHA) \
+	X(0xA0,IMM,LDY) X(0xA1,IZX,LDA) X(0xA2,IMM,LDX) X(0xA3,IZX,LAX) X(0xA4,ZP,LDY) X(0xA5,ZP,LDA) X(0xA6,ZP,LDX) X(0xA7,ZP,LAX) X(0xA8,IMP,TAY) X(0xA9,IMM,LDA) X(0xAA,IMP,TAX) X(0xAB,IMM,LXA) X(0xAC,ABS,LDY) X(0xAD,ABS,LDA) X(0xAE,ABS,LDX) X(0xAF,ABS,LAX) \
+	X(0xB0,REL,BCS) X(0xB1,IZY,LDA) X(0xB2,JAM,JAM) X(0xB3,IZY,LAX) X(0xB4,ZPX,LDY) X(0xB5,ZPX,LDA) X(0xB6,ZPY,LDX) X(0xB7,ZPY,LAX) X(0xB8,IMP,CLV) X(0xB9,ABY,LDA) X(0xBA,IMP,TSX) X(0xBB,ABY,LAS) X(0xBC,ABX,LDY) X(0xBD,ABX,LDA) X(0xBE,ABY,LDX) X(0xBF,ABY,LAX) \
+	X(0xC0,IMM,CPY) X(0xC1,IZX,CMP) X(0xC2,IMM,NOP) X(0xC3,IZX,DCP) X(0xC4,ZP,CPY) X(0xC5,ZP,CMP) X(0xC6,ZP,DEC) X(0xC7,ZP,DCP) X(0xC8,IMP,INY) X(0xC9,IMM,CMP) X(0xCA,IMP,DEX) X(0xCB,IMM,SBX) X(0xCC,ABS,CPY) X(0xCD,ABS,CMP) X(0xCE,ABS,DEC) X(0xCF,ABS,DCP) \
+	X(0xD0,REL,BNE) X(0xD1,IZY,CMP) X(0xD2,JAM,JAM) X(0xD3,IZY,DCP) X(0xD4,ZPX,NOP) X(0xD5,ZPX,CMP) X(0xD6,ZPX,DEC) X(0xD7,ZPX,DCP) X(0xD8,IMP,CLD) X(0xD9,ABY,CMP) X(0xDA,IMP,NOP) X(0xDB,ABY,DCP) X(0xDC,ABX,NOP) X(0xDD,ABX,CMP) X(0xDE,ABX,DEC) X(0xDF,ABX,DCP) \
+	X(0xE0,IMM,CPX) X(0xE1,IZX,SBC) X(0xE2,IMM,NOP) X(0xE3,IZX,ISB) X(0xE4,ZP,CPX) X(0xE5,ZP,SBC) X(0xE6,ZP,INC) X(0xE7,ZP,ISB) X(0xE8,IMP,INX) X(0xE9,IMM,SBC) X(0xEA,IMP,NOP) X(0xEB,IMM,SBC) X(0xEC,ABS,CPX) X(0xED,ABS,SBC) X(0xEE,ABS,INC) X(0xEF,ABS,ISB) \
+	X(0xF0,REL,BEQ) X(0xF1,IZY,SBC) X(0xF2,JAM,JAM) X(0xF3,IZY,ISB) X(0xF4,ZPX,NOP) X(0xF5,ZPX,SBC) X(0xF6,ZPX,INC) X(0xF7,ZPX,ISB) X(0xF8,IMP,SED) X(0xF9,ABY,SBC) X(0xFA,IMP,NOP) X(0xFB,ABY,ISB) X(0xFC,ABX,NOP) X(0xFD,ABX,SBC) X(0xFE,ABX,INC) X(0xFF,ABX,ISB)
+
+#define IS_STORE_OP(o)	((o) >= O_STA && (o) <= O_TAS)
+#define IS_RMW_OP(o)	((o) >= O_ASL && (o) <= O_ISB)
+
+#define BUS_READ(a)		(mem->Read((unsigned int)(a) & 0xFFFF))
+#define BUS_WRITE(a,v)	(mem->Write((unsigned int)(a) & 0xFFFF, (unsigned char)(v)))
+// the stack page is accessed directly (as the previous core did) unless
+// CPU_STACK_VIA_BUS is set, in which case the stack cycles go through mem
+#ifndef CPU_STACK_VIA_BUS
+#define CPU_STACK_VIA_BUS 0
 #endif
-	}
-	else
-
-	switch (currins){
-		case 0xea : // NOP
-			cycle=0;
-			break;
-
-		case 0x18 : // CLC
-			ST&=0xFE;
-			cycle=0;
-			break;
-
-		case 0x38 : // SEC
-			ST|=0x01;
-			cycle=0;
-			break;
-
-		case 0x58 : // CLI
-			ST&=0xFB;
-			cycle=0;
-			break;
-
-		case 0x78 : // SEI
-			ST|=0x04;
-			cycle=0;
-			// actually, IRQ can still occur right after the SEI instruction
-			// some programs (like Castle Master) rely on it.
-			// Therefore startIRQ is not set to 0 here.
-			//IRQcount = 0;
-			break;
-
-		case 0xb8 : // CLV
-			// This has to be more generic because the drive byte ready
-			// line is connected to the V flag pin on the disk drive CPU
-			ClearVFlag();
-			cycle=0;
-			break;
-
-		case 0xD8 : // CLD
-			ST&=0xF7;
-			cycle=0;
-			break;
-
-		case 0xF8 : // SED
-			ST|=0x08;
-			cycle=0;
-			break;
-
-		// branch functions (conditional jumps )
-
-		case 0x10 : // BPL
-			switch(cycle++) {
-				case 1: PC++;
-						if ((ST&0x80))
-							cycle=0;
-						break;
-				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
-							PC+=(signed char) nextins;
-							cycle=0;
-						}
-						break;
-				case 3: PC+=(signed char) nextins;
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x30 : // BMI
-			switch(cycle++) {
-				case 1: PC++;
-						if (!(ST&0x80))
-							cycle=0;
-						break;
-				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
-							PC+=(signed char) nextins;
-							cycle=0;
-						}
-						break;
-				case 3: PC+=(signed char) nextins;
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x50 : // BVC
-			switch(cycle++) {
-				// This has to be more generic because the drive byte ready
-				// line is connected to the V flag pin on the disk drive CPU
-				case 1: PC++;
-						if (CheckVFlag())
-							cycle=0;
-						break;
-				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
-							PC+=(signed char) nextins;
-							cycle=0;
-						}
-						break;
-				case 3: PC+=(signed char) nextins;
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x70 : // BVS
-			switch(cycle++) {
-				// This has to be more generic because the drive byte ready
-				// line is connected to the V flag pin on the disk drive CPU
-				case 1: PC++;
-						if (!(CheckVFlag()))
-							cycle=0;
-						break;
-				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
-							PC+=(signed char) nextins;
-							cycle=0;
-						}
-						break;
-				case 3: PC+=(signed char) nextins;
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x90 : // BCC
-			switch(cycle++) {
-				case 1: PC++;
-						if (ST&0x01)
-							cycle=0;
-						break;
-				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
-							PC+=(signed char) nextins;
-							cycle=0;
-						}
-						break;
-				case 3: PC+=(signed char) nextins;
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xB0 : // BCS
-			switch(cycle++) {
-				case 1: PC++;
-						if (!(ST&0x01))
-							cycle=0;
-						break;
-				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
-							PC+=(signed char) nextins;
-							cycle=0;
-						}
-						break;
-				case 3: PC+=(signed char) nextins;
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xD0 : // BNE
-			switch(cycle++) {
-				case 1: PC++;
-						if (ST&0x02)
-							cycle=0;
-						break;
-				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
-							PC+=(signed char) nextins;
-							cycle=0;
-						}
-						break;
-				case 3: PC+=(signed char) nextins;
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xF0 : // BEQ
-			switch(cycle++) {
-				case 1: PC++;
-						if (!(ST&0x02))
-							cycle=0;
-						break;
-				case 2: if (!(((PC&0xFF)+(signed char) nextins)&0xFF00)) {
-							PC+=(signed char) nextins;
-							cycle=0;
-						}
-						break;
-				case 3: PC+=(signed char) nextins;
-						cycle=0;
-						break;
-			}
-			break;
-
-		// manipulating index registers
-
-		case 0x88 : // DEY
-			--Y;
-			SETFLAGS_ZN(Y);
-			cycle=0;
-			break;
-
-		case 0xC8 : // INY
-			++Y;
-			SETFLAGS_ZN(Y);
-			cycle=0;
-			break;
-
-		case 0xCA : // DEX
-			--X;
-			SETFLAGS_ZN(X);
-			cycle=0;
-			break;
-
-		case 0xE8 : // INX
-			++X;
-			SETFLAGS_ZN(X);
-			cycle=0;
-			break;
-
-		case 0x00 : // BRK
-			switch (cycle++) {
-				case 1: if (!irq_sequence)
-							PC++;
-						break;
-				case 2: push(PC>>8);
-						break;
-				case 3: push(PC&0xFF);
-						break;
-				case 4: // BRK pushes the status register to the stack with the B bit set
-						// IRQ can still occur on BRK before saving the flags
-						// if (!(ST&0x04)) irq_sequence = 0x10;
-						push((ST|0x30)&~irq_sequence);
-						// and then masks the interrupt bit if not NMI
-						if (irqVector == INTERRUPT_IRQ)
-							ST |= 0x04;
-						break;
-				case 5: break;
-				case 6: PC=mem->Read(irqVector)|(mem->Read(irqVector|1)<<8);
-						if (irqVector != INTERRUPT_IRQ)
-							irqVector = INTERRUPT_IRQ;
-						irq_sequence = 0x0;
-						cycle=0;
-						break;
-			}
-			break;
-
-		/*case 0x00 : // BRK
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: push(PC>>8);
-						break;
-				case 3: push(PC&0xFF);
-						break;
-				case 4: // BRK pushes the status register to the stack with the B bit set
-						// IRQ can still occur on BRK before saving the flags
-						// if (!(ST&0x04)) irq_sequence = 0x10;
-						push((ST|0x30));
-						// and then masks the interrupt bit
-						ST|=0x04;
-						break;
-				case 5: break;
-				case 6: PC=mem->Read(0xFFFE)|(mem->Read(0xFFFF)<<8);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x100 : // IRQ - pseudo opcode
-			switch (cycle++) {
-				case 1: break;
-				case 2: push(PC>>8);
-						break;
-				case 3: push(PC&0xFF);
-						break;
-				case 4: push((ST|0x20)&0xEF);
-						// and then masks the interrupt bit
-						ST|=0x04;
-						break;
-				case 5: break;
-				case 6: PC=mem->Read(0xFFFE)|(mem->Read(0xFFFF)<<8);
-						//irq_sequence = 0x0;
-						cycle=0;
-						break;
-			}
-			break;*/
-
-		case 0x40 : // RTI
-			switch (cycle++) {
-				case 1: //PC++;
-						break;
-				case 2: //PC++;
-						SP++;
-						break;
-				case 3: // the B flag is already always cleared
-						ST=pull();//&0xEF;
-						SP++;
-						break;
-				case 4: PC=pull();
-						SP++;
-						break;
-				case 5: PC|=pull()<<8;
-						//ST&=0xFB;
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x60 : // RTS
-			switch (cycle++) {
-				case 1: //PC++;
-						break;
-				case 2: //PC++;
-						SP++;
-						break;
-				case 3: PC=pull();
-						SP++;
-						break;
-				case 4: PC|=pull()<<8;
-						break;
-				case 5: PC++;
-						cycle=0;
-						break;
-			}
-			break;
-
-		// stack operations
-
-		case 0x08 : // PHP
-			if (cycle++==2) {
-				// the PHP always pushes the status with the B flag set...
-				//ST = (ST&0xBF)|CheckVFlag();
-				push(ST|0x30);
-				cycle=0;
-			}
-			break;
-
-		case 0x28 : // PLP
-			if (cycle++==3) {
-				SP++;
-				ST=(pull() /*&0xEF*/);//|(0x20);
-				cycle=0;
-			}
-			break;
-
-		case 0x48 : // PHA
-			if (cycle++==2) {
-				push(AC);
-				cycle=0;
-			}
-			break;
-
-		case 0x68 : // PLA
-			if (cycle++==3) {
-				SP++;
-				AC=pull();
-				SETFLAGS_ZN(AC);
-				cycle=0;
-			}
-			break;
-
-		// inter-register operations
-
-		case 0x8A : // TXA
-			AC=X;
-			SETFLAGS_ZN(AC);
-			cycle=0;
-			break;
-
-		case 0xAA : // TAX
-			X=AC;
-			SETFLAGS_ZN(X);
-			cycle=0;
-			break;
-
-		case 0x98 : // TYA
-			AC=Y;
-			SETFLAGS_ZN(AC);
-			cycle=0;
-			break;
-
-		case 0xA8 : // TAY
-			Y=AC;
-			SETFLAGS_ZN(Y);
-			cycle=0;
-			break;
-
-		case 0x9A : // TXS
-			SP=X;
-			cycle=0;
-			break;
-
-		case 0xBA : // TSX
-			X=SP;
-			SETFLAGS_ZN(X);
-			cycle=0;
-			break;
-
-		// subroutine & unconditional jump
-
-		case 0x20 : // JSR
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: // unknown
-					break;
-				case 3: push(PC>>8);
-					break;
-				case 4: push(PC&0xFF);
-					break;
-				case 5: PC=ptr=nextins|(mem->Read(PC)<<8);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x4C : // JMP $0000
-			if (cycle++==2) {
-				PC=nextins|(mem->Read(PC+1)<<8);
-				cycle=0;
-			}
-			break;
-
-		case 0x6C : // JMP ($0000)
-			if (cycle++==4) {
-				ptr=nextins|(mem->Read(PC+1)<<8);
-				// instruction does not handle page crossing
-				PC = mem->Read(ptr)|(mem->Read( (ptr & 0xFF00) | ((ptr+1)&0xFF) ) << 8);
-				cycle=0;
-			}
-			break;
-
-		// Accumulator operations with immediate addressing
-
-		case 0x09 : // ORA #$00
-			PC++;
-			AC|=nextins;
-			SETFLAGS_ZN(AC);
-			cycle=0;
-			break;
-
-		case 0x29 : // AND #$00
-			PC++;
-			AC&=nextins;
-			SETFLAGS_ZN(AC);
-			cycle=0;
-			break;
-
-		case 0x49 : // EOR #$00
-			PC++;
-			AC^=nextins;
-			SETFLAGS_ZN(AC);
-			cycle=0;
-			break;
-
-		case 0x69 : // ADC #$00
-			PC++;
-			ADC(nextins);
-			cycle=0;
-			break;
-
-		case 0xC9 : // CMP #$00
-			PC++;
-			DoCompare(AC,nextins);
-			cycle=0;
-			break;
-
-		case 0xE9 : // SBC #$00
-			PC++;
-			SBC(nextins);
-			cycle=0;
-			break;
-
-		// rotations
-
-		case 0x0A : // ASL
-			ST = (ST & 0xFE) | (AC >> 7); // the Carry flag
-			AC<<=1;
-			SETFLAGS_ZN(AC);
-			cycle=0;
-			break;
-
-		case 0x2A : // ROL
-			{
-				unsigned char tmp = (AC << 1) | (ST & 0x01);
-				ST = (ST & 0xFE) | (AC >> 7); // the Carry flag
-				AC = tmp;
-				SETFLAGS_ZN(AC);
-				cycle = 0;
-			}
-			break;
-
-		case 0x4A : // LSR
-			ST = (ST & 0xFE) | (AC & 1); // the Carry flag
-			AC=AC>>1;
-			SETFLAGS_ZN(AC);
-			cycle=0;
-			break;
-
-		case 0x6A : // ROR
-			{
-				unsigned char tmp = (AC >> 1) | (ST << 7);
-				ST = (ST & 0xFE) | (AC & 1); // the Carry flag
-				AC = tmp;
-				SETFLAGS_ZN(AC);
-				cycle = 0;
-			}
-			break;
-
-		// loads
-
-		case 0xA0 : // LDY
-			PC++;
-			Y=nextins;
-			SETFLAGS_ZN(Y);
-			cycle=0;
-			break;
-
-		case 0xA2 : // LDX
-			PC++;
-			X=nextins;
-			SETFLAGS_ZN(X);
-			cycle=0;
-			break;
-
-		case 0xA9 : // LDA
-			PC++;
-			AC=nextins;
-			SETFLAGS_ZN(AC);
-			cycle=0;
-			break;
-
-		// comparisons with immediate addressing
-
-		case 0xC0 : // CPY
-			PC++;
-			DoCompare(Y,nextins);
-			cycle=0;
-			break;
-
-		case 0xE0 : // CPX
-			PC++;
-			DoCompare(X,nextins);
-			cycle=0;
-			break;
-
-		// BIT tests with accumulator
-
-		case 0x24 : // BIT $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins=mem->Read(nextins);
-						ST = (ST&0x3D)
-						| (nextins&0xC0)
-						| (((AC&nextins)==0)<<1);
-						/*if (!(ST&0x40))
-							ClearVFlag();*/
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x2C : // BIT $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: nextins=mem->Read(ptr);
-						ST = (ST&0x3D)
-						| (nextins&0xC0)
-						| (((AC&nextins)==0)<<1);
-						/*if (!(ST&0x40))
-							ClearVFlag();*/
-						cycle=0;
-						break;
-			}
-			break;
-
-		// Read instructions with absolute addressing
-
-		case 0x0D : // ORA $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: AC|=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x2D : // AND $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: AC&=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-			}
-			break;
-
-		case 0x4D : // EOR $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: AC^=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x6D : // ADC $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3:	ADC(mem->Read(ptr));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x99 : // STA $0000,Y
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3:	break;
-				case 4: mem->Write(ptr+Y,AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xAC : // LDY $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: Y=mem->Read(ptr);
-						SETFLAGS_ZN(Y);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xCC : // CPY $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: DoCompare(Y,mem->Read(ptr));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xEC : // CPX $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: DoCompare(X,mem->Read(ptr));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xAD : // LDA $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: AC=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xCD : // CMP $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: DoCompare(AC,mem->Read(ptr));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xED : // SBC $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: SBC(mem->Read(ptr));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x0E : // ASL $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: nextins=mem->Read(ptr);
-						break;
-				case 4:	mem->Write(ptr,nextins);
-						ST = (ST & 0xFE) | (nextins >> 7); // the Carry flag
-						nextins<<=1;
-						break;
-				case 5:	mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x1E : // ASL $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: ptr+=X;
-						break;
-				case 4:	nextins=mem->Read(ptr);
-						break;
-				case 5:	mem->Write(ptr,nextins);
-						ST = (ST & 0xFE) | (nextins >> 7); // the Carry flag
-						nextins<<=1;
-						break;
-				case 6: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x2E : // ROL $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: farins=mem->Read(ptr);
-						nextins=(farins<<1)|(ST&0x01);
-						break;
-				case 4:	mem->Write(ptr,farins);
-						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						break;
-				case 5:	mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x3E : // ROL $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: ptr+=X;
-						break;
-				case 4:	farins=mem->Read(ptr);
-						nextins=(farins<<1)|(ST&0x01);
-						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						break;
-				case 5:	mem->Write(ptr,farins);
-						break;
-				case 6: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x4E : // LSR $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: nextins=mem->Read(ptr);
-						(nextins&0x01) ? ST|=0x01 : ST&=0xFE;; // the Carry flag
-						break;
-				case 4:	mem->Write(ptr,nextins);
-						nextins=nextins>>1;
-						break;
-				case 5:	mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x5E : // LSR $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: ptr+=X;
-						break;
-				case 4:	nextins=mem->Read(ptr);
-						(nextins&0x01) ? ST|=0x01 : ST&=0xFE; // the Carry flag
-						break;
-				case 5:	mem->Write(ptr,nextins);
-						nextins>>=1;
-						break;
-				case 6: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x6E : // ROR $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: farins=mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr,farins);
-						nextins=(farins>>1)|((ST&0x01)<<7);
-						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
-						break;
-				case 5: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x7E : // ROR $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: ptr+=X;
-						break;
-				case 4: farins=mem->Read(ptr);
-						nextins=(farins>>1)|((ST&0x01)<<7);
-						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
-						break;
-				case 5: mem->Write(ptr,farins);
-						break;
-				case 6: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xAE : // LDX $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: X=mem->Read(ptr);
-						SETFLAGS_ZN(X);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xCE : // DEC $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: nextins=mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr,nextins);
-						--nextins;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xDE : // DEC $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: ptr+=X;
-						break;
-				case 4: nextins=mem->Read(ptr);
-						break;
-				case 5: mem->Write(ptr,nextins);
-						--nextins;
-						break;
-				case 6: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xEE : // INC $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: nextins=mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr,nextins);
-						++nextins;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xFE : // INC $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: ptr+=X;
-						break;
-				case 4: nextins=mem->Read(ptr);
-						break;
-				case 5: mem->Write(ptr,nextins);
-						++nextins;
-						break;
-				case 6: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		// zero page indexed with X or Y
-
-		case 0x94 : // STY $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: mem->Write(nextins,Y);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x95 : // STA $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: mem->Write(nextins,AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x96 : // STX $00,Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=Y;
-						break;
-				case 3: mem->Write(nextins,X);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xB4 : // LDY $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: Y=mem->Read(nextins);
-						SETFLAGS_ZN(Y);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xB5 : // LDA $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: AC=mem->Read(nextins);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xB6 : // LDX $00,Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=Y;
-						break;
-				case 3: X=mem->Read(nextins);
-						SETFLAGS_ZN(X);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xD5 : // CMP $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: DoCompare(AC,mem->Read(nextins));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x15 : // ORA $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: AC|=(mem->Read(nextins));
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x35 : // AND $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: AC&=(mem->Read(nextins));
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x16 : // ASL $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: farins=mem->Read(nextins);
-						break;
-				case 4: mem->Write(nextins,farins);
-						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						farins<<=1;
-						break;
-				case 5: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x36 : // ROL $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						ptr=nextins;
-						break;
-				case 3: farins=mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr,farins);
-						nextins=(farins<<1)|((ST&0x01));
-						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						break;
-				case 5: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		// absolute addressing indexed with X or Y
-
-		case 0x19 : // ORA $0000,Y
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: if (nextins+Y<0x100) {
-							AC|=mem->Read(ptr);
-							SETFLAGS_ZN(AC);
-							cycle=0;
-						}
-						break;
-				case 4: AC|=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x39 : // AND $0000,Y
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: if (nextins+Y<0x100) {
-							AC&=mem->Read(ptr);
-							SETFLAGS_ZN(AC);
-							cycle=0;
-						}
-						break;
-				case 4: AC&=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x59 : // EOR $0000,Y
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: if (nextins+Y<0x100) {
-							AC^=mem->Read(ptr);
-							SETFLAGS_ZN(AC);
-							cycle=0;
-						}
-						break;
-				case 4: AC^=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x79 : // ADC $0000,Y
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: if (nextins+Y<0x100) {
-							ADC(mem->Read(ptr));
-							cycle=0;
-						}
-						break;
-				case 4: ADC(mem->Read(ptr));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xB9 : // LDA $0000,Y
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: if (nextins+Y<0x100) {
-							AC=mem->Read(ptr);
-							SETFLAGS_ZN(AC);
-							cycle=0;
-						}
-						break;
-				case 4: AC=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x1D : // ORA $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=X;
-						PC++;
-						break;
-				case 3: if (nextins+X<0x100) {
-							AC|=mem->Read(ptr);
-							SETFLAGS_ZN(AC);
-							cycle=0;
-						}
-						break;
-				case 4: AC|=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x3D : // AND $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=X;
-						PC++;
-						break;
-				case 3: if (nextins+X<0x100) {
-							AC&=mem->Read(ptr);
-							SETFLAGS_ZN(AC);
-							cycle=0;
-						}
-						break;
-				case 4: AC&=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x5D : // EOR $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=X;
-						PC++;
-						break;
-				case 3: if (nextins+X<0x100) {
-							AC^=mem->Read(ptr);
-							SETFLAGS_ZN(AC);
-							cycle=0;
-						}
-						break;
-				case 4: AC^=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x7D : // ADC $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=X;
-						PC++;
-						break;
-				case 3: if (nextins+X<0x100) {
-							ADC(mem->Read(ptr));
-							cycle=0;
-						}
-						break;
-				case 4: ADC(mem->Read(ptr));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xBC : // LDY $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=X;
-						PC++;
-						break;
-				case 3: if (nextins+X<0x100) {
-							Y=mem->Read(ptr);
-							SETFLAGS_ZN(Y);
-							cycle=0;
-						}
-						break;
-				case 4: Y=mem->Read(ptr);
-						SETFLAGS_ZN(Y);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xBD : // LDA $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=X;
-						PC++;
-						break;
-				case 3: if (nextins+X<0x100) {
-							AC=mem->Read(ptr);
-							SETFLAGS_ZN(AC);
-							cycle=0;
-						}
-						break;
-				case 4: AC=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xBE : // LDX $0000,Y
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: if (nextins+Y<0x100) {
-							X=mem->Read(ptr);
-							SETFLAGS_ZN(X);
-							cycle=0;
-						}
-						break;
-				case 4: X=mem->Read(ptr);
-						SETFLAGS_ZN(X);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xD9 : // CMP $0000,Y
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: if (nextins+Y<0x100){
-							DoCompare(AC,mem->Read(ptr+Y));
-							cycle=0;
-						}
-						break;
-				case 4: DoCompare(AC,mem->Read(ptr+Y));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xF9 : // SBC $0000,Y
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: if (nextins+Y<0x100){
-							SBC(mem->Read(ptr));
-							cycle=0;
-						}
-						break;
-				case 4: SBC(mem->Read(ptr));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xDD : // CMP $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: if (nextins+X<0x100) {
-							DoCompare(AC,mem->Read(ptr+X));
-							cycle=0;
-						}
-						break;
-				case 4: DoCompare(AC,mem->Read(ptr+X));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xFD : // SBC $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=X;
-						PC++;
-						break;
-				case 3: if (nextins+X<0x100) {
-							SBC(mem->Read(ptr));
-							cycle=0;
-						}
-						break;
-				case 4: SBC(mem->Read(ptr));
-						cycle=0;
-						break;
-			}
-			break;
-
-		// zero page operations
-
-		case 0xA4 : // LDY $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: Y=mem->Read(nextins);
-						SETFLAGS_ZN(Y);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xC4 : // CPY $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: DoCompare(Y,mem->Read(nextins));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x05 : // ORA $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2:	AC|=mem->Read(nextins);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x55 : // EOR $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: AC^=mem->Read(nextins);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x65 : // ADC $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ADC(mem->Read(nextins));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x75 : // ADC $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ADC(mem->Read(nextins));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xA5 : // LDA $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: AC=mem->Read(nextins);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xC5 : // CMP $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: DoCompare(AC,mem->Read(nextins));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xE5 : // SBC $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: SBC(mem->Read(nextins));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xF5 : // SBC $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: SBC(mem->Read(nextins));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x06 : // ASL $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: farins=mem->Read(nextins);
-						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						break;
-				case 3: mem->Write(nextins,farins);
-						farins<<=1;
-						break;
-				case 4: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x26 : // ROL $00
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins;
-						break;
-				case 2: farins=mem->Read(ptr);
-						nextins=(farins<<1)|(ST&0x01);
-						break;
-				case 3: mem->Write(ptr,farins);
-						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						break;
-				case 4: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x25 : // AND $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: AC&=mem->Read(nextins);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x45 : // EOR $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: AC^=mem->Read(nextins);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x46 : // LSR $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: farins=mem->Read(nextins);
-						farins&0x01 ? ST|=0x01 : ST&=0xFE;
-						break;
-				case 3: mem->Write(nextins,farins);
-						farins>>=1;
-						break;
-				case 4: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x56 : // LSR $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: farins=mem->Read(nextins);
-						farins&0x01 ? ST|=0x01 : ST&=0xFE;
-						break;
-				case 4: mem->Write(nextins,farins);
-						farins>>=1;
-						break;
-				case 5: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x66 : // ROR $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=nextins;
-						farins=mem->Read(ptr);
-						nextins=(farins>>1)|((ST&0x01)<<7);
-						break;
-				case 3: mem->Write(ptr,farins);
-						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
-						break;
-				case 4: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x76 : // ROR $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						ptr=nextins;
-						break;
-				case 3: farins=mem->Read(ptr);
-						nextins=(farins>>1)|((ST&0x01)<<7);
-						break;
-				case 4: mem->Write(ptr,farins);
-						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
-						break;
-				case 5: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xA6 : // LDX $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: X=mem->Read(nextins);
-						SETFLAGS_ZN(X);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xC6 : // DEC $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: farins=mem->Read(nextins);
-						break;
-				case 3: mem->Write(nextins,farins);
-						--farins;
-						break;
-				case 4: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xE4 : // CPX $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: DoCompare(X,mem->Read(nextins));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xE6 : // INC $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: farins=mem->Read(nextins);
-						break;
-				case 3: mem->Write(nextins,farins);
-						++farins;
-						break;
-				case 4: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xD6 : // DEC $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: farins=mem->Read(nextins);
-						break;
-				case 4: mem->Write(nextins,farins);
-						--farins;
-						break;
-				case 5: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xF6 : // INC $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: farins=mem->Read(nextins);
-						break;
-				case 4: mem->Write(nextins,farins);
-						++farins;
-						break;
-				case 5: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		// indexed indirect
-
-		case 0x01 : // ORA ($00,X)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins++);
-						break;
-				case 4: ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: AC|=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x21 : // AND ($00,X)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins++);
-						break;
-				case 4: ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: AC&=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x41 : // EOR ($00,X)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins++);
-						break;
-				case 4: ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: AC^=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x61 : // ADC ($00,X)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins++);
-						break;
-				case 4: ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: ADC(mem->Read(ptr));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x81 : // STA ($00,X)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins++);
-						break;
-				case 4: ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: mem->Write(ptr,AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xA1 : // LDA ($00,X)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins++);
-						break;
-				case 4: ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: AC=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xC1 : // CMP ($00,X)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins++);
-						break;
-				case 4: ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: DoCompare(AC,mem->Read(ptr));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xE1 : // SBC ($00,X)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins++);
-						break;
-				case 4: ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: SBC(mem->Read(ptr));
-						cycle=0;
-						break;
-			}
-			break;
-
-		// indirect indexed
-
-		case 0x11 : // ORA ($00),Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: if ((ptr&0x00FF)+Y<0x100) {
-							AC|=mem->Read(ptr+Y);
-							cycle=0;
-							SETFLAGS_ZN(AC);
-						}
-						break;
-				case 5: AC|=mem->Read(ptr+Y);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x31 : // AND ($00),Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: if ((ptr&0x00FF)+Y<0x100) {
-							AC&=mem->Read(ptr+Y);
-							cycle=0;
-							SETFLAGS_ZN(AC);
-						}
-						break;
-				case 5: AC&=mem->Read(ptr+Y);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x51 : // EOR ($00),Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: if ((ptr&0x00FF)+Y<0x100) {
-							AC^=mem->Read(ptr+Y);
-							cycle=0;
-							SETFLAGS_ZN(AC);
-						}
-						break;
-				case 5: AC^=mem->Read(ptr+Y);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x71 : // ADC ($00),Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: if ((ptr&0x00FF)+Y<0x100) {
-							ADC(mem->Read(ptr+Y));
-							cycle=0;
-						}
-						break;
-				case 5: ADC(mem->Read(ptr+Y));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x91 : // STA ($00),Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: break;
-				case 5: mem->Write(ptr+Y,AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xB1 : // LDA ($00),Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: if ((ptr&0x00FF)+Y<0x100) {
-							AC=mem->Read(ptr+Y);
-							SETFLAGS_ZN(AC);
-							cycle=0;
-						}
-						break;
-				case 5: AC=mem->Read(ptr+Y);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xD1 : // CMP ($00),Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: if ((ptr&0x00FF)+Y<0x100) {
-							DoCompare(AC,mem->Read(ptr+Y));
-							cycle=0;
-						}
-						break;
-				case 5: DoCompare(AC,mem->Read(ptr+Y));
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xF1 : // SBC ($00),Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: if ((ptr&0x00FF)+Y<0x100) {
-							SBC(mem->Read(ptr+Y));
-							cycle=0;
-						}
-						break;
-				case 5: SBC(mem->Read(ptr+Y));
-						cycle=0;
-						break;
-			}
-			break;
-
-		// storage functions
-
-		case 0x84 : // STY $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: mem->Write(nextins,Y);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x85 : // STA $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: mem->Write(nextins,AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x86 : // STX $00
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: mem->Write(nextins,X);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x8C : // STY $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: mem->Write(ptr,Y);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x8D : // STA $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: mem->Write(ptr,AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x8E : // STX $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: mem->Write(ptr,X);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x9D : // STA $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: break;
-				case 4: mem->Write(ptr+X,AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		//----------------
-		// illegal opcodes
-		//----------------
-
-		case 0x03 : // ASO/SLO ($00,X) : A <- (M << 1) \/ A
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins);
-						break;
-				case 4: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: farins=mem->Read(ptr);
-						break;
-				case 6: mem->Write(ptr,farins);
-						(farins)&0x80 ? ST|=0x01 : ST&=0xFE;
-						farins<<=1;
-						break;
-				case 7: mem->Write(ptr,farins);
-						AC|=farins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x07 : // ASO/SLO $00		: A <- (M << 1) \/ A
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins;
-						break;
-				case 2: nextins=mem->Read(ptr);
-						break;
-				case 3: mem->Write(ptr,nextins);
-						(nextins)&0x80 ? ST|=0x01 : ST&=0xFE;
-						nextins<<=1;
-						break;
-				case 4: mem->Write(ptr,nextins);
-						AC|=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x0B : // ANN/ANC #$00
-		case 0x2B : // ANN/ANC #$00
-			PC++;
-			AC&=nextins;
-			(AC&0x80) ? ST|=0x01 : ST&=0xFE;
-			SETFLAGS_ZN(AC);
-			cycle=0;
-			break;
-
-		case 0x0C : // NOP $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: cycle=0;
-						break;
-			}
-			break;
-
-		case 0x0F : // ASO/SLO $0000		: A <- (M << 1) \/ A
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: nextins=mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr,nextins);
-						(nextins)&0x80 ? ST|=0x01 : ST&=0xFE;
-						nextins<<=1;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						AC|=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x13 : // ASO/SLO ($00),Y		: A <- (M << 1) \/ A
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: break;
-				case 5: farins=mem->Read(ptr+Y);
-						break;
-				case 6: mem->Write(ptr+Y,farins);
-						(farins)&0x80 ? ST|=0x01 : ST&=0xFE;
-						farins<<=1;
-						break;
-				case 7: mem->Write(ptr+Y,farins);
-						AC|=farins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x14 : // NOP $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: break;
-				case 3: cycle=0;
-						break;
-			}
-			break;
-
-		case 0x17 : // ASO/SLO $00,X		: A <- (M << 1) \/ A
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=(nextins+X)&0xFF;
-						break;
-				case 3: farins = mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr,farins);
-						(farins)&0x80 ? ST|=0x01 : ST&=0xFE;
-						farins<<=1;
-						break;
-				case 5: mem->Write(ptr,farins);
-						AC|=farins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x80 : // NOP #$00
-		case 0x82 : // NOP #$00
-		case 0x89 : // NOP #$00
-		case 0xC2 : // NOP #$00
-		case 0xE2 : // NOP #$00
-			PC++;
-		case 0x1A : // NOP
-		case 0x3A : // NOP
-		case 0x5A : // NOP
-		case 0x7A : // NOP
-		case 0xDA : // NOP
-		case 0xFA : // NOP
-			cycle=0;
-			break;
-
-		case 0x1B : // ASO/SLO $0000,Y
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: break;
-				case 4:	farins=mem->Read(ptr);
-						break;
-				case 5:	mem->Write(ptr,farins);
-						(farins)&0x80 ? ST|=0x01 : ST&=0xFE;
-						farins<<=1;
-						break;
-				case 6: mem->Write(ptr,farins);
-						AC|=farins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x1C : // NOP $0000,X
-		case 0x3C : // NOP $0000,X
-		case 0x5C : // NOP $0000,X
-		case 0x7C : // NOP $0000,X
-		case 0xDC : // NOP $0000,X
-		case 0xFC : // NOP $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: if (nextins+X<0x100)
-							cycle=0;
-						break;
-				case 4: cycle=0;
-						break;
-			}
-			break;
-
-		case 0x1F : // ASO/SLO $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						ptr+=X;
-						break;
-				case 3: break;
-				case 4:	farins=mem->Read(ptr);
-						break;
-				case 5: mem->Write(ptr,farins);
-						(farins)&0x80 ? ST|=0x01 : ST&=0xFE;
-						farins<<=1;
-						break;
-				case 6: mem->Write(ptr,farins);
-						AC|=farins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x23 : // RAN/RLA ($00,X) - ROL memory, AND accu, result into acc
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins);
-						break;
-				case 4: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						farins=mem->Read(ptr);
-						break;
-				case 5: nextins=(farins<<1)|(ST&0x01);
-						mem->Write(ptr,nextins);
-						break;
-				case 6:	ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						break;
-				case 7: AC&=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x27 : // RAN/RLA $00 -		A <- (M << 1) /\ (A)
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins;
-						break;
-				case 2: farins=mem->Read(ptr);
-						break;
-				case 3: mem->Write(ptr,farins);
-						nextins=(farins<<1)|(ST&0x01);
-						break;
-				case 4: mem->Write(ptr,nextins);
-						(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
-						AC&=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x2F : // RAN/RLA $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: farins=mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr, farins);
-						nextins=(farins<<1)|(ST&0x01);
-						break;
-				case 5: mem->Write(ptr,nextins);
-						(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
-						AC&=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x33 : // RAN/RLA ($00),Y -	A <- (M << 1) /\ (A) - not 100%
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: break;
-				case 5: farins=mem->Read(ptr+Y);
-						nextins=(farins<<1)|(ST&0x01);
-						break;
-				case 6: mem->Write(ptr+Y,farins);
-						(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
-						break;
-				case 7: mem->Write(ptr+Y,nextins);
-						AC&=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x34 : // NOP $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: break;
-				case 3: cycle=0;
-						break;
-			}
-			break;
-
-		case 0x37 : // RAN/RLA $00,X -			A <- (M << 1) /\ (A)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						ptr=nextins;
-						break;
-				case 3: farins=mem->Read(ptr);
-						nextins=(farins<<1)|(ST&0x01);
-						break;
-				case 4: mem->Write(ptr,farins);
-						(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
-						break;
-				case 5: mem->Write(ptr,nextins);
-						AC&=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x3B : // RAN/RLA $0000,Y -	A <- (M << 1) /\ (A)
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: break;
-				case 4:	farins=mem->Read(ptr+Y);
-						break;
-				case 5:	mem->Write(ptr+Y,farins);
-						nextins=(farins<<1)|(ST&0x01);
-						(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
-						break;
-				case 6: mem->Write(ptr+Y,nextins);
-						AC&=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x3F : // RAN/RLA $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=X;
-						PC++;
-						break;
-				case 3: break;
-				case 4: farins=mem->Read(ptr);
-						nextins=(farins<<1)|(ST&0x01);
-						(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
-						break;
-				case 5: mem->Write(ptr,farins);
-						break;
-				case 6: mem->Write(ptr,nextins);
-						AC&=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x43 : // LSE/SRE ($00,X) -	A <- (M >> 1) ^ A
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins);
-						nextins += 1;
-						break;
-				case 4: ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: nextins=mem->Read(ptr);
-						break;
-				case 6:	mem->Write(ptr, nextins);
-						nextins & 0x01 ? ST |= 0x01 : ST &= 0xFE;
-						nextins >>= 1;
-						break;
-				case 7: mem->Write(ptr, nextins);
-						AC^=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x47 : // LSE/SRE $00 -		A <- (M >> 1) \-/ A
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins;
-						break;
-				case 2: nextins=mem->Read(ptr);
-						break;
-				case 3: mem->Write(ptr,nextins);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						nextins>>=1;
-						break;
-				case 4: mem->Write(ptr,nextins);
-						AC^=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x4B : // ANL/ASR #$00
-			PC++;
-			AC=(AC&nextins);
-			(AC&0x01) ? ST|=0x01 : ST&=0xFE;
-			AC>>=1;
-			SETFLAGS_ZN(AC);
-			cycle=0;
-			break;
-
-		case 0x4F : // LSE/SRE $0000 - A <- (M >> 1) \-/ A
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: nextins=mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr,nextins);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						nextins>>=1;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						AC^=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x53 : // LSE/SRE ($00),Y -	A <- (M >> 1) \-/ A	 - not 100%
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: break;
-				case 5: nextins=mem->Read(ptr+Y);
-						break;
-				case 6: mem->Write(ptr+Y,nextins);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						nextins>>=1;
-						break;
-				case 7: mem->Write(ptr+Y,nextins);
-						AC^=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x54 : // NOP $00,X
-			switch (cycle++) {
-				case 1: break;
-				case 2: PC++;
-						break;
-				case 3: cycle=0;
-						break;
-			}
-			break;
-
-		case 0x57 : // LSE/SRE $00,X -			A <- (M >> 1) \-/ A	 - not 100%
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=nextins;
-						nextins=mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr,nextins);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						nextins>>=1;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						AC^=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x5B : // LSE/SRE $0000,Y -	A <- (M >> 1) \-/ A
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: break;
-				case 4: farins=mem->Read(ptr);
-						break;
-				case 5: mem->Write(ptr,farins);
-						farins&0x01 ? ST|=0x01 : ST&=0xFE;
-						farins>>=1;
-						break;
-				case 6: mem->Write(ptr,farins);
-						AC^=farins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x5F : // LSE/SRE $0000,X -	A <- (M >> 1) \-/ A
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						ptr+=X;
-						break;
-				case 3: break;
-				case 4: farins=mem->Read(ptr);
-						break;
-				case 5: mem->Write(ptr,farins);
-						farins&0x01 ? ST|=0x01 : ST&=0xFE;
-						farins>>=1;
-						break;
-				case 6: mem->Write(ptr,farins);
-						AC^=farins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x63 : // RAD/RRA ($00,X) - ROR memory, ADC accu, result into accu
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins);
-						break;
-				case 4: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: nextins=mem->Read(ptr);
-						farins=(nextins>>1)|((ST&0x01)<<7);
-						break;
-				case 6: ST = (ST & 0xFE) | (nextins & 1); // the Carry flag
-						break;
-				case 7: mem->Write(ptr,farins);
-						ADC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x04 : // NOP $00
-		case 0x44 : // NOP $00
-		case 0x64 : // NOP $00
-			if (cycle++==2) {
-				PC++;
-				cycle=0;
-			}
-			break;
-
-		case 0x67 : // RAD/RRA $00
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins;
-						break;
-				case 2: nextins=mem->Read(ptr);
-						break;
-				case 3: mem->Write(ptr,nextins);
-						farins=(nextins>>1)|((ST&0x01)<<7);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						break;
-				case 4: mem->Write(ptr,farins);
-						ADC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x6B : // ARR #$00
+#if CPU_STACK_VIA_BUS
+#define STACK_RD(sp)	BUS_READ(0x100 | (sp))
+#define STACK_WR(sp,v)	BUS_WRITE(0x100 | (sp), v)
+#else
+#define STACK_RD(sp)	(stack[(sp) & 0xFF])
+#define STACK_WR(sp,v)	(stack[(sp) & 0xFF] = (unsigned char)(v))
+#endif
+#if CPU_DUMMY_READS
+#define DUMMY_READ(a)	((void)BUS_READ(a))
+#else
+#define DUMMY_READ(a)	((void)0)
+#endif
+
+// -----------------------------------------------------------------------------
+// one bus cycle of an instruction (not the opcode fetch)
+//
+// 'cycle' is the number of cycles of the current instruction that are already
+// done. While an instruction is in progress 'nextins', 'farins' and 'ptr' hold
+// the intermediate address and data bytes.
+// The function is instantiated for every opcode (M = addressing mode, O =
+// operation) so the compiler resolves the decoding at compile time. H is true
+// when the RDY line is low: read cycles stall, write cycles go ahead.
+// -----------------------------------------------------------------------------
+template<unsigned int M, unsigned int O, bool H>
+CPU_NOINLINE void CPU::step()
+{
+	const unsigned int c = cycle;				// the cycle executed now (1 = 2nd cycle of the instruction)
+	const bool halted = H;
+
+	#define FETCH(var)	do { var = BUS_READ(PC); PC = (PC+1)&0xFFFF; } while (0)
+	#define STALL()		do { if (halted) return; } while (0)	// read cycles stall when RDY is low
+	#define NEXT()		do { cycle = c + 1; return; } while (0)
+	#define DONE()		do { cycle = 0; return; } while (0)
+	#define SET_C(f)	do { if (f) ST |= 0x01; else ST &= 0xFE; } while (0)
+
+	// ---- operations ------------------------------------------------------
+	// operations reading their operand (also used for immediate operands)
+	auto execRead = [&](unsigned char v) {
+		unsigned char t;
+		switch (O) {
+			case O_ORA: AC |= v; t = AC; SETFLAGS_ZN(t); break;
+			case O_AND: AC &= v; t = AC; SETFLAGS_ZN(t); break;
+			case O_EOR: AC ^= v; t = AC; SETFLAGS_ZN(t); break;
+			case O_ADC: ADC(v); break;
+			case O_SBC: SBC(v); break;
+			case O_CMP: DoCompare(AC, v); break;
+			case O_CPX: DoCompare(X, v); break;
+			case O_CPY: DoCompare(Y, v); break;
+			case O_LDA: AC = v; t = AC; SETFLAGS_ZN(t); break;
+			case O_LDX: X = v; t = X; SETFLAGS_ZN(t); break;
+			case O_LDY: Y = v; t = Y; SETFLAGS_ZN(t); break;
+			case O_BIT:
+				ST = (ST&0x3D) | (v&0xC0) | (((AC&v)==0)<<1);
+				break;
+			case O_LAX: AC = X = v; t = AC; SETFLAGS_ZN(t); break;
+			case O_LAS: SP &= v; AC = X = SP; t = X; SETFLAGS_ZN(t); break;
+			case O_ANC:
+				AC &= v;
+				SET_C(AC & 0x80);
+				t = AC; SETFLAGS_ZN(t);
+				break;
+			case O_ALR:
+				AC &= v;
+				SET_C(AC & 0x01);
+				AC >>= 1;
+				t = AC; SETFLAGS_ZN(t);
+				break;
+			case O_ARR:
 			{
 				unsigned int tmp;
-				nextins=mem->Read(PC);
-				PC++;
-				AC &= nextins;
+				AC &= v;
 				tmp = AC;
 				tmp |= (ST&1)<<8;
 				tmp >>= 1;
 				if (ST&0x08) {
 					// Set sign flag state to that of carry
-					ST = (ST & 0x7F)|(ST << 7);
+					ST = (ST & 0x7F)|((ST & 1) << 7);
 					// Set the zero flag
 					ST = (ST & 0xFD) | (tmp == 0 ? 2 : 0);
 					// Set the overflow flag
@@ -2966,1610 +300,584 @@ void CPU::process()
 					} else
 						ST &= 0xFE;
 				} else {
-					SETFLAGS_ZN(tmp);
-					(tmp & 0x40) ? ST |= 0x01 : ST &= 0xFE;
-					(tmp & 0x40)^(((tmp & 0x20)<<1) & 0x40) ? SetVFlag() : ClearVFlag();
+					t = (unsigned char)tmp;
+					SETFLAGS_ZN(t);
+					SET_C(tmp & 0x40);
+					if ((tmp & 0x40)^(((tmp & 0x20)<<1) & 0x40)) SetVFlag(); else ClearVFlag();
 				}
 				AC = tmp & 0xFF;
+				break;
 			}
-			cycle=0;
-			break;
+			case O_XAA:
+				AC = (X&v&(AC|0xEE)) | ((X&v)&((AC<<1)&0x10));
+				t = AC; SETFLAGS_ZN(t);
+				break;
+			case O_LXA:
+				X = AC = (v&(AC|0xEE));
+				t = AC; SETFLAGS_ZN(t);
+				break;
+			case O_SBX:
+				t = X & AC;
+				SET_C(t >= v);
+				X = t - v;
+				t = X; SETFLAGS_ZN(t);
+				break;
+			default:				// NOP and its relatives: the operand is just read
+				break;
+		}
+	};
 
-		case 0x6F : // RAD/RRA $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: nextins=mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr,nextins);
-						farins=(nextins>>1)|((ST&0x01)<<7);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						break;
-				case 5: mem->Write(ptr,farins);
-						ADC(farins);
-						cycle=0;
-						break;
-			}
-			break;
+	// read-modify-write: the new value for the memory location, flags and
+	// accumulator are updated as well
+	auto execRmw = [&](unsigned char old) -> unsigned char {
+		unsigned char n;
+		switch (O) {
+			case O_ASL: SET_C(old & 0x80); n = old << 1; break;
+			case O_ROL: n = (old << 1) | (ST & 0x01); SET_C(old & 0x80); break;
+			case O_LSR: SET_C(old & 0x01); n = old >> 1; break;
+			case O_ROR: n = (old >> 1) | ((ST & 0x01) << 7); SET_C(old & 0x01); break;
+			case O_INC: n = old + 1; break;
+			case O_DEC: n = old - 1; break;
+			case O_SLO: SET_C(old & 0x80); n = old << 1; AC |= n; break;
+			case O_RLA: n = (old << 1) | (ST & 0x01); SET_C(old & 0x80); AC &= n; break;
+			case O_SRE: SET_C(old & 0x01); n = old >> 1; AC ^= n; break;
+			case O_RRA: n = (old >> 1) | ((ST & 0x01) << 7); SET_C(old & 0x01); ADC(n); break;
+			case O_DCP: n = old - 1; DoCompare(AC, n); break;
+			case O_ISB: n = old + 1; SBC(n); break;
+			default:    n = old; break;
+		}
+		unsigned char t;
+		switch (O) {
+			case O_SLO: case O_RLA: case O_SRE:
+				t = AC; SETFLAGS_ZN(t);
+				break;
+			case O_RRA: case O_DCP: case O_ISB:
+				break;				// flags are set by ADC, SBC and the compare
+			default:
+				t = n; SETFLAGS_ZN(t);
+		}
+		return n;
+	};
 
-		case 0x73 : // RAD/RRA ($00),Y -	A <- (M >> 1) + (A) + C
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: break;
-				case 5: nextins=mem->Read(ptr+Y);
-						break;
-				case 6: mem->Write(ptr+Y,nextins);
-						farins=(nextins>>1)|((ST&0x01)<<7);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						break;
-				case 7: mem->Write(ptr+Y,farins);
-						ADC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x74 : // NOP $00,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: break;
-				case 3: cycle=0;
-						break;
-			}
-			break;
-
-		case 0x77 : // RAD/RRA $00,X -	A <- (M >> 1) + (A) + C  - not good yet!!!!!!
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						ptr=nextins;
-						break;
-				case 3: nextins=mem->Read(ptr);
-						farins=(nextins>>1)|((ST&0x01)<<7);
-						break;
-				case 4: nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						break;
-				case 5: mem->Write(ptr,farins);
-						ADC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x7B : // RAD/RRA $0000,Y -	A <- (M >> 1) + (A) + C   - not good yet!!!!!!
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: break;
-				case 4: nextins=mem->Read(ptr);
-						farins=(nextins>>1)|((ST&0x01)<<7);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						break;
-				case 6: mem->Write(ptr,farins);
-						ADC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x7F : // RAD/RRA $8000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=X;
-						PC++;
-						break;
-				case 3: break;
-				case 4: nextins=mem->Read(ptr);
-						farins=(nextins>>1)|((ST&0x01)<<7);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						break;
-				case 5: mem->Write(ptr, nextins);
-						break;
-				case 6: mem->Write(ptr,farins);
-						ADC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x83 : // AXX/SAX ($00,X) -	M <- (A) /\ (X)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins);
-						nextins++;
-						break;
-				case 4: ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: mem->Write(ptr,AC&X);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x87 : // AAX/AXR/SAX $00 - M <- (A) /\ (X)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: mem->Write(nextins,AC&X);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x8B : // TAN/ANE/XAA $00 -	M <-[(A)/\$EE] \/ (X)/\(M)
+	// stores
+	auto doStore = [&]() {
+		unsigned int addr = ptr;
+		unsigned char v;
+		switch (O) {
+			case O_STA: v = AC; break;
+			case O_STX: v = X; break;
+			case O_STY: v = Y; break;
+			case O_SAX: v = AC & X; break;
+			default:
 			{
-				nextins=mem->Read(PC);
-				PC++;
-				AC=(X&nextins&(AC|0xEE))|( (X&nextins)&((AC<<1)&0x10) );
-				SETFLAGS_ZN(AC);
-				cycle=0;
+				// the 'unstable' stores: the value is ANDed with the high byte of
+				// the base address + 1; when the indexing crosses a page the high
+				// byte of the address becomes that value
+				unsigned int idx = (M == M_ABX) ? X : Y;
+				unsigned int baseHi = ((ptr - idx) >> 8) & 0xFF;
+				unsigned char reg;
+				switch (O) {
+					case O_SHA: reg = AC & X; break;
+					case O_SHX: reg = X; break;
+					case O_SHY: reg = Y; break;
+					default:	// TAS
+						SP = AC & X;
+						reg = SP;
+				}
+				v = reg & (baseHi + 1);
+				if (((ptr >> 8) & 0xFF) != baseHi)
+					addr = (v << 8) | (ptr & 0xFF);
 			}
-			break;
+		}
+		BUS_WRITE(addr, v);
+	};
 
-		case 0x8F : // AAX/SAX $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: mem->Write(ptr,AC&X);
-						cycle=0;
-						break;
+	auto push = [&](unsigned char v) { STACK_WR(SP, v); SP = (SP-1) & 0xFF; };
+
+	// ---- instructions with their own sequence ---------------------------
+	switch (M) {
+
+		case M_IMP:			// implied and accumulator: dummy read of the next byte
+		{
+			STALL();
+			DUMMY_READ(PC);
+			unsigned char t;
+			switch (O) {
+				case O_ASLA: SET_C(AC & 0x80); AC <<= 1; t = AC; SETFLAGS_ZN(t); break;
+				case O_ROLA: t = (AC << 1) | (ST & 0x01); SET_C(AC & 0x80); AC = t; SETFLAGS_ZN(t); break;
+				case O_LSRA: SET_C(AC & 0x01); AC >>= 1; t = AC; SETFLAGS_ZN(t); break;
+				case O_RORA: t = (AC >> 1) | ((ST & 0x01) << 7); SET_C(AC & 0x01); AC = t; SETFLAGS_ZN(t); break;
+				case O_INX: ++X; t = X; SETFLAGS_ZN(t); break;
+				case O_INY: ++Y; t = Y; SETFLAGS_ZN(t); break;
+				case O_DEX: --X; t = X; SETFLAGS_ZN(t); break;
+				case O_DEY: --Y; t = Y; SETFLAGS_ZN(t); break;
+				case O_TAX: X = AC; t = X; SETFLAGS_ZN(t); break;
+				case O_TXA: AC = X; t = AC; SETFLAGS_ZN(t); break;
+				case O_TAY: Y = AC; t = Y; SETFLAGS_ZN(t); break;
+				case O_TYA: AC = Y; t = AC; SETFLAGS_ZN(t); break;
+				case O_TSX: X = SP; t = X; SETFLAGS_ZN(t); break;
+				case O_TXS: SP = X; break;
+				case O_CLC: ST &= 0xFE; break;
+				case O_SEC: ST |= 0x01; break;
+				case O_CLI: ST &= 0xFB; break;
+				case O_SEI: ST |= 0x04;
+					// actually, IRQ can still occur right after the SEI instruction
+					// some programs (like Castle Master) rely on it.
+					break;
+				case O_CLV: ClearVFlag(); break;
+				case O_CLD: ST &= 0xF7; break;
+				case O_SED: ST |= 0x08; break;
+				default: break;		// NOP
 			}
-			break;
-/*
-		SHA $93,$9F     Store (A & X & (ADDR_HI + 1))
-		SHX $9E         Store (X & (ADDR_HI + 1))
-		SHY $9C         Store (Y & (ADDR_HI + 1))
-		SHS $9B         SHA and TXS, where X is replaced by (A & X).
+			DONE();
+		}
 
-						Note: The value to be stored is copied also
-						to ADDR_HI if page boundary is crossed.
-*/
-		case 0x93 : // AXI/SHA ($00),Y		(A) /\ (X) /\ (PCH+1) vagy 0000,X ki tudja???
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						nextins+=1;
-						break;
-				case 3: ptr|=mem->Read(nextins)<<8;
-						break;
-				case 4: break;
-				case 5: mem->Write(ptr+Y,AC&X&((ptr >> 8)+1));//check this!
-						cycle=0;
-						break;
+		case M_IMM:			// the operand is fetched in the 2nd cycle
+		{
+			STALL();
+			unsigned char v;
+			FETCH(v);
+			execRead(v);
+			DONE();
+		}
+
+		case M_REL:			// conditional branches
+		{
+			STALL();
+			if (c == 1) {
+				FETCH(nextins);
+				bool taken = false;
+				switch (O) {
+					case O_BPL: taken = !(ST & 0x80); break;
+					case O_BMI: taken =  (ST & 0x80) != 0; break;
+					case O_BVC: taken = !CheckVFlag(); break;
+					case O_BVS: taken =  CheckVFlag() != 0; break;
+					case O_BCC: taken = !(ST & 0x01); break;
+					case O_BCS: taken =  (ST & 0x01) != 0; break;
+					case O_BNE: taken = !(ST & 0x02); break;
+					case O_BEQ: taken =  (ST & 0x02) != 0; break;
+					default: break;
+				}
+				if (!taken)
+					DONE();
+				NEXT();
 			}
-			break;
-
-		case 0x97 : // AXY/SAX $00,Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=Y;
-						break;
-				case 3: mem->Write(nextins,AC&X);
-						cycle=0;
-						break;
+			unsigned int target = (PC + (signed char)nextins) & 0xFFFF;
+			if (c == 2) {
+				DUMMY_READ(PC);
+				if (!((target ^ PC) & 0xFF00)) {	// same page
+					PC = target;
+					DONE();
+				}
+				NEXT();
 			}
-			break;
+			// page crossing: the high byte of PC is fixed in the extra cycle
+			DUMMY_READ((PC & 0xFF00) | (target & 0xFF));
+			PC = target;
+			DONE();
+		}
 
-		case 0x9B : // AXS/SHS $0000,Y	- X <- (A) /\ (X), S <- (X) _plus_  M <- (X) /\ (PCH+1)
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						ptr+=Y;
-						break;
-				case 3: SP=AC&X;
-						break;
-				case 4: mem->Write(ptr,SP&((ptr >> 8)+1));
-						cycle=0;
-						break;
+		case M_PSH:			// PHA, PHP
+			if (c == 1) {
+				STALL();
+				DUMMY_READ(PC);
+				NEXT();
 			}
-			break;
+			push(O == O_PHA ? AC : (ST | 0x30));
+			DONE();
 
-		case 0x9C : // AYI/SHY $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: break;
-				case 4: if (nextins+X<256) {
-							mem->Write(ptr+X,Y&(((ptr+X)>>8)+1));
-						} else {
-							unsigned char t = Y & (((ptr+X)>>8)+1);
-							mem->Write( (nextins+X)|(t << 8), t);
-						}
-						cycle=0;
-						break;
+		case M_PUL:			// PLA, PLP
+		{
+			STALL();
+			if (c == 1) {
+				DUMMY_READ(PC);
+				NEXT();
 			}
-			break;
-
-		case 0x9E : // SXI/SHX $0000,Y		(X) /\ (((PC+Y)>>8)+1) vagy mi???
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: break;
-				case 4: {
-							unsigned char t = X & ((ptr >> 8) + 1);
-							if (nextins + Y < 256)
-							{
-								mem->Write((ptr & 0xFF00) | ((nextins + Y) & 0xFF), t);
-							}
-							else {
-								mem->Write((t << 8) | ((nextins + Y) & 0xFF), t);
-							}
-						}
-						cycle = 0;
-						break;
+			if (c == 2) {
+				((void)STACK_RD(SP));
+				SP = (SP+1) & 0xFF;
+				NEXT();
 			}
-			break;
+			unsigned char v = STACK_RD(SP);
+			if (O == O_PLA) {
+				AC = v;
+				SETFLAGS_ZN(v);
+			} else
+				ST = v;
+			DONE();
+		}
 
-		// huh...????
-		case 0x9F : // AXI/SHA $0000,Y		(A) /\ (X) /\ (((PC+Y)>>8)+1) vagy mi???
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: break;
-				case 4: if (nextins+Y<256) {
-							mem->Write(ptr+Y,AC&X&(((ptr+Y)>>8)+1));
-						} else {
-							unsigned char t = AC&X & (((ptr+Y)>>8)+1);
-							mem->Write( (nextins+Y)|(t << 8), t);
-						}
-						cycle=0;
-						break;
+		case M_JMP:
+			STALL();
+			if (c == 1) {
+				FETCH(nextins);
+				NEXT();
 			}
-			break;
+			PC = nextins | (BUS_READ(PC) << 8);
+			DONE();
 
-		case 0xA3 : // LDT/LAX ($00,X)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins);
-						break;
-				case 4: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: X=AC=mem->Read(ptr);
-						SETFLAGS_ZN(X);
-						cycle=0;
-						break;
+		case M_JMPI:
+			STALL();
+			if (c == 1) {
+				FETCH(nextins);
+				NEXT();
 			}
-			break;
-
-		case 0xA7 : // LDT/LAX $00
-			switch (cycle++) {
-				case 1: nextins=mem->Read(PC);
-						PC++;
-						break;
-				case 2: X=AC=mem->Read(nextins);
-						SETFLAGS_ZN(X);
-						cycle=0;
-						break;
+			if (c == 2) {
+				ptr = nextins | (BUS_READ(PC) << 8);
+				PC = (PC+1) & 0xFFFF;
+				NEXT();
 			}
-			break;
-
-		case 0xAB : // ANX/LXA #$00
-			switch (cycle++) {
-				case 1: PC++;
-						X=AC=(nextins&(AC|0xEE));
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
+			if (c == 3) {
+				farins = BUS_READ(ptr);
+				NEXT();
 			}
-			break;
+			// instruction does not handle page crossing
+			PC = farins | (BUS_READ((ptr & 0xFF00) | ((ptr+1) & 0xFF)) << 8);
+			DONE();
 
-		case 0xAF : // LDT/LAX $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: X=AC=mem->Read(ptr);
-						SETFLAGS_ZN(X);
-						cycle=0;
-						break;
+		case M_JSR:
+			if (c == 1) {
+				STALL();
+				FETCH(nextins);
+				NEXT();
 			}
-			break;
-
-		case 0xB3 : // LDT/LAX ($00),Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: if ((ptr&0x00FF)+Y<0x100) {
-							X=AC=mem->Read(ptr+Y);
-							SETFLAGS_ZN(X);
-							cycle=0;
-						}
-						break;
-				case 5: X=AC=mem->Read(ptr+Y);
-						SETFLAGS_ZN(X);
-						cycle=0;
-						break;
+			if (c == 2) {
+				STALL();
+				((void)STACK_RD(SP));		// internal operation on the stack pointer
+				NEXT();
 			}
-			break;
-
-		case 0xB7 : // LDT/LAX $00,Y
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=Y;
-						break;
-				case 3: X=AC=mem->Read(nextins);
-						SETFLAGS_ZN(X);
-						cycle=0;
-						break;
+			if (c == 3) {
+				push(PC >> 8);
+				NEXT();
 			}
-			break;
-
-		case 0xBB : // LAE/TSA Stack-Pointer AND with memory, TSX, TXA
-			switch (cycle++) {
-				case 1: nextins=mem->Read(PC);
-						PC++;
-						break;
-				case 2: ptr=nextins|(mem->Read(PC)<<8);
-						PC++;
-						ptr+=Y;
-						break;
-				case 3: if (nextins+Y<0x100) {
-							SP&=mem->Read(ptr);
-							AC=X=SP;
-							SETFLAGS_ZN(X);
-							cycle=0;
-						}
-						break;
-				case 4: SP&=mem->Read(ptr);
-						AC=X=SP;
-						SETFLAGS_ZN(X);
-						cycle=0;
-						break;
+			if (c == 4) {
+				push(PC & 0xFF);
+				NEXT();
 			}
-			break;
+			STALL();
+			PC = ptr = nextins | (BUS_READ(PC) << 8);
+			DONE();
 
-		case 0xBF : // LDT/LAX $0000,Y
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: if (nextins+Y<0x100) {
-							AC=X=mem->Read(ptr);
-							SETFLAGS_ZN(AC);
-							cycle=0;
-						}
-						break;
-				case 4: AC=X=mem->Read(ptr);
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
+		case M_RTS:
+		{
+			STALL();
+			if (c == 1) {
+				DUMMY_READ(PC);
+				NEXT();
 			}
-			break;
-
-		case 0xC3 : // DEM/DCP ($00,X)
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins);
-						break;
-				case 4: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: nextins=mem->Read(ptr)-1;
-						break;
-				case 6: break;
-				case 7: mem->Write(ptr,nextins);
-						(AC>=nextins) ? ST|=0x01: ST&=0xFE;
-						farins=AC-nextins;
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
+			if (c == 2) {
+				((void)STACK_RD(SP));
+				SP = (SP+1) & 0xFF;
+				NEXT();
 			}
-			break;
-
-		case 0xC7 : // DEM/DCP $00
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins;
-						break;
-				case 2: nextins=mem->Read(ptr);
-						break;
-				case 3: mem->Write(ptr,nextins);
-						nextins -= 1;
-						break;
-				case 4:	mem->Write(ptr,nextins);
-						(AC>=nextins) ? ST|=0x01 : ST&=0xFE;
-						nextins=AC-nextins;
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
+			if (c == 3) {
+				ptr = STACK_RD(SP);
+				SP = (SP+1) & 0xFF;
+				NEXT();
 			}
-			break;
-
-		case 0xCB : // AXS/XAS/SBX -	X <- (X)/\(A) - M
-			PC++;
-			((X&AC) >= nextins) ? ST|=0x01 : ST&=0xFE;
-			X = (X&AC) - nextins;
-			SETFLAGS_ZN(X);
-			cycle=0;
-			break;
-
-		case 0xCF : // DEM/DCP $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: farins=mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr,farins);
-						farins -= 1;
-						break;
-				case 5: mem->Write(ptr,farins);
-						(AC>=farins) ? ST|=0x01 : ST&=0xFE;
-						farins=AC-farins;
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
+			if (c == 4) {
+				ptr |= STACK_RD(SP) << 8;
+				PC = ptr;
+				NEXT();
 			}
-			break;
+			DUMMY_READ(PC);
+			PC = (PC+1) & 0xFFFF;
+			DONE();
+		}
 
-		case 0xD3 : // DEM/DCP ($00),Y - DEC memory, CMP memory
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: break;
-				case 5: farins=mem->Read(ptr+Y);
-						break;
-				case 6: mem->Write(ptr+Y,farins);
-						farins -= 1;
-						break;
-				case 7: mem->Write(ptr+Y,farins);
-						DoCompare(AC,farins);
-						cycle=0;
-						break;
+		case M_RTI:
+		{
+			STALL();
+			if (c == 1) {
+				DUMMY_READ(PC);
+				NEXT();
 			}
-			break;
-
-		case 0xD4 : // NOP $0000,X
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: break;
-				case 3: cycle=0;
-						break;
+			if (c == 2) {
+				((void)STACK_RD(SP));
+				SP = (SP+1) & 0xFF;
+				NEXT();
 			}
-			break;
-
-		case 0xD7 : // DEM/DCP $00,X -	M <- (M)-1, (A-M) -> NZC
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						ptr=nextins;
-						break;
-				case 3: nextins=mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr,nextins);
-						nextins-=1;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						(AC>=nextins) ? ST|=0x01 : ST&=0xFE;
-						nextins=AC-nextins;
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
+			if (c == 3) {
+				ST = STACK_RD(SP);
+				SP = (SP+1) & 0xFF;
+				NEXT();
 			}
-			break;
-
-		case 0xDB : // DEM/DCP $0000,Y : M <- (M)-1, (A-M) -> NZC
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: break;
-				case 4: farins=mem->Read(ptr);
-						break;
-				case 5: mem->Write(ptr,farins);
-						farins -= 1;
-						break;
-				case 6: mem->Write(ptr,farins);
-						(AC>=farins) ? ST|=0x01 : ST&=0xFE;
-						farins=AC-farins;
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
+			if (c == 4) {
+				ptr = STACK_RD(SP);
+				SP = (SP+1) & 0xFF;
+				NEXT();
 			}
-			break;
+			ptr |= STACK_RD(SP) << 8;
+			PC = ptr;
+			DONE();
+		}
 
-		case 0xDF : // DEM/DCP $0000,X : M <- (M)-1, (A-M) -> NZC
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=X;
-						PC++;
-						break;
-				case 3: break;
-				case 4: farins=mem->Read(ptr);
-						break;
-				case 5: mem->Write(ptr,farins);
-						farins -= 1;
-						break;
-				case 6: mem->Write(ptr,farins);
-						(AC>=farins) ? ST|=0x01 : ST&=0xFE;
-						farins=AC-farins;
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
+		case M_BRK:			// BRK and the interrupt sequence
+			switch (c) {
+				case 1:
+					STALL();
+					DUMMY_READ(PC);
+					if (!irq_sequence)
+						PC = (PC+1) & 0xFFFF;
+					NEXT();
+				case 2:
+					push(PC >> 8);
+					NEXT();
+				case 3:
+					push(PC & 0xFF);
+					NEXT();
+				case 4:
+					// BRK pushes the status register to the stack with the B bit set
+					// IRQ can still occur on BRK before saving the flags
+					push((ST | 0x30) & ~irq_sequence);
+					// and then masks the interrupt bit (even when NMI)
+					ST |= 0x04;
+					NEXT();
+				case 5:
+					STALL();
+					ptr = BUS_READ(irqVector);
+					NEXT();
+				default:
+					STALL();
+					ptr |= BUS_READ(irqVector | 1) << 8;
+					PC = ptr;
+					if (irqVector != INTERRUPT_IRQ)
+						irqVector = INTERRUPT_IRQ;
+					irq_sequence = 0x0;
+					DONE();
 			}
-			break;
 
-		case 0xE3 : // INB/ISB ($00,X) -	M <- (M) + 1, A <- (A) - M - C
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: ptr=mem->Read(nextins);
-						break;
-				case 4: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 5: nextins=mem->Read(ptr);
-						break;
-				case 6: mem->Write(ptr,nextins);
-						nextins += 1;
-						break;
-				case 7: mem->Write(ptr,nextins);
-						SBC(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xE7 : // INB/ISB $00 -	M <- (M) + 1, A <- (A) - M - C
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins;
-						break;
-				case 2: nextins=mem->Read(ptr);
-						break;
-				case 3: mem->Write(ptr,nextins);
-						nextins += 1;
-						break;
-				case 4: mem->Write(ptr,nextins);
-						SBC(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xEB : // SBC #$00 - illegal version
-			PC++;
-			SBC(nextins);
-			cycle=0;
-			break;
-
-		case 0xEF : // INB/ISB $0000
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						break;
-				case 3: farins=mem->Read(ptr);
-						break;
-				case 4: mem->Write(ptr,farins);
-						farins += 1;
-						break;
-				case 5: mem->Write(ptr,farins);
-						SBC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xF3 : // INB/ISB ($00),Y - increase and subtract from AC
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: ptr=mem->Read(nextins);
-						break;
-				case 3: nextins += 1;
-						ptr|=(mem->Read(nextins)<<8);
-						break;
-				case 4: break;
-				case 5: farins=mem->Read(ptr+Y);
-						break;
-				case 6: mem->Write(ptr+Y,farins);
-						farins+=1;
-						break;
-				case 7: mem->Write(ptr+Y,farins);
-						SBC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xF4 : // NOP $60,X
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: break;
-				case 3: cycle=0;
-						break;
-			}
-			break;
-
-		case 0xF7 : // INB/ISB $00,X -	M <- (M) + 1, A <- (A) - M - C
-			switch (cycle++) {
-				case 1: PC++;
-						break;
-				case 2: nextins+=X;
-						break;
-				case 3: farins=mem->Read(nextins);
-						break;
-				case 4: mem->Write(nextins,farins);
-						farins += 1;
-						break;
-				case 5: mem->Write(nextins,farins);
-						SBC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xFB : // INB/ISB $0000,Y - increase and subtract from AC
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: ptr+=Y;
-						PC++;
-						break;
-				case 3: break;
-				case 4: farins=mem->Read(ptr);
-						break;
-				case 5: mem->Write(ptr,farins);
-						farins += 1;
-						break;
-				case 6: mem->Write(ptr,farins);
-						SBC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xFF : // INB/ISB $0000,X - increase and subtract from AC
-			switch (cycle++) {
-				case 1: PC++;
-						ptr=nextins|(mem->Read(PC)<<8);
-						break;
-				case 2: PC++;
-						ptr+=X;
-						break;
-				case 3: break;
-				case 4: farins=mem->Read(ptr);
-						break;
-				case 5: mem->Write(ptr,farins);
-						farins += 1;
-						break;
-				case 6: mem->Write(ptr,farins);
-						SBC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x02 : // ABS, JAM, KIL or whatever - jams the machine
-		case 0x12 : // ABS, JAM, KIL or whatever - jams the machine
-		case 0x22 : // ABS, JAM, KIL or whatever - jams the machine
-		case 0x32 : // ABS, JAM, KIL or whatever - jams the machine
-		case 0x42 : // ABS, JAM, KIL or whatever - jams the machine
-		case 0x52 : // ABS, JAM, KIL or whatever - jams the machine
-		case 0x62 : // ABS, JAM, KIL or whatever - jams the machine
-		case 0x72 : // ABS, JAM, KIL or whatever - jams the machine
-		case 0x92 : // ABS, JAM, KIL or whatever - jams the machine
-		case 0xB2 : // ABS, JAM, KIL or whatever - jams the machine
-		case 0xD2 : // ABS, JAM, KIL or whatever - jams the machine
-		case 0xF2 : // ABS, JAM, KIL or whatever - jams the machine
+		case M_JAM:			// KIL, JAM or whatever: jams the machine
+			STALL();
+			DUMMY_READ(PC);
 			cycle = 0;
-			PC = (PC-1)&0xFFFF;
-			IRQcount = 0; // don't allow IRQ
+			PC = (PC-1) & 0xFFFF;
+			IRQcount = 0;	// don't allow IRQ
 			bp_reached = bp_active = cpu_jammed = true;
+			return;
+
+		default:
+			break;
+	}
+
+	// ---- memory operands: address calculation ---------------------------
+	// when the effective address is known 's' counts the data cycles
+	// (0 = the first access to the operand)
+	const bool store = IS_STORE_OP(O);
+	const bool rmw = IS_RMW_OP(O);
+	unsigned int s;
+
+	switch (M) {
+
+		case M_ZP:				// $00
+			if (c == 1) {
+				STALL();
+				FETCH(nextins);
+				ptr = nextins;
+				NEXT();
+			}
+			s = c - 2;
 			break;
 
-		default : cycle=1; // can't happen!
+		case M_ZPX:				// $00,X
+		case M_ZPY:				// $00,Y
+			if (c == 1) {
+				STALL();
+				FETCH(nextins);
+				NEXT();
+			}
+			if (c == 2) {
+				STALL();
+				DUMMY_READ(nextins);
+				ptr = (nextins + (M == M_ZPX ? X : Y)) & 0xFF;
+				NEXT();
+			}
+			s = c - 3;
+			break;
+
+		case M_ABS:				// $0000
+			if (c == 1) {
+				STALL();
+				FETCH(nextins);
+				NEXT();
+			}
+			if (c == 2) {
+				STALL();
+				ptr = nextins | (BUS_READ(PC) << 8);
+				PC = (PC+1) & 0xFFFF;
+				NEXT();
+			}
+			s = c - 3;
+			break;
+
+		case M_ABX:				// $0000,X
+		case M_ABY:				// $0000,Y
+		{
+			const unsigned int idx = (M == M_ABX) ? X : Y;
+			if (c == 1) {
+				STALL();
+				FETCH(nextins);
+				NEXT();
+			}
+			if (c == 2) {
+				STALL();
+				ptr = (nextins | (BUS_READ(PC) << 8)) + idx;
+				ptr &= 0xFFFF;
+				PC = (PC+1) & 0xFFFF;
+				NEXT();
+			}
+			if (c == 3) {
+				if (!store && !rmw && (nextins + idx) < 0x100) {
+					s = 0;		// no page crossing: the read is done in this cycle
+					break;
+				}
+				// dummy read from the address with the uncorrected high byte
+				STALL();
+				DUMMY_READ((ptr & 0xFF) | ((ptr - idx) & 0xFF00));
+				NEXT();
+			}
+			s = c - 4;
+			break;
+		}
+
+		case M_IZX:				// ($00,X)
+			if (c == 1) {
+				STALL();
+				FETCH(nextins);
+				NEXT();
+			}
+			if (c == 2) {
+				STALL();
+				DUMMY_READ(nextins);
+				nextins = (nextins + X) & 0xFF;
+				NEXT();
+			}
+			if (c == 3) {
+				STALL();
+				ptr = BUS_READ(nextins);
+				NEXT();
+			}
+			if (c == 4) {
+				STALL();
+				ptr |= BUS_READ((nextins + 1) & 0xFF) << 8;
+				NEXT();
+			}
+			s = c - 5;
+			break;
+
+		case M_IZY:				// ($00),Y
+			if (c == 1) {
+				STALL();
+				FETCH(nextins);
+				NEXT();
+			}
+			if (c == 2) {
+				STALL();
+				farins = BUS_READ(nextins);				// low byte of the base address
+				NEXT();
+			}
+			if (c == 3) {
+				STALL();
+				ptr = ((farins | (BUS_READ((nextins + 1) & 0xFF) << 8)) + Y) & 0xFFFF;
+				NEXT();
+			}
+			if (c == 4) {
+				if (!store && !rmw && (farins + Y) < 0x100) {
+					s = 0;		// no page crossing: the read is done in this cycle
+					break;
+				}
+				STALL();
+				DUMMY_READ((ptr & 0xFF) | ((ptr - Y) & 0xFF00));
+				NEXT();
+			}
+			s = c - 5;
+			break;
+
+		default:				// can't happen
+			cycle = 0;
+			return;
 	}
-	/*if ((*irq_register)&0x80 && cycle && !irq_sequence)
-		IRQcount = 1;*/
+
+	// ---- memory operands: data cycles -----------------------------------
+	if (store) {
+		doStore();				// write cycles are never stalled
+		DONE();
+	}
+	if (!rmw) {
+		STALL();
+		execRead(BUS_READ(ptr));
+		DONE();
+	}
+	// read-modify-write: read, write the old value back, write the new value
+	if (s == 0) {
+		STALL();
+		farins = BUS_READ(ptr);
+		NEXT();
+	}
+	if (s == 1) {
+		BUS_WRITE(ptr, farins);
+		farins = execRmw(farins);
+		NEXT();
+	}
+	BUS_WRITE(ptr, farins);
+	DONE();
+
+	#undef FETCH
+	#undef STALL
+	#undef NEXT
+	#undef DONE
+	#undef SET_C
+}
+
+// opcode dispatch
+#define CASE_RUN(code, m, o)	case code: step<M_##m, O_##o, false>(); break;
+#define CASE_HALT(code, m, o)	case code: step<M_##m, O_##o, true>(); break;
+
+void CPU::process()
+{
+	if (IRQcount || (*irq_register && !irq_sequence && !(ST&0x04)))
+		IRQcount++;
+
+	if (cycle) {
+		switch (currins & 0xFF) {
+			OPCODE_LIST(CASE_RUN)
+		}
+		return;
+	}
+
+	// first cycle: fetch the opcode and nothing else
+	if (IRQcount>=3 && currins != 0x58) {
+		IRQcount = 0;
+		if (!(ST&0x04) || currins == 0x78 || currins == 0x28 || irqVector == INTERRUPT_NMI) { //
+			irq_sequence = 0x10;	// this is 0x10 to match the B flag later
+			currins = 0x00;			// the BRK sequence is used for the interrupt
+			cycle = 1;
+			(void)BUS_READ(PC);		// the opcode fetch is thrown away
+			return;
+		}
+	}
+	currins = BUS_READ(PC);
+	PC = (PC+1)&0xFFFF;
+	cycle = 1;
+#ifdef CPUS_STATS
+	stats[currins & 0xFF]++;
+#endif
 }
 
 // in these cycles, only write operations are allowed for the CPU
+// (the RDY line of the CPU is low, read cycles are stalled)
 void CPU::stopcycle()
 {
-	//unsigned int old_cycle = cycle;
-
-	switch (currins) {
-
-		case 0x00 : // BRK
-			switch (cycle) {
-				case 2: push(PC>>8);
-						cycle++;
-						break;
-				case 3: push(PC&0xFF);
-						cycle++;
-						break;
-				case 4: // BRK pushes the status register to the stack with the B bit set
-						// if not an IRQ
-						push((ST|0x30)&~irq_sequence);
-						//push(ST&0xEF);
-						// and then masks the interrupt bit
-						ST|=0x04;
-						cycle++;
-						break;
-			}
-			break;
-
-		/*case 0x100 : // IRQ
-			switch (cycle) {
-				case 2: push(PC>>8);
-						cycle++;
-						break;
-				case 3: push(PC&0xFF);
-						cycle++;
-						break;
-				case 4: push((ST|0x20)&0xEF);
-						// and then masks the interrupt bit
-						ST|=0x04;
-						cycle++;
-						break;
-			}
-			break;
-
-		case 0x00 : // BRK
-			switch (cycle) {
-				case 2: push(PC>>8);
-						cycle++;
-						break;
-				case 3: push(PC&0xFF);
-						cycle++;
-						break;
-				case 4: // BRK pushes the status register to the stack with the B bit set
-						// if not an IRQ
-						push((ST|0x30));
-						// and then masks the interrupt bit
-						ST|=0x04;
-						cycle++;
-						break;
-			}
-			break;*/
-
-		case 0x08 : // PHP
-			if (cycle==2) {
-				// the PHP always pushes the status with the B flag set...
-				push(ST|0x30);
-				cycle=0;
-			}
-			break;
-
-		case 0x48 : // PHA
-			if (cycle==2) {
-				push(AC);
-				cycle=0;
-			}
-			break;
-
-		case 0x20 : // JSR
-			switch (cycle) {
-				case 3: push(PC>>8);
-					cycle++;
-					break;
-				case 4: push(PC&0xFF);
-					cycle++;
-					break;
-			}
-			break;
-
-		case 0x06 : // ASL $00
-			switch (cycle) {
-				case 3: mem->Write(nextins,farins);
-						farins<<=1;
-						++cycle;
-						break;
-				case 4: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x07 : // ASO/SLO $00		: A <- (M << 1) \/ A
-			switch (cycle) {
-				case 3: mem->Write(ptr,nextins);
-						(nextins)&0x80 ? ST|=0x01 : ST&=0xFE;
-						nextins<<=1;
-						cycle++;
-						break;
-				case 4: mem->Write(ptr,nextins);
-						AC|=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x0E : // ASL $0000
-			switch (cycle) {
-				case 4:	mem->Write(ptr,nextins);
-						ST = (ST & 0xFE) | (nextins >> 7); // the Carry flag
-						nextins<<=1;
-						++cycle;
-						break;
-				case 5:	mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x0F : // ASO/SLO $0000		: A <- (M << 1) \/ A
-			switch (cycle) {
-				case 4: mem->Write(ptr,nextins);
-						ST = (ST & 0xFE) | (nextins >> 7); // the Carry flag
-						nextins<<=1;
-						cycle++;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						AC|=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x16 : // ASL $00,X
-			switch (cycle) {
-				case 4: mem->Write(nextins,farins);
-						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						farins<<=1;
-						++cycle;
-						break;
-				case 5: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x17 : // ASO/SLO $00,X		: A <- (M << 1) \/ A
-			switch (cycle) {
-				case 4: mem->Write(ptr,farins);
-						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						farins<<=1;
-						cycle++;
-						break;
-				case 5: mem->Write(ptr,farins);
-						AC|=farins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x1E : // ASL $0000,X
-			switch (cycle) {
-				case 5:	mem->Write(ptr,nextins);
-						ST = (ST & 0xFE) | (nextins >> 7); // the Carry flag
-						nextins<<=1;
-						++cycle;
-						break;
-				case 6: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x26 : // ROL $00
-			switch (cycle) {
-				case 3: mem->Write(ptr,farins);
-						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						++cycle;
-						break;
-				case 4: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x27 : // RAN/RLA $00 -		A <- (M << 1) /\ (A)
-			switch (cycle) {
-				case 3: mem->Write(ptr,farins);
-						nextins=(farins<<1)|(ST&0x01);
-						cycle++;
-						break;
-				case 4: mem->Write(ptr,nextins);
-						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						AC&=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x2E : // ROL $0000
-			switch (cycle) {
-				case 4:	mem->Write(ptr,farins);
-						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						++cycle;
-						break;
-				case 5:	mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x2F : // RAN/RLA $0000
-			switch (cycle) {
-				case 4: mem->Write(ptr, farins);
-						nextins=(farins<<1)|(ST&0x01);
-						cycle++;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
-						AC&=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x36 : // ROL $00,X
-			switch (cycle) {
-				case 4: mem->Write(ptr,farins);
-						nextins=(farins<<1)|((ST&0x01));
-						ST = (ST & 0xFE) | (farins >> 7); // the Carry flag
-						++cycle;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x37 : // RAN/RLA $00,X -			A <- (M << 1) /\ (A)
-			switch (cycle) {
-				case 4: mem->Write(ptr,farins);
-						(farins&0x80) ? ST|=0x01 : ST&=0xFE; // the Carry flag
-						cycle++;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						AC&=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x3E : // ROL $0000,X
-			switch (cycle) {
-				case 5:	mem->Write(ptr,farins);
-						++cycle;
-						break;
-				case 6: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x43: // LSE/SRE ($00,X) -	A <- (M >> 1) ^ A
-			switch (cycle) {
-				case 6:	mem->Write(ptr, nextins);
-					nextins & 0x01 ? ST |= 0x01 : ST &= 0xFE;
-					nextins >>= 1;
-					cycle++;
-					break;
-				case 7: mem->Write(ptr, nextins);
-					AC ^= nextins;
-					SETFLAGS_ZN(AC);
-					cycle = 0;
-					break;
-			}
-			break;
-
-		case 0x46 : // LSR $00
-			switch (cycle) {
-				case 3: mem->Write(nextins,farins);
-						farins>>=1;
-						++cycle;
-						break;
-				case 4: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x47 : // LSE/SRE $00 -		A <- (M >> 1) \-/ A
-			switch (cycle) {
-				case 3: mem->Write(ptr,nextins);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						nextins>>=1;
-						cycle++;
-						break;
-				case 4: mem->Write(ptr,nextins);
-						AC^=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x4E : // LSR $0000
-			switch (cycle) {
-				case 4:	mem->Write(ptr,nextins);
-						nextins=nextins>>1;
-						++cycle;
-						break;
-				case 5:	mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x4F : // LSE/SRE $0000 - A <- (M >> 1) \-/ A
-			switch (cycle) {
-				case 4: mem->Write(ptr,nextins);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						nextins>>=1;
-						cycle++;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						AC^=nextins;
-						SETFLAGS_ZN(AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x56 : // LSR $00,X
-			switch (cycle) {
-				case 4: mem->Write(nextins,farins);
-						farins>>=1;
-						++cycle;
-						break;
-				case 5: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x5E : // LSR $0000,X
-			switch (cycle) {
-				case 5:	mem->Write(ptr,nextins);
-						nextins>>=1;
-						++cycle;
-						break;
-				case 6: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x66 : // ROR $00
-			switch (cycle) {
-				case 3: mem->Write(ptr,farins);
-						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
-						++cycle;
-						break;
-				case 4: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x67 : // RAD/RRA $00
-			switch (cycle) {
-				case 3: mem->Write(ptr,nextins);
-						farins=(nextins>>1)|((ST&0x01)<<7);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						cycle++;
-						break;
-				case 4: mem->Write(ptr,farins);
-						ADC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x6E : // ROR $0000
-			switch (cycle) {
-				case 4: mem->Write(ptr,farins);
-						nextins=(farins>>1)|((ST&0x01)<<7);
-						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
-						++cycle;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x6F : // RAD/RRA $0000
-			switch (cycle) {
-				case 4: mem->Write(ptr,nextins);
-						farins=(nextins>>1)|((ST&0x01)<<7);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						cycle++;
-						break;
-				case 5: mem->Write(ptr,farins);
-						ADC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x73 : // RAD/RRA ($00),Y -	A <- (M >> 1) + (A) + C
-			switch (cycle) {
-				case 6: mem->Write(ptr+Y,nextins);
-						farins=(nextins>>1)|((ST&0x01)<<7);
-						nextins&0x01 ? ST|=0x01 : ST&=0xFE;
-						cycle++;
-						break;
-				case 7: mem->Write(ptr+Y,farins);
-						ADC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x76 : // ROR $00,X
-			switch (cycle) {
-				case 4: mem->Write(ptr,farins);
-						ST = (ST & 0xFE) | (farins & 1); // the Carry flag
-						cycle++;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x7E : // ROR $0000,X
-			switch (cycle) {
-				case 5: mem->Write(ptr,farins);
-						++cycle;
-						break;
-				case 6: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		// indexed indirect
-
-		case 0x81 : // STA ($00,X)
-			if (cycle==5) {
-				mem->Write(ptr,AC);
-				cycle=0;
-			}
-			break;
-
-		case 0x83 : // AXX/SAX ($00,X) -	M <- (A) /\ (X)
-			if (cycle==5) {
-				mem->Write(ptr,AC&X);
-				cycle=0;
-			}
-			break;
-
-		case 0x84 : // STY $00
-			if (cycle==2) {
-				mem->Write(nextins,Y);
-				cycle=0;
-			}
-			break;
-
-		case 0x85 : // STA $00
-			if (cycle==2) {
-				mem->Write(nextins,AC);
-				cycle=0;
-			}
-			break;
-
-		case 0x86 : // STX $00
-			if (cycle==2) {
-				mem->Write(nextins,X);
-				cycle=0;
-			}
-			break;
-
-		case 0x87 : // AAX/AXR/SAX $00 - M <- (A) /\ (X)
-			if (cycle==2) {
-				mem->Write(nextins,AC&X);
-				cycle=0;
-			}
-			break;
-
-		case 0x8C : // STY $0000
-			if (cycle==3) {
-				mem->Write(ptr,Y);
-				cycle=0;
-			}
-			break;
-
-		case 0x8D : // STA $0000
-			if (cycle==3) {
-				mem->Write(ptr,AC);
-				cycle=0;
-			}
-			break;
-
-		case 0x8E : // STX $0000
-			if (cycle==3) {
-				mem->Write(ptr,X);
-				cycle=0;
-			}
-			break;
-
-		case 0x8F : // AAX/SAX $0000
-			if (cycle==3) {
-				mem->Write(ptr,AC&X);
-				cycle=0;
-			}
-			break;
-
-		// indirect indexed
-
-		case 0x91 : // STA ($00),Y
-			if (cycle==5) {
-				mem->Write(ptr+Y,AC);
-				cycle=0;
-			}
-			break;
-
-		// zero page indexed with X or Y
-
-		case 0x94 : // STY $00,X
-			switch (cycle) {
-				case 3: mem->Write(nextins,Y);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x95 : // STA $00,X
-			switch (cycle) {
-				case 3: mem->Write(nextins,AC);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x96 : // STX $00,Y
-			switch (cycle) {
-				case 3: mem->Write(nextins,X);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0x97 : // AXY/SAX $00,Y
-			if (cycle==3) {
-				mem->Write(nextins,AC&X);
-				cycle=0;
-			}
-			break;
-
-		case 0x99 : // STA $0000,Y
-			if (cycle==4) {
-				mem->Write(ptr+Y,AC);
-				cycle=0;
-			}
-			break;
-
-		case 0x9C : // AYI/SHY $0000,X
-			if (cycle==4) {
-				if (nextins+X<256)
-					mem->Write(ptr+X,Y&(nextins+1));
-				cycle=0;
-			}
-			break;
-
-		case 0x9D : // STA $0000,X
-			if (cycle==4) {
-				mem->Write(ptr+X,AC);
-				cycle=0;
-			}
-			break;
-
-		case 0xC6 : // DEC $00
-			switch (cycle) {
-				case 3: mem->Write(nextins,farins);
-						--farins;
-						++cycle;
-						break;
-				case 4: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xC7 : // DEM/DCP $00
-			switch (cycle) {
-				case 3: mem->Write(ptr,nextins);
-						nextins -= 1;
-						cycle++;
-						break;
-				case 4:	mem->Write(ptr,nextins);
-						(AC>=nextins) ? ST|=0x01 : ST&=0xFE;
-						nextins=AC-nextins;
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xCE : // DEC $0000
-			switch (cycle) {
-				case 4: mem->Write(ptr,nextins);
-						--nextins;
-						++cycle;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xCF : // DEM/DCP $0000
-			switch (cycle) {
-				case 4: mem->Write(ptr,farins);
-						farins -= 1;
-						cycle++;
-						break;
-				case 5: mem->Write(ptr,farins);
-						(AC>=farins) ? ST|=0x01 : ST&=0xFE;
-						farins=AC-farins;
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xD6 : // DEC $00,X
-			switch (cycle) {
-				case 4: mem->Write(nextins,farins);
-						--farins;
-						++cycle;
-						break;
-				case 5: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xD7 : // DEM/DCP $00,X -	M <- (M)-1, (A-M) -> NZC
-			switch (cycle) {
-				case 4: mem->Write(ptr,nextins);
-						nextins-=1;
-						cycle++;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						(AC>=nextins) ? ST|=0x01 : ST&=0xFE;
-						nextins=AC-nextins;
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xDE : // DEC $0000,X
-			switch (cycle) {
-				case 5: mem->Write(ptr,nextins);
-						--nextins;
-						++cycle;
-						break;
-				case 6: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xE6 : // INC $00
-			switch (cycle) {
-				case 3: mem->Write(nextins,farins);
-						++farins;
-						++cycle;
-						break;
-				case 4: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xE7 : // INB/ISB $00 -	M <- (M) + 1, A <- (A) - M - C
-			switch (cycle) {
-				case 3: mem->Write(ptr,nextins);
-						nextins += 1;
-						cycle++;
-						break;
-				case 4: mem->Write(ptr,nextins);
-						SBC(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xEE : // INC $0000
-			switch (cycle) {
-				case 4: mem->Write(ptr,nextins);
-						++nextins;
-						++cycle;
-						break;
-				case 5: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xEF : // INB/ISB $0000 - should be here but BAG protector won't work!
-			switch (cycle) {
-				case 4: mem->Write(ptr,farins);
-						farins += 1;
-						cycle++;
-						break;
-				case 5: mem->Write(ptr,farins);
-						SBC(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xF6 : // INC $00,X
-			switch (cycle) {
-				case 4: mem->Write(nextins,farins);
-						++farins;
-						++cycle;
-						break;
-				case 5: mem->Write(nextins,farins);
-						SETFLAGS_ZN(farins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xFE : // INC $0000,X
-			switch (cycle) {
-				case 5: mem->Write(ptr,nextins);
-						++nextins;
-						++cycle;
-						break;
-				case 6: mem->Write(ptr,nextins);
-						SETFLAGS_ZN(nextins);
-						cycle=0;
-						break;
-			}
-			break;
-
-		case 0xFF : // INB/ISB $0000,X - increase and subtract from AC
-			switch (cycle) {
-				case 5: mem->Write(ptr,farins);
-						farins += 1;
-						cycle++;
-						break;
-				case 6: mem->Write(ptr,farins);
-						SBC(farins);
-						cycle=0;
-						break;
-				default:
-					return;
-			}
-			break;
+	// the IRQ line is sampled in the stalled cycles as well
+	if (IRQcount || ((*irq_register) && !irq_sequence && !(ST & 0x04)))
+		IRQcount++;
+
+	if (!cycle)
+		return;					// the opcode fetch is a read cycle
+	switch (currins & 0xFF) {
+		OPCODE_LIST(CASE_HALT)
 	}
 }
-
-
-/*
-void CPU::_stopcycle()
-{
-	switch (currins) {
-
-	case 0:
-		if (cycle>1 && cycle<5)
-			process();
-		break;
-
-	case 0x20:
-		if (cycle==3 || cycle==4)
-			process();
-		break;
-
-	default:
-		switch (write_cycles[currins]) {
-			case 2:
-				break;
-			case 1:
-				break;
-			default:
-				break;
-		}
-		break;
-	}
-}*/
 
 CPU::~CPU()
 {
@@ -4578,7 +886,7 @@ CPU::~CPU()
 // Drive CPU class overrides
 
 DRIVECPU::DRIVECPU(MemoryHandler *memhandler, unsigned char *irqreg, unsigned char *cpustack,
-				   unsigned char *vpin, unsigned char *so_enable, unsigned int id)
+				   unsigned char *so_enable, unsigned int id)
 				   : CPU(memhandler, irqreg, cpustack)
 {
 	char cpuid[8];
@@ -4588,26 +896,17 @@ DRIVECPU::DRIVECPU(MemoryHandler *memhandler, unsigned char *irqreg, unsigned ch
 	irq_sequence = 0;
 	IRQcount = 0;
 
-	flag_v_pin_edge = vpin;
 	is_so_enable = so_enable;
 }
 
-unsigned char DRIVECPU::CheckVFlag()
+void DRIVECPU::setVFlagWithCheckSOE()
 {
-	// bit #1 of the VIA2 is connected to the V flag on the drive CPU
-	// The SO pin on the 6502 is input only
-	// as long as bit 1 of the byte in $1C0C is clear, SO cannot go low
-	if ( ((*is_so_enable)&0x02) && *flag_v_pin_edge) {
-		*flag_v_pin_edge = 0;
-		ST |=0x40;
-	}
-
-	return (ST&0x40);
+	if (((*is_so_enable) & 0x0E) == 0x0E)
+		SetVFlag();
 }
 
-void DRIVECPU::ClearVFlag()
+void DRIVECPU::setVFlagCallback(void* clptr)
 {
-	*flag_v_pin_edge = 0;
-	ST &= 0xBF;
+	DRIVECPU* dm = static_cast<DRIVECPU*>(clptr);
+	dm->setVFlagWithCheckSOE();
 }
-

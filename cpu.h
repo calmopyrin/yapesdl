@@ -17,6 +17,7 @@ class TED;
 
 class CPU : public SaveState , public Debuggable {
 	protected:
+		template<unsigned int M, unsigned int O, bool H> void step();
 		unsigned char currins;
 		unsigned char nextins;
 		unsigned char farins;
@@ -37,8 +38,8 @@ class CPU : public SaveState , public Debuggable {
 		unsigned char *irq_register;
 		unsigned char *stack;
 		unsigned char irq_sequence;
-		virtual unsigned char CheckVFlag() { return (ST&0x40); };
-		inline virtual void ClearVFlag() { ST&=0xBF; };
+		inline unsigned char CheckVFlag() { return (ST&0x40); };
+		inline void ClearVFlag() { ST&=0xBF; };
 		inline void SetVFlag() { ST|=0x40; };
 		enum {
 			INTERRUPT_NMI = 0xFFFA,
@@ -183,15 +184,15 @@ class DRIVECPU : public CPU {
 	protected:
 		unsigned char *flag_v_pin_edge;
 		unsigned char *is_so_enable;
-		virtual unsigned char CheckVFlag();
-		virtual void ClearVFlag();
+		inline void setVFlagWithCheckSOE();
 	public:
 		DRIVECPU(MemoryHandler *memhandler, unsigned char *irqreg, unsigned char *cpustack,
-			unsigned char *vpin, unsigned char *so_enable, unsigned int id);
+			unsigned char *so_enable, unsigned int id);
 		virtual ~DRIVECPU() { };
 		virtual const char *getName() {
 			return getId();
 		}
+		static void setVFlagCallback(void *);
 };
 
 #endif // _CPU_H
