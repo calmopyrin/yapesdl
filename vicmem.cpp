@@ -151,8 +151,8 @@ void Vicmem::dumpState()
 	saveVar(&CharacterPositionReload, sizeof(CharacterPositionReload));
 	saveVar(&SideBorderFlipFlop, sizeof(SideBorderFlipFlop));
 	saveVar(&vertSubCount, sizeof(vertSubCount));
-	saveVar(&HBlanking, sizeof(HBlanking));
-	saveVar(&VBlanking, sizeof(VBlanking));
+	saveVar(&blankingState, sizeof(blankingState));
+	saveVar(&blankingState, sizeof(blankingState));
 	saveVar(&TVScanLineCounter, sizeof(TVScanLineCounter));
 	saveVar(&framecol, sizeof(framecol));
 	//
@@ -189,8 +189,8 @@ void Vicmem::readState()
 	readVar(&CharacterPositionReload, sizeof(CharacterPositionReload));
 	readVar(&SideBorderFlipFlop, sizeof(SideBorderFlipFlop));
 	readVar(&vertSubCount, sizeof(vertSubCount));
-	readVar(&HBlanking, sizeof(HBlanking));
-	readVar(&VBlanking, sizeof(VBlanking));
+	readVar(&blankingState, sizeof(blankingState));
+	readVar(&blankingState, sizeof(blankingState));
 	readVar(&TVScanLineCounter, sizeof(TVScanLineCounter));
 	readVar(&framecol, sizeof(framecol));
 	//
@@ -841,7 +841,7 @@ inline void Vicmem::render4px(unsigned char *scr, const unsigned int x, const un
 inline void Vicmem::newFrame()
 {
 	loop_continuous = 0;
-	VBlanking = true;
+	blankingState |= BLANKING_VERTICAL;
 	SideBorderFlipFlop = CharacterWindow = false;
 	externalFetchWindow = false;
 	vertSubCount = 0;
@@ -928,13 +928,13 @@ void Vicmem::ted_process(const unsigned int continuous)
 					latchedRows = nrOfRows;
 				break;
 			case 12:
-				HBlanking = false;
-				if (!VBlanking)
+				blankingState &= ~BLANKING_HORIZONTAL;
+				if (!(blankingState & BLANKING_VERTICAL))
 					doHRetrace();
 				break;
 			case 136: // 134 140 115 96
 				CharacterWindow = false;
-				HBlanking = true;
+				blankingState |= BLANKING_HORIZONTAL;
 				break;
 			// NTSC
 			// case 130:
@@ -948,7 +948,7 @@ void Vicmem::ted_process(const unsigned int continuous)
 					case 28: // 28 ?
 						TVScanLineCounter = 0;
 						scrptr = screen;
-						VBlanking = false;
+						blankingState &= ~BLANKING_VERTICAL;
 						break;
 					case 312:
 					case 512:
@@ -1021,7 +1021,7 @@ void Vicmem::ted_process(const unsigned int continuous)
 				}
 			}
 			// VIDEO
-			if (!(HBlanking || VBlanking)) {
+			if (!blankingState) {
 				if (CharacterWindow) { // drawing the visible part of the screen
 					// call the relevant rendering function
 					render4px(scrptr, x >> 1, x & 1);

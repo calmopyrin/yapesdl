@@ -51,6 +51,12 @@ class YM2149;
 class TED : public CSerial , public MemoryHandler, public SoundSource, public SaveState {
   public:
 	typedef void (TED::* delayedEventCallback)();
+	enum {
+		BLANKING_HORIZONTAL = 1,
+		BLANKING_VERTICAL,
+		BLANKING_FRAMESKIP = 4,
+		BLANKING_TEDOFF = 8,
+	};
 	TED();
 	virtual ~TED();
 	TAP	*tap;
@@ -60,7 +66,12 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual void Reset() { Reset(3); };
 	void soundReset();
 	// read memory through memory decoder
+#ifdef BUS_EMUL
+	virtual unsigned char Read(unsigned int addr) { return dataBus = ReadMem(addr); };
+	__forceinline unsigned char ReadMem(unsigned int addr);
+#else
 	virtual unsigned char Read(unsigned int addr);
+#endif
 	virtual void Write(unsigned int addr, unsigned char value);
 	virtual unsigned char readOpenAddressSpace(unsigned int addr);
 	// read memory directly
@@ -220,6 +231,8 @@ protected:
 	int		scrattr, charbank;
 	void	changeCharsetBank();
 	bool	checkIllegalScreenMode();
+	void	checkScreenArea();
+	unsigned char getBusData();
 
 	// border color
 	unsigned int framecol;
@@ -245,10 +258,9 @@ protected:
 	static bool VertSubActive;
 	static unsigned int	CharacterPosition;
 	static unsigned int	CharacterPositionReload;
-	//static unsigned int	CharacterPositionCount;
+	static ClockCycle characterPositionReloadCycle;
 	static unsigned int	TVScanLineCounter;
-	static bool HBlanking;
-	static bool VBlanking;
+	static unsigned int blankingState;
 	static bool aligned_write;
 	unsigned int aw_value;
 	delayedEventCallback alignedWriteFunctor;
@@ -261,6 +273,9 @@ protected:
 	static unsigned int scanLineOffset;
 	static int scanlinesDone;
 	static bool ntscMode;
+	static bool hsyncStarted;
+	static unsigned char dataBus;
+	static unsigned int busHist;
 	//
 	void doDMA( unsigned char *Buf, unsigned int Offset  );
 	SIDsound *sidCard;
@@ -307,7 +322,7 @@ protected:
 	void writeHorizShift() {
 		unsigned int oldXscr = hshift;
 		hshift = aw_value & 7;
-		if (CharacterWindow && !(HBlanking || VBlanking)) {
+		if (CharacterWindow && !blankingState) {
 			int todo = hshift - oldXscr;
 			if (0 < todo) {
 				drawEmptyArea(oldXscr, todo);
@@ -322,10 +337,13 @@ protected:
 		// latch is updated in cycle 112
 		if (beamx == 112)
 			ff1d_latch = beamy + 1;
+		else if (beamx == 113) {
+			checkScreenArea();
+		}
 		if (beamy == 205) {
 			if (!dmaFetchCountStart)
 				CharacterCountReload = 0x03FF;
-		}
+		} 
 		// raster IRQ is edge triggered
 		if (beamy == irqline && oldbeamy != irqline) {
 			Ram[0xFF09] |= ((Ram[0xFF0A] & 2) << 6) | 2;

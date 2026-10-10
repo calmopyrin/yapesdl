@@ -26,6 +26,14 @@
 #include "OPL2Sound.h"
 #include "YM2149.h"
 
+#define BUS_LAG 3
+#define BUS_BYTE ((busHist >> (8 * BUS_LAG)) & 0xFF)
+#ifdef BUS_EMUL
+#define BUS_UPDATE do { busHist = (busHist << 8) | dataBus; } while (0)
+#else
+		BUS_UPDATE (void)
+#endif
+
 #define RETRACESCANLINEMAX 360
 #define RETRACESCANLINEMIN (SCR_VSIZE - (RETRACESCANLINEMAX - SCR_VSIZE))
 #define REU_BANK_MASK ((reuBankCount << 1) - 1)
@@ -79,9 +87,9 @@ unsigned int	TED::CharacterCount = 0, TED::CharacterCountReload;
 bool TED::VertSubActive; // indicates whether the chip is in a non-idle state
 unsigned int	TED::CharacterPosition;
 unsigned int	TED::CharacterPositionReload;
+ClockCycle TED::characterPositionReloadCycle;
 unsigned int	TED::TVScanLineCounter;
-bool TED::HBlanking;
-bool TED::VBlanking;
+unsigned int	TED::blankingState;
 unsigned int TED::ff1d_latch;
 bool TED::charPosLatchFlag;
 bool TED::endOfScreen;
@@ -100,6 +108,9 @@ unsigned int TED::RAMMask = 0xFFFF;
 unsigned int TED::sidCardEnabled;
 unsigned int TED::dmaFetchCountStart = 0;
 unsigned int TED::ym2149Frequency = 0;
+bool TED::hsyncStarted = 0;
+unsigned char TED::dataBus;
+unsigned int TED::busHist;
 
 rvar_t TED::tedSettings[] = {
 	//{ "Sid card", "SidCardEnabled", TED::toggleSidCard, &TED::sidCardEnabled, RVAR_TOGGLE, NULL },
@@ -428,7 +439,7 @@ ClockCycle TED::GetClockCount()
 
 void TED::log(unsigned int addr, unsigned int value)
 {
-	fprintf(stderr, "%04X<-%02X(%03d) Old:%02X HC:(%03d/$%02X) VC:(%03d/$%03X) XY:%03i/%03i PC:$%04X BL:%02X frm:%i cyc:%llu\n",
+	fprintf(stderr, "%04X<-%03X(%03d) Old:%02X HC:(%03d/$%02X) VC:(%03d/$%03X) XY:%03i/%03i PC:$%04X BL:%02X frm:%i cyc:%llu\n",
 		addr, value, value, Read(addr), getHorizontalCount(), getHorizontalCount(), beamy, beamy, beamx, TVScanLineCounter, cpuptr.getPC(), BadLine, crsrphase, CycleCounter);
 }
 
@@ -438,7 +449,8 @@ void TED::setNtscMode(bool on)
 	masterClock = on ? TED_REAL_CLOCK_NTSC_M10 : TED_REAL_CLOCK_M10;
 	loadroms();
 	Reset(1);
-	Write(0xFF07, (Read(0xFF07) & ~0x40) | (on ? 0x40 : 0));
+	// FIXME - write creates a fake stale byte on the bus
+	Write(0xFF07, (ReadMem(0xFF07) & ~0x40) | (on ? 0x40 : 0));
 	setFrequency((on ? TED_CLOCK_NTSC : TED_CLOCK) / clockDivisor / 8);
 	//cpuptr->Reset();
 }
@@ -490,7 +502,11 @@ unsigned char* TED::getCharSetPtr()
 	return kernal + 0x1400;
 }
 
+#ifdef BUS_EMUL
+__forceinline unsigned char TED::ReadMem(unsigned int addr)
+#else
 unsigned char TED::Read(unsigned int addr)
+#endif
 {
 	switch ( addr & 0xF000 ) {
 		case 0x0000:
@@ -715,8 +731,21 @@ inline bool TED::checkIllegalScreenMode()
 	return retval;
 }
 
+inline void TED::checkScreenArea()
+{
+	if (attribFetch && ((fltscr && ff1d_latch == 8) || (!fltscr && ff1d_latch == 4))) {
+		ScreenOn = true;
+	}
+	else if ((ff1d_latch == 200 && fltscr) || (ff1d_latch == 204 && !fltscr)) {
+		ScreenOn = false;
+	}
+}
+
 void TED::Write(unsigned int addr, unsigned char value)
 {
+#ifdef BUS_EMUL
+	dataBus = value;
+#endif
 	switch (addr&0xF000) {
 		case 0x0000:
 			switch ( addr & 0xFFFF ) {
@@ -795,23 +824,18 @@ void TED::Write(unsigned int addr, unsigned char value)
 							changeCharsetBank();
 							// Check if screen is turned on
 							displayEnable = !!(value & 0x10);
-							if (!attribFetch && displayEnable && ff1d_latch == 0) {
+							if (!attribFetch && displayEnable && beamy == 0) {
 								attribFetch = dmaAllowed = true;
 								vertSubCount = 7;
-								if (vshift != (ff1d_latch & 7))
+								if (vshift != (beamy & 7))
 								{
 									if (beamx > 4 && beamx < 84)
 										clockingState = TSSDELAY;
 								}
-							} else if (attribFetch && ((fltscr && ff1d_latch == 8) || (!fltscr && ff1d_latch == 4))) {
-								ScreenOn = true;
-							} else if ((ff1d_latch == 200 && fltscr) || (ff1d_latch == 204 && !fltscr)) {
-								ScreenOn = false;
-							}
-							if ( (Ram[0xFF06] ^ value) & 0x1F)
-								return;
+							} else
+								checkScreenArea();
 							if (attribFetch) {
-								if (vshift == (ff1d_latch & 7)) {
+								if (vshift == (beamy & 7)) {
 									// Delayed DMA?
 									if (beamx>=3 && beamx<86) {
 										const unsigned char idleread = Read((cpuptr.getPC()+1)&0xFFFF);
@@ -844,18 +868,24 @@ void TED::Write(unsigned int addr, unsigned char value)
 										BadLine |= 1;
 									}
 								} else if (BadLine & 1) {
-									if (beamx>=94 && beamx < 109) {
+									if (beamx >= 4 && beamx < 11) { // before the one-shot fetch at beamx = 10
+										// HSHIFT no longer matches: drop the attribute DMA. If BadLine & 2 is
+										// still set, beamx = 10 fetches character data (offset 0x400) and the CPU
+										// stays halted
 										BadLine &= ~1;
-									}/* else if (beamx >= 91) {
-										unsigned char *tmpbuf = clrbuf;
-										clrbuf = tmpClrbuf;
-										tmpClrbuf = tmpbuf;
+										// a write at beamx = 9 already would've already fetched a byte; here the whole fetch is dropped
+										delayedDMA = false; // otherwise the next line's fetch is skipped
+										// FIXME: add one more RDY-low cycle ('TABORTDELAY') state before releasing the CPU
+										if (!BadLine && (clockingState & (THALT1 | THALT2 | THALT3 | TDMA | TDMADELAY)))
+											clockingState = TSS;
+									} else if (beamx>=94 && beamx < 109) {
 										BadLine &= ~1;
-									}*/
+									}
 								}
 							}
 							return;
 						case 0xFF07:
+							//log(0xff07, value);
 							Ram[0xFF07]=value;
 							// check for narrow screen (38 columns)
 							nrwscr=value&0x08;
@@ -1020,7 +1050,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 							return;
 						case 0xFF1D:
 							{
-								//log(0xff1d, value);
+								//log(0xff1d, value | (beamy & 0x100));
 								unsigned int oldbeamy = beamy;
 								beamy = (beamy & 0x0100) | value;
 								writeVerticalCount(oldbeamy);
@@ -1221,6 +1251,15 @@ inline void TED::mcec()
 	memset(scrptr + hshift, 0, 8);
 }
 
+inline unsigned char TED::getBusData()
+{
+#ifdef BUS_EMUL
+	return BUS_BYTE;
+#else
+	return Read(cpuptr.getPC());
+#endif
+}
+
 // renders hires text with reverse (128 chars)
 inline void TED::hi_text()
 {
@@ -1241,7 +1280,7 @@ inline void TED::hi_text()
 	} else {
 		col[0] = mcol[0];
 		col[1] = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : ReadMem(0xFFFF);
 		mask ^= (((crsrpos - (x == 0)) & 0x3FF) == 0x3FF) * crsrblinkon;
 	}
 	RENDER_HIRES(wbuffer, col, mask);
@@ -1265,7 +1304,7 @@ inline void TED::rv_text()
 	} else {
 		col[0] = mcol[0];
 		col[1] = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? getBusData() : ReadMem(0xFFFF);
 		mask ^= (((crsrpos - (x == 0)) & 0x3FF) == 0x3FF) * crsrblinkon;
 	}
 	RENDER_HIRES(wbuffer, col, mask);
@@ -1286,7 +1325,7 @@ inline void TED::ec_text()
 		chr >>= 6;
 	} else {
 		charcol = chr = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? getBusData() : ReadMem(0xFFFF);
 	}
 
 	RENDER_EC(wbuffer, ecol, mask);
@@ -1306,7 +1345,7 @@ inline void TED::mc_text_rvs()
 	} else {
 		col[0] = mcol[0];
 		col[1] = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? getBusData() : ReadMem(0xFFFF);
 	}
 
 	if (col[1] & 0x08) { // if character is multicolored
@@ -1333,7 +1372,7 @@ inline void TED::mc_text()
 	} else {
 		col[0] = mcol[0];
 		col[1] = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? getBusData() : ReadMem(0xFFFF);
 	}
 
 	if (col[1] & 0x08) { // if character is multicolored
@@ -1361,7 +1400,7 @@ inline void TED::hi_bitmap()
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) | vertSubCount];
 	} else {
 		col[0] = col[1] = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? getBusData() : ReadMem(0xFFFF);
 	}
 
 	RENDER_HIRES(wbuffer, col, mask);
@@ -1380,7 +1419,7 @@ inline void TED::mc_bitmap()
 		mask = grbank[(((CharacterPosition + x) << 3) & 0x1FFF) + vertSubCount];
 	} else {
 		bmmcol[1] = bmmcol[2] = 0;
-		mask = ((clockingState & TDS) && !attribFetch) ? Read(cpuptr.getPC()) : Read(0xFFFF);
+		mask = ((clockingState & TDS) && !attribFetch) ? getBusData() : ReadMem(0xFFFF);
 	}
 
 	RENDER_MC(wbuffer, bmmcol, mask);
@@ -1474,7 +1513,7 @@ inline void TED::illegalbank()
 	else if (BadLine == 2)
 		mask = chr;
 	else {
-		mask = VertSubActive ? Read(cpuptr.getPC()) : Read(0xFFFF);
+		mask = VertSubActive ? getBusData() : ReadMem(0xFFFF);
 	}
 	renderPixelsGeneric(mask, chr, charcol);
 }
@@ -1498,11 +1537,12 @@ void TED::doVRetrace()
 	TVScanLineCounter = 0;
 	scrptr = screen;
 	retraceScanLine = 0;
-	VBlanking = false;
+	blankingState &= ~BLANKING_VERTICAL;
 }
 
 void TED::doHRetrace()
 {
+	hsyncStarted = false;
 	if (!retraceScanLine) {
 		unsigned int maxLinessThreshold = RETRACESCANLINEMAX;
 		if (ntscMode) maxLinessThreshold -= 48;
@@ -1527,7 +1567,7 @@ void TED::doHRetrace()
 					loop_continuous = 0;
 					TVScanLineCounter = scanLineOffset = linesSkipped;
 					retraceScanLine = 0;
-					VBlanking = false;
+					blankingState &= ~BLANKING_VERTICAL;
 				}
 				else {
 					scanLineOffset = 0;
@@ -1591,7 +1631,7 @@ inline void TED::render(const int scrmode)
 inline void TED::newLine()
 {
 	beamx = 0;
-	doHRetrace();
+	
 	flushBuffer(CycleCounter, TED_SOUND_CLOCK);
 	switch (beamy) {
 
@@ -1627,22 +1667,22 @@ inline void TED::newLine()
 			break;
 
 		case 226: // NTSC
-			if (Ram[0xFF07] & 0x40) VBlanking = true;
+			if (Ram[0xFF07] & 0x40) blankingState |= BLANKING_VERTICAL;
 			break;
 
 		case 229: // NTSC
-			if ((Ram[0xFF07] & 0x40) && VBlanking && !retraceScanLine)
+			if ((Ram[0xFF07] & 0x40) && (blankingState & BLANKING_VERTICAL) && !retraceScanLine)
 				retraceScanLine = 1;
 			break;
 
 		case 247: // NTSC
 			if (Ram[0xFF07] & 0x40)
-				VBlanking = false;
+				blankingState &= ~BLANKING_VERTICAL;
 			break;
 
 		case 251:
 			if (!(Ram[0xFF07] & 0x40))
-				VBlanking = true;
+				blankingState |= BLANKING_VERTICAL;
 			break;
 
 		case 254:
@@ -1653,7 +1693,7 @@ inline void TED::newLine()
 
 		case 274:
 			if (!(Ram[0xFF07] & 0x40))
-				VBlanking = false;
+				blankingState &= ~BLANKING_VERTICAL;
 			break;
 
 		case 262:
@@ -1721,7 +1761,7 @@ void TED::ted_process(const unsigned int continuous)
 				break;
 
 			case 8:
-				HBlanking = false;
+				blankingState &= ~BLANKING_HORIZONTAL;
 				break;
 
 			case 9:
@@ -1735,8 +1775,10 @@ void TED::ted_process(const unsigned int continuous)
 				break;
 
 			case 10:
-				if (VertSubActive)
+				if (VertSubActive) {
 					CharacterPosition = CharacterPositionReload;
+					characterPositionReloadCycle = CycleCounter;
+				}
 				if (BadLine & 1) {
 					if (!delayedDMA)
 						doDMA(tmpClrbuf, 0);
@@ -1749,8 +1791,7 @@ void TED::ted_process(const unsigned int continuous)
 
 			case 16:
 				if (ScreenOn) {
-					SideBorderFlipFlop = true;
-					if (nrwscr) {
+					if (!SideBorderFlipFlop) {
 						if (hshift) {
 							if (VertSubActive) {
 								int oldX = x;
@@ -1762,7 +1803,10 @@ void TED::ted_process(const unsigned int continuous)
 							}
 							else
 								drawEmptyArea(0, hshift);
-						}
+						}					
+						SideBorderFlipFlop = true;
+					}
+					if (nrwscr) {
 						CharacterWindow = true;
 					}
 					x = 0;
@@ -1780,8 +1824,8 @@ void TED::ted_process(const unsigned int continuous)
 				if (attribFetch) {
 					if (vertSubCount == 6)
 						CharacterCountReload = CharacterCount;
-					dmaFetchCountStart = 0;
 				}
+				dmaFetchCountStart = 0;
 				if (beamy == 205) {
 					CharacterCountReload = 0x03FF;
 				}
@@ -1789,8 +1833,10 @@ void TED::ted_process(const unsigned int continuous)
 
 			case 90:
 				//fprintf(stderr, "charpos:%i |reload:%i,VC=%i,VSUB=%i,BL:%i,TVline:%i, VSHIFT=%i, frame:%i\n", CharacterPosition, CharacterPositionReload, beamy, vertSubCount, BadLine, TVScanLineCounter, vshift, crsrphase);
-				if (VertSubActive && charPosLatchFlag) // FIXME
-					CharacterPositionReload = (CharacterPosition + x + 3)&0x3FF;
+				if (VertSubActive && charPosLatchFlag) {
+					unsigned int cnt = (unsigned int)(CycleCounter - characterPositionReloadCycle) >> 1;
+					CharacterPositionReload = (CharacterPosition + cnt) & 0x3FF;
+				}
 				break;
 
 			case 91:
@@ -1819,7 +1865,7 @@ void TED::ted_process(const unsigned int continuous)
 				break;
 
 			case 104:
-				HBlanking = true;
+				blankingState |= BLANKING_HORIZONTAL;
 				break;
 
 			case 107: // HSYNC start
@@ -1838,6 +1884,10 @@ void TED::ted_process(const unsigned int continuous)
 				}
 				break;
 
+			case 106:
+				hsyncStarted = true;
+				break;
+
 			case 112:
 				ff1d_latch = beamy + 1;
 				break;
@@ -1849,7 +1899,11 @@ void TED::ted_process(const unsigned int continuous)
 				beamy = ff1d_latch;
 				break;
 
+			case 0:
 			case 114: // HSYNC end
+				if (hsyncStarted) {
+					doHRetrace();
+				}
 				newLine();
 				if (externalFetchWindow)
 					vertSubIncrAllowed = true;
@@ -1857,7 +1911,6 @@ void TED::ted_process(const unsigned int continuous)
 
 			case 127:
 				beamx = 15;
-				doHRetrace();
 				break;
 		}
 
@@ -1872,7 +1925,7 @@ void TED::ted_process(const unsigned int continuous)
 				Ram[0xFF09] |= irqbits;
 				irqFlag |= irqbits & 0x80;
 			}
-			if (!CharacterWindow && !HBlanking && !VBlanking) {
+			if (!CharacterWindow && !blankingState) {
 				// we are on the border area, so use the frame color
 				*((int*)(scrptr+4)) = framecol;
 			}
@@ -1889,23 +1942,28 @@ void TED::ted_process(const unsigned int continuous)
 				case TSS:
 				case TDS:
 					cpuptr.process();
+					BUS_UPDATE;
 					break;
 				case TDMADELAY:
 					cpuptr.process();
+					BUS_UPDATE;
 					clockingState = THALT1;
 					break;
 				case THALT1:
 				case THALT2:
 				case THALT3:
 					cpuptr.stopcycle();
+					BUS_UPDATE;
 					clockingState <<= 1;
 					break;
 				case TSSDELAY:
 					cpuptr.process();
+					BUS_UPDATE;
 					break;
 				case TDSDELAY:
 					clockingState = TDS;
 					cpuptr.process();
+					BUS_UPDATE;
 					break;
 				default:;
 			}
@@ -1921,15 +1979,13 @@ void TED::ted_process(const unsigned int continuous)
 				}
 				timer1--;
 			}
-			if (!(HBlanking||VBlanking)) {
-				if (SideBorderFlipFlop) { // drawing the visible part of the screen
-					// call the relevant rendering function
-					render(scrattr);
-				}
-				if (!CharacterWindow) {
-					// we are on the border area, so use the frame color
-					*((int*)scrptr) = framecol;
-				}
+			if (SideBorderFlipFlop && !(blankingState & BLANKING_VERTICAL)) { // drawing the visible part of the screen
+				// call the relevant rendering function
+				render(scrattr);
+			}
+			if (!CharacterWindow && !blankingState) {
+				// we are on the border area, so use the frame color
+				*((int*)scrptr) = framecol;
 			}
 			if (displayEnable)
 				x = (x + 1) & 0x3F;
@@ -1943,6 +1999,7 @@ void TED::ted_process(const unsigned int continuous)
 					clockingState = TSS;
 				case TDS:
 					cpuptr.process();
+					BUS_UPDATE;
 					break;
 				case TDSDELAY:
 					clockingState = TDS;
@@ -2299,6 +2356,7 @@ void TEDFAST::ted_process(const unsigned int continuous)
 
 			ff1d_latch = (beamy + 1) & 0x1FF;
 			beamy = ff1d_latch;
+			doHRetrace();
 			newLine();
 			dmaLineBased();
 			//if (isFrameRendered()) {
@@ -2332,6 +2390,7 @@ void TEDFAST::ted_process(const unsigned int continuous)
 
 			ff1d_latch = (beamy + 1) & 0x1FF;
 			beamy = ff1d_latch;
+			doHRetrace();
 			newLine();
 			dmaLineBased();
 			//if (isFrameRendered()) {

@@ -16,6 +16,7 @@ struct Color;
 class Vic2mem : public TED
 {
 	public:
+		typedef void (Vic2mem::* delayedEventCallback)();
 		Vic2mem();
 		virtual ~Vic2mem();
 		virtual KEYS *getKeys() { return (KEYS*) keys64; }
@@ -101,6 +102,21 @@ class Vic2mem : public TED
 		void renderSprite(unsigned char *in, unsigned char *out, Mob &m, unsigned int cx, const unsigned int six);
 		void drawSpritesPerLine(unsigned char* lineBuf);
 		bool checkSpriteDMA(unsigned int i);
+		void writeHorizShift()
+		{
+			const unsigned int oldXscr = hshift;
+			hshift = aw_value & 7;
+			if (CharacterWindow && !blankingState)
+				// fill the gap with the background flag set
+				doXscrollChange(oldXscr, hshift); 
+		}
+		inline void renderIdle()
+		{
+			const bool vsa = VertSubActive;
+			VertSubActive = false;
+			render();
+			VertSubActive = vsa;
+		}
 		//
 		Cia cia[2];
 		static void setCiaIrq(void *param);
