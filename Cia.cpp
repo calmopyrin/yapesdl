@@ -1,6 +1,9 @@
 #include "Cia.h"
 
 //#define LOG_CIA
+
+#ifndef WL_CIA_CORE
+
 #ifdef LOG_CIA
 #include <cstdio>
 #include "cpu.h"
@@ -493,3 +496,4 @@ void Cia::countTimers()
 			break;
 	}
 }
+#endif
