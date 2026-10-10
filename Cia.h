@@ -117,7 +117,7 @@ public:
 	unsigned char prbTimerOut, prbTimerMode, prbTimerToggle;
 	unsigned char sdrShiftCnt;
 
-	unsigned int todCount, alarmCount, todIn;
+	unsigned int todCount, alarmCount, todIn, todTicks;
 	bool pendingIrq, isNewCia;
 
 	struct TOD {
@@ -158,7 +158,8 @@ public:
 		memset(&tod, 0, sizeof(tod));
 		memset(&todLatch, 0, sizeof(todLatch));
 		memset(&alm, 0, sizeof(alm));
-		todCount = 60 * 60 * 50;
+		todCount = 60 * 60 * 10;
+		todTicks = 0;
 		alarmCount = -1;
 		tod.latched = false;
 		tod.halt = 1;
@@ -171,31 +172,37 @@ public:
 	unsigned int bcd2hex(unsigned int bcd) { return (((bcd & 0xf0) >> 4) * 10) + (bcd & 0xF); }
 	unsigned int hex2bcd(unsigned int hex) { return ((hex / 10) << 4) + (hex % 10); }
 
-	unsigned int tod2frames(TOD& todin) {
-		return bcd2hex(todin.hr) * 180000 + bcd2hex(todin.min) * 3000 + bcd2hex(todin.sec) * 50 + bcd2hex(todin.tenths) * 5;
+	// the time of day counter counts in tenths of a second
+	unsigned int tod2tenths(TOD& todin) {
+		return bcd2hex(todin.hr) * 36000 + bcd2hex(todin.min) * 600 + bcd2hex(todin.sec) * 10 + bcd2hex(todin.tenths);
 	}
 
-	void frames2tod(unsigned int frames, TOD& todout, unsigned int frq) {
-		unsigned int hours = frames * frq / 180000 / 50;
-		frames -= hours * 180000;
-		unsigned int minutes = frames / 3000;
-		frames -= minutes * 3000;
-		unsigned int seconds = frames / 50;
-		frames -= seconds * 50;
-		unsigned int tenths = frames / 5;
+	void tenths2tod(unsigned int count, TOD& todout) {
+		unsigned int hours = count / 36000;
+		count -= hours * 36000;
+		unsigned int minutes = count / 600;
+		count -= minutes * 600;
+		unsigned int seconds = count / 10;
+		unsigned int tenths = count - seconds * 10;
 		todout.hr = hex2bcd(hours);
 		todout.min = hex2bcd(minutes);
 		todout.sec = hex2bcd(seconds);
 		todout.tenths = hex2bcd(tenths);
 	}
 
+	// called once per TOD input pulse (frame); 5 or 6 pulses make a tenth depending on CRA bit 7
 	void todUpdate() {
 		if (!tod.halt) {
+			todTicks++;
+			if (todTicks < todIn / 10) {
+				return;
+			}
+			todTicks = 0;
 			todCount++;
 			if (alarmCount == todCount) {
 				setIRQflag(0x04);
 			}
-			if (todCount == 12 * 60 * 60 * 50) {
+			if (todCount >= 12 * 60 * 60 * 10) {
 				tod.ampm ^= 0x80;
 				todCount = 0;
 			}
@@ -206,7 +213,7 @@ public:
 		const bool alarm = (crb & 0x80) != 0;
 		TOD& t = alarm ? alm : tod;
 		unsigned int& cnt = alarm ? alarmCount : todCount;
-		frames2tod(cnt, t, todIn);
+		tenths2tod(cnt, t);
 		switch (addr) {
 		case 0x08: t.tenths = value & 0x0F; break;
 		case 0x09: t.sec = value & 0x7F; break;
@@ -222,8 +229,11 @@ public:
 			}
 			break;
 		}
-		cnt = tod2frames(t);
-		if (addr == 0x08) tod.halt = 0;
+		cnt = tod2tenths(t);
+		if (addr == 0x08) {
+			todTicks = 0;
+			tod.halt = 0;
+		}
 		else if (addr == 0x0B) tod.halt = 1;
 	}
 
@@ -357,18 +367,18 @@ public:
 		case 0x07: return tb >> 8;
 		case 0x08:
 			tod.latched = false;
-			frames2tod(todCount, tod, todIn);
+			tenths2tod(todCount, tod);
 			return tod.tenths;
 		case 0x09:
 			if (tod.latched) return todLatch.sec;
-			frames2tod(todCount, tod, todIn);
+			tenths2tod(todCount, tod);
 			return tod.sec;
 		case 0x0A:
 			if (tod.latched) return todLatch.min;
-			frames2tod(todCount, tod, todIn);
+			tenths2tod(todCount, tod);
 			return tod.min;
 		case 0x0B:
-			if (!tod.halt) frames2tod(todCount, tod, todIn);
+			if (!tod.halt) tenths2tod(todCount, tod);
 			tod.latched = true;
 			todLatch = tod;
 			return todLatch.hr | tod.ampm;
