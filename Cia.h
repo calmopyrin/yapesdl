@@ -114,6 +114,20 @@ public:
 	unsigned int dwDelay;
 	unsigned int dwFeed;
 
+	// While nothing but the steady countdown of timer A is going on, the next
+	// 'skipLeft' cycles are not emulated one by one. 'ta' is brought up to date
+	// by sync() whenever the state is accessed from outside.
+	unsigned int skipLeft = 0;
+	unsigned int skipInit = 0;
+
+	void sync() {
+		if (skipInit) {
+			if (dwDelay & CountA3)
+				ta -= (unsigned short)(skipInit - skipLeft);
+			skipLeft = skipInit = 0;
+		}
+	}
+
 	unsigned char prbTimerOut, prbTimerMode, prbTimerToggle;
 	unsigned char sdrShiftCnt;
 
@@ -135,6 +149,7 @@ public:
 	}
 
 	void setIRQflag(unsigned char flag) {
+		sync();
 		icr |= flag;
 		if (irq_mask & flag) {
 			dwDelay |= Interrupt0;
@@ -150,6 +165,7 @@ public:
 		cra = crb = 0;
 		dwDelay = 0;
 		dwFeed = 0;
+		skipLeft = skipInit = 0;
 		prbTimerOut = 0;
 		prbTimerMode = 0;
 		prbTimerToggle = 0;
@@ -238,6 +254,7 @@ public:
 	}
 
 	void write(unsigned int addr, unsigned char value) {
+		sync();
 		addr &= 0x0F;
 		reg[addr] = value;
 
@@ -355,6 +372,7 @@ public:
 	}
 
 	unsigned char read(unsigned int addr) {
+		sync();
 		addr &= 0x0F;
 		switch (addr) {
 		case 0x00: return (pra & ddra) | ~ddra;
@@ -398,7 +416,42 @@ public:
 		return reg[addr];
 	}
 
-	void countTimers() {
+	// called once per cycle: while the timers are in a steady state this is just a counter
+	inline void countTimers() {
+		if (skipLeft)
+			skipLeft--;
+		else
+			countTimersStep();
+	}
+
+#if defined(_MSC_VER)
+	__declspec(noinline)
+#elif defined(__GNUC__)
+	__attribute__((noinline))
+#endif
+	void countTimersStep() {
+		if (skipInit)
+			sync();
+
+		// Fast path: nothing but the steady counting of timer A is going on, i.e. no
+		// pipeline stage that has an effect in this cycle is set and the delay
+		// pipeline would be left unchanged.
+		const unsigned int d = dwDelay;
+		const unsigned int eventMask = LoadA1 | LoadB1 | CountB3 | CountB2 | PB6Low1 | PB7Low1 | Interrupt1;
+		if (!(d & eventMask) && !sdrShiftCnt
+			&& ((((d << 1) & DelayMask) | dwFeed) == d)
+			&& (ta > 1 || !(d & (CountA3 | CountA2)))) {
+			if (d & CountA3) {
+				ta--;
+				// as long as ta stays above 1 the following cycles only count down
+				skipInit = skipLeft = (ta > 1) ? ta - 1 : 0;
+			} else {
+				// idle: nothing changes until the state is accessed
+				skipInit = skipLeft = 0x40000000;
+			}
+			return;
+		}
+
 		if ((cra & 0x40) && sdrShiftCnt) {
 			if (--sdrShiftCnt == 0) {
 				setIRQflag(0x08);
