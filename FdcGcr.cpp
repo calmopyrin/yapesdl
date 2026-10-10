@@ -28,7 +28,7 @@ const unsigned int GCR_SECTOR_SIZE = NUM_SYNC+10+9+NUM_SYNC+325+GCR_SECTOR_GAP_L
 // Maximum track size is +3% of the theoretical value of max. bit rate (7928)
 const unsigned int GCR_MAX_TRACK_SIZE = 4000000 / 8 / 13 / 5 * 10307 / 10000;//GCR_SECTOR_SIZE * 21;
 // Total GCR encoded data size
-const unsigned int GCR_DISK_SIZE = GCR_MAX_TRACK_SIZE * MAX_NUM_TRACKS;
+const unsigned int GCR_DISK_SIZE = GCR_MAX_TRACK_SIZE * MAX_G64_TRACKS;
 
 // Nr of sectors on each track
 const unsigned int d64NumOfSectors[MAX_NUM_TRACKS+1] = {
@@ -70,7 +70,7 @@ const struct {
 	{29, "Disk ID mismatch."}
 };
 
-const unsigned int speed_zone[MAX_NUM_TRACKS+1] = {
+const unsigned int speedZoneDefaults[MAX_NUM_TRACKS+1] = {
 	0,
 	3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3, // 1-17
 	2,2,2,2,2,2,2, // 18-24
@@ -80,15 +80,6 @@ const unsigned int speed_zone[MAX_NUM_TRACKS+1] = {
 	0,0,0,0,0,0 // 36-41
 };
 
-#define MAX_G64_TRACKS 84
-typedef struct _G64HEADER {
-	char headerstring[8];
-	unsigned char version; // 0
-	unsigned char no_of_tracks;
-	unsigned short size_of_tracks;
-	unsigned int track_offset_in_file[MAX_G64_TRACKS]; // max is 84
-	unsigned int speedZone[MAX_G64_TRACKS];
-} g64_header_t;
 static g64_header_t g64hdr = { 0 };
 
 unsigned int FdcGcr::sectorSize[MAX_NUM_TRACKS+1];
@@ -109,9 +100,10 @@ FdcGcr::FdcGcr()
 	spinFactor = 2;
 	gcrCurrentBitRate = spinFactor * 16;
 	writeMode = false;
+	isSyncEnabled = true;
 	for (unsigned int i = 1; i<=MAX_NUM_TRACKS; i++ ) {
 		// 300 rotation per min, 5 per sec
-		sectorSize[i] = 4000000 / (16 - speed_zone[i]) / 8 / 5;
+		sectorSize[i] = 4000000 / (16 - speedZoneDefaults[i]) / 8 / 5;
 	}
 	NrOfTracks = 35;
 }
@@ -145,7 +137,6 @@ void FdcGcr::dumpState()
 	saveVar(&byteLatched, sizeof(byteLatched));
 	saveVar(&byteWritten, sizeof(byteWritten));
 	saveVar(&byteReady, sizeof(byteReady));
-	saveVar(&byteReadyEdge, sizeof(byteReadyEdge));
 	saveVar(&motorSpinning, sizeof(motorSpinning));
 	saveVar(&isDiskInserted, sizeof(isDiskInserted));
 	saveVar(&isImageWriteProtected, sizeof(isImageWriteProtected));
@@ -180,7 +171,6 @@ void FdcGcr::readState()
 	readVar(&byteLatched, sizeof(byteLatched));
 	readVar(&byteWritten, sizeof(byteWritten));
 	readVar(&byteReady, sizeof(byteReady));
-	readVar(&byteReadyEdge, sizeof(byteReadyEdge));
 	readVar(&motorSpinning, sizeof(motorSpinning));
 	readVar(&isDiskInserted, sizeof(isDiskInserted));
 	readVar(&isImageWriteProtected, sizeof(isImageWriteProtected));
@@ -202,6 +192,10 @@ void FdcGcr::reset()
 {
 	gcrCurrentBitcount = 0;
 	writeMode = false;
+#ifdef FDC_CYCLE_BASED
+	inSync = false;
+	bitAccumulator = bitOffset = shiftRegister = postSyncBitCount = 0;
+#endif
 }
 
 void FdcGcr::closeDiskImage()
@@ -213,8 +207,10 @@ void FdcGcr::closeDiskImage()
 	}
 	// check if images has changed and save
 	if (isDiskInserted && !isDiskCorrupted && isImageChanged) {
-		if(DISK_D64 == imageType)
+		if (DISK_D64 == imageType)
 			gcr2disk();
+		else
+			dumpGcr(gcrData);
 	}
 	strcpy(imageName, "");
 	// Clear GCR buffer with gaps to avoid read errors later
@@ -246,25 +242,42 @@ void FdcGcr::attachDiskImage(const char *filepath)
 		if (read == sizeof(g64hdr) && !strncmp(g64hdr.headerstring, "GCR-1541", 8)) {
 			imageType = DISK_G64;
 			NrOfTracks = g64hdr.no_of_tracks;
-			for (unsigned int track = 0; track < NrOfTracks; track++) {
+			unsigned int trackSize = g64hdr.size_of_tracks;
+			for (unsigned int track = 0; track < NrOfTracks && track < MAX_G64_TRACKS; track++) {
 
 				int offset;
-				unsigned char* p = gcrData + (track / 2) * GCR_MAX_TRACK_SIZE;
+				unsigned char* p = gcrData + track * GCR_MAX_TRACK_SIZE;
 
 				if (p >= gcrData + GCR_DISK_SIZE) {
-					fprintf(stderr, "Error opening G64 file: GCR buffer overflow on track %i.", track);
+					fprintf(stderr, "Error opening G64 file: GCR buffer overflow on halftrack %i.", track + 2);
 					break;
 				}
 
 				offset = g64hdr.track_offset_in_file[track];
-				// don't process half tracks...
-				if (offset && !(track & 1)) {
+				unsigned int g64SpeedZone = g64hdr.speedZone[track] & 0x03;
+				
+				gcrBitsPerClock[track] = (16 - g64SpeedZone) * spinFactor;
+
+				// offset zero -> assume empty track
+				if (offset) {
 					unsigned short stored_track_size;
 
 					fseek(diskImageHandle, offset, SEEK_SET);
 					fread(&stored_track_size, 2, 1, diskImageHandle);
-					fread(p, GCR_MAX_TRACK_SIZE, 1, diskImageHandle);
+					// Cap size to max allocated track buffer
+					if (stored_track_size > GCR_MAX_TRACK_SIZE)
+						stored_track_size = GCR_MAX_TRACK_SIZE;
+					g64TrackSize[track] = stored_track_size;
+					fread(p, stored_track_size, 1, diskImageHandle);
+
+				} else {
+					g64TrackSize[track] = GCR_MAX_TRACK_SIZE;
+					memset(p, 0x55, GCR_MAX_TRACK_SIZE); // Blank track
 				}
+				if (!(track & 1) && g64SpeedZone != speedZoneDefaults[(track >> 1) + 1])
+					fprintf(stderr, "Irregular speed zone of %u on track %u with length: %u.\n", g64SpeedZone, 
+						(track >> 1) + 1, g64TrackSize[track]);
+
 			}
 			fprintf(stderr, "Attached low level disk (%u tracks): %s\n", NrOfTracks, filepath);
 		}
@@ -536,18 +549,68 @@ void FdcGcr::gcr2sector(unsigned char *buffer, unsigned char *p,
 	}
 }
 
-void FdcGcr::dumpGcr(unsigned char *p)
+void FdcGcr::dumpGcr(unsigned char* p)
 {
-	FILE *gcrdump = NULL;
+	FILE* gcrdump = NULL;
 	char dumpName[512];
 
-	sprintf(dumpName, "GCRDUMP%s.BIN", imageName);
+	snprintf(dumpName, sizeof(dumpName), "GCRDUMP_%s.NIB", imageName);
 	gcrdump = fopen(dumpName, "wb");
 	if (!gcrdump)
 		return;
-	for (unsigned int i = 0; i < GCR_MAX_TRACK_SIZE * 35; i++)
-		fputc( *p++, gcrdump );
-	fclose( gcrdump );
+
+	// 256-byte MNIB v3 Header
+	unsigned char header[256] = { 0 };
+
+	// Magic signature
+	const char* sig = "MNIB-1541-RAW";
+	for (int i = 0; sig[i] != '\0'; i++) {
+		header[i] = (unsigned char)sig[i];
+	}
+
+	header[0x0F] = 0x03; // NIB Version 3
+
+	// Populate speed density map for tracks 1 through 42
+	for (int track = 1; track <= 42; track++)
+		header[0x10 + (track - 1)] = speedZoneDefaults[track];
+
+	fwrite(header, 1, 256, gcrdump);
+
+	// Write 42 tracks at fixed 8192-byte NIB chunk sizes
+	const size_t NIB_TRACK_SIZE = 8192;
+
+	for (int track = 0; track < 42; track++) {
+		unsigned char* srcTrack = p + (track * GCR_MAX_TRACK_SIZE);
+
+		// Determine source track size (fallback to GCR_MAX_TRACK_SIZE if unavailable)
+		size_t actualLen = (imageType == DISK_G64 && g64TrackSize[track] > 0)
+			? g64TrackSize[track]
+			: GCR_MAX_TRACK_SIZE;
+
+		if (actualLen > NIB_TRACK_SIZE)
+			actualLen = NIB_TRACK_SIZE;
+
+		size_t bytesWritten = 0;
+
+		// Wrap track buffer to fill 8192 bytes (preserves continuous rotation)
+		if (actualLen > 0) {
+			while (bytesWritten < NIB_TRACK_SIZE) {
+				size_t chunk = actualLen;
+				if (bytesWritten + chunk > NIB_TRACK_SIZE) {
+					chunk = NIB_TRACK_SIZE - bytesWritten;
+				}
+				fwrite(srcTrack, 1, chunk, gcrdump);
+				bytesWritten += chunk;
+			}
+		}
+		else {
+			// Unformatted/empty track padding
+			unsigned char emptyBuffer[NIB_TRACK_SIZE] = { 0 };
+			fwrite(emptyBuffer, 1, NIB_TRACK_SIZE, gcrdump);
+		}
+	}
+
+	fclose(gcrdump);
 }
 
 void FdcGcr::disk2gcr(void)
@@ -611,11 +674,14 @@ unsigned char *FdcGcr::getSectorHeaderOffset(unsigned int track, unsigned int se
 
 void FdcGcr::gcr2disk(void)
 {
-	FILE			*d64dump;
-	char			new_d64_file[266];
+	FILE			*d64dump = NULL;
+	char			*new_d64_file = NULL;
 	unsigned char	*offset;
 	unsigned char	sector_buffer[260];
 
+	new_d64_file = new char[strlen(imageName) + 1];
+	if (!new_d64_file)
+		return;
 	strcpy( new_d64_file, imageName);
 
 	d64dump = fopen( const_cast<char*> (new_d64_file), "wb");
@@ -684,49 +750,51 @@ void FdcGcr::gcr2disk(void)
 		}
 	}
 	fclose(d64dump);
+	delete[] new_d64_file;
+}
+
+void FdcGcr::updateTrackPointers(unsigned int newHalfTrack)
+{
+	size_t oldTrackLen = (gcrTrackEnd > gcrTrackBegin) ? (gcrTrackEnd - gcrTrackBegin) : 1;
+	size_t oldOffset = (gcrPtr >= gcrTrackBegin && gcrPtr < gcrTrackEnd) ? (gcrPtr - gcrTrackBegin) : 0;
+
+	currentHalfTrack = newHalfTrack;
+
+	if (imageType == DISK_G64) {
+		unsigned int g64Index = currentHalfTrack - 2;
+		gcrTrackBegin = gcrData + g64Index * GCR_MAX_TRACK_SIZE;
+		gcrTrackEnd = gcrTrackBegin + g64TrackSize[g64Index];
+	}
+	else {
+		gcrTrackBegin = gcrData + ((currentHalfTrack >> 1) - 1) * GCR_MAX_TRACK_SIZE;
+		gcrTrackEnd = gcrTrackBegin + sectorSize[currentHalfTrack >> 1];
+	}
+
+	size_t newTrackLen = gcrTrackEnd - gcrTrackBegin;
+
+	if (newTrackLen > 0) {
+		size_t newOffset = (oldOffset * newTrackLen) / oldTrackLen;
+		gcrPtr = gcrTrackBegin + (newOffset % newTrackLen);
+	}
+	else {
+		gcrPtr = gcrTrackBegin;
+	}
 }
 
 // Move R/W head inwards (towards higher tracks)
 void FdcGcr::moveHeadIn(void)
 {
-	unsigned long newGCRoffset;
+	if (currentHalfTrack >= (imageType == DISK_G64 ? MAX_G64_TRACKS : MAX_NUM_TRACKS * 2))
+		return;
 
-	if (currentHalfTrack >= NrOfTracks*2) {
-//		fprintf(stderr, "Drive head moved over highest track of current image.");
-		if (currentHalfTrack == MAX_NUM_TRACKS*2) {
-//			fprintf(sdterr, (_T("Attempt to move drive head over track 41."));
-			return;
-		}
-		NrOfTracks = currentHalfTrack >> 1;
-	}
-	// Note actual position within the old track...
-	newGCRoffset = (unsigned long)(gcrPtr - gcrTrackBegin) * sectorSize[(currentHalfTrack+1) >> 1]
-		/ sectorSize[(currentHalfTrack) >> 1] ;
-
-	currentHalfTrack++;
-
-	gcrTrackBegin = gcrData + ((currentHalfTrack >> 1) - 1) * GCR_MAX_TRACK_SIZE;
-	gcrTrackEnd = gcrTrackBegin + sectorSize[currentHalfTrack >> 1];
-
-	gcrPtr = gcrTrackBegin + newGCRoffset;
+	updateTrackPointers(currentHalfTrack + 1);
 }
 
 // Move R/W head outwards (towards lower tracks)
 void FdcGcr::moveHeadOut(void)
 {
-	unsigned long newGCRoffset;
-
-	if (currentHalfTrack == 2)
+	if (currentHalfTrack <= 2)
 		return;
 
-	// Note actual position within the old track...
-	newGCRoffset = (unsigned long) (gcrPtr - gcrTrackBegin) * sectorSize[(currentHalfTrack-1) >> 1]
-		/ sectorSize[(currentHalfTrack) >> 1];
-
-	currentHalfTrack--;
-
-	gcrTrackBegin = gcrData + ((currentHalfTrack >> 1) - 1) * GCR_MAX_TRACK_SIZE;
-	gcrTrackEnd = gcrTrackBegin + sectorSize[currentHalfTrack >> 1];
-
-	gcrPtr = gcrTrackBegin + newGCRoffset;
+	updateTrackPointers(currentHalfTrack - 1);
 }

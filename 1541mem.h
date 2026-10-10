@@ -36,6 +36,8 @@ public:
 	// this is for the FRE support
 	virtual void dumpState();
 	virtual void readState();
+	void setByteReadyEdgeIRQ();
+	static void byteReadyEdgeCallback(void* param);
 
 protected:
 

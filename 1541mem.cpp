@@ -33,6 +33,7 @@ DRIVEMEM::DRIVEMEM(FdcGcr *_fdc, unsigned char *Ramptr, unsigned char *Rom, unsi
 	// set VIA interrupt callbacks
 	via[0].setCheckIrqCallback(this, checkIrq);
 	via[1].setCheckIrqCallback(this, checkIrq);
+	fdc->setByteReadEdgeCallback(byteReadyEdgeCallback, this);
 }
 
 void DRIVEMEM::dumpState()
@@ -62,12 +63,28 @@ void DRIVEMEM::readState()
 	}
 }
 
+void DRIVEMEM::setByteReadyEdgeIRQ()
+{
+	// bit #1 is the 'byte-ready' (SO) enable which also sets V flag to 1
+	// as long as bit 1 of the byte in $1C0C is clear, SO cannot go low (inverted!)
+	if (!(via[1].pcr & 1)) {
+		via[1].ifr |= Via::IRQM_CA1;
+		SetIRQflag(via[1].ifr & via[1].ier);
+	}
+}
+
+void DRIVEMEM::byteReadyEdgeCallback(void* param)
+{
+	DRIVEMEM* dm = static_cast<DRIVEMEM*>(param);
+	dm->setByteReadyEdgeIRQ();
+}
+
 /*
    Control emulating one clock tick from here....
 */
 void DRIVEMEM::EmulateTick()
 {
-	fdc->SpinMotor();
+	fdc->clockCycles();
 	CountTimers();
 	if (bus_state_change) {
 		UpdateSerialPort();
@@ -111,11 +128,21 @@ void DRIVEMEM::UpdateSerialState(unsigned char newAtn)
 {
 	UpdateSerialPort();
 	newAtn &= 0x10;
-	//   Interrupt on 1 -> 0 transition (negative edge) of ATN on serial IEC bus
-	if (oldAtnIn && !newAtn) {
-		//fprintf(stderr, "IEC irq: %i\n", devnr>>5);
+
+#ifdef FDC_CYCLE_BASED
+	// VIA1 PCR ($180C) Bit 0 is edge polarity:
+	// ATN line passes through an inverter IC (7406/7414) hence
+	// 1 = Negative Edge (1 -> 0)
+	// 0 = Positive Edge (0 -> 1)
+	unsigned char positiveEdgeConfig = (via[0].pcr & 1) << 4;
+	bool edgeDetected = (oldAtnIn != newAtn) && (oldAtnIn == positiveEdgeConfig);
+#else
+	bool edgeDetected = oldAtnIn && !newAtn;
+#endif
+	// Interrupt on edge transition (negative edge, 1 -> 0 by default) of ATN on serial IEC bus
+	if (edgeDetected) {
 		// Set via interrupt on serial attention
-		via[0].ifr |= 2;
+		via[0].ifr |= Via::IRQM_CA1;
 		SetIRQflag(via[0].ifr & via[0].ier);
 	}
 	oldAtnIn = newAtn;
@@ -147,10 +174,9 @@ inline unsigned char DRIVEMEM::ReadVIA(unsigned int adr)
 				return (((via[0].prb & ~pb7out) | via[0].pb67) & via[0].ddrb)
 					| (((serial_state ^ 0x85) | devnr | 0x1A | (via[0].pb67 & pb7out)) & ~via[0].ddrb);
 			}
-		case 0x1801:
-		case 0x180F:
+		case 0x1801: // clear CA1
 			via[0].ifr &= 0xFD;
-			//SetIRQflag( via[0].ier & via[0].ifr );
+		case 0x180F: // no handshake
 			return (via[0].pra & via[0].ddra) | (ppIn & ~via[0].ddra);
 
 		case 0x1804:
@@ -180,6 +206,7 @@ inline unsigned char DRIVEMEM::ReadVIA(unsigned int adr)
 					| ((fdc->WPState() | fdc->SyncFound()) & ~via[1].ddrb);
 		case 0x1C01:
 		case 0x1C0F:
+			via[1].read(adr & 0xF);
 			return fdc->readGCRByte();
 
 		case 0x1C04:
@@ -280,15 +307,17 @@ void DRIVEMEM::Write(unsigned int addr, unsigned char value)
 				// Bit 5 and 6 density select
 				if ((via[1].prb ^ value) & 0x60)
 					fdc->SetDensity(value & 0x60);
-				// Bit 7 is synch?
-				via[1].prb = value & 0xEF; // was 0xEF
+				// Bit 7 is synch, only if set as output
+				if (via[1].ddrb & 0x80)
+					fdc->setSyncEnable((value & 0x80) == 0);
+				via[1].write(0, value & 0xEF);
 				break;
 			case 0x1C01:
+			case 0x1C0F: // no handshake
 				fdc->WriteGCRByte(value);
 				via[1].pra = value;
 				break;
 			case 0x1C0C:
-				// bit #1 is the 'byte-ready' line, sets V flag to 1 also (SO enable?)
 				// bit #5 controls the head's read/write mode. 1 is read, 0 is write.
 				if (value != via[1].pcr) {
 					if ((value & 0xC0) == 0xC0) {
@@ -296,16 +325,8 @@ void DRIVEMEM::Write(unsigned int addr, unsigned char value)
 						pinCB2 = value & 0x20;
 						fdc->SetRWMode(pinCB2);
 					}
-					//					if ((value&0x0C) == 0x0C) {
-					//						unsigned char pinCA2;
-					//						pinCA2 = value & 0x02;
-					//						/*if ( fdc->is_byteReady() && pinCA2 ) {
-					//							unsigned char *bre = fdc->get_byteReady_edge();
-					//							*bre = 1;
-					//						}*/
-					//					}
-					via[1].pcr = value;
 				}
+				via[1].write(0x0C, value);
 				break;
 			case 0x1C09:
 			case 0x1C05:
@@ -316,8 +337,9 @@ void DRIVEMEM::Write(unsigned int addr, unsigned char value)
 				//SetIRQflag(via[1].ier & via[1].ifr);
 				break;
 
-			case 0x1C0F:
 			case 0x1C02:
+				if (value & 0x80)
+					fdc->setSyncEnable((via[1].prb & 0x80) == 0);
 			case 0x1C03:
 			case 0x1C04:
 			case 0x1C06:
