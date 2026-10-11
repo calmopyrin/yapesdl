@@ -27,5 +27,5 @@ struct Color {
 
 extern void init_palette(TED *videoChip);
 extern unsigned int *palette_get_rgb();
-extern void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned char *screenptr);
+extern void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned char *screenptr, unsigned int width = SCREENX, unsigned int height = SCREENY);
 extern rvar_t videoSettings[];

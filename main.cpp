@@ -13,6 +13,15 @@
 
 #define NAME    "Yape/SDL 0.81.1"
 #define WINDOWX SCREENX
+// the streaming texture is wider than the standard view so that the
+// VIC20 can show its side borders
+#define TEXTUREX 512
+// VIC20 view in emulated pixels (two per VIC pixel), centered on the default
+// text window (x 104..455, y 49..232) with equal borders on all sides
+#define VIC20_VIEW_X 64
+#define VIC20_VIEW_W 432
+#define VIC20_VIEW_Y 1
+#define VIC20_VIEW_H 280
 #define WINDOWY SCREENY
 
 #include <cstdlib>
@@ -418,10 +427,10 @@ static void showKeyboardOverlay()
 	SDL_RenderCopy(sdlRenderer, texture, NULL, &rc);
 }
 
-void frameUpdate(unsigned char *src, unsigned int *target)
+static void frameUpdateView(unsigned char *src, unsigned int *target, unsigned int viewW, unsigned int viewH)
 {
 	const unsigned int pixelsPerRow = ted8360->getCyclesPerRow();
-	const unsigned int sourcePitch = (pixelsPerRow - SCREENX);
+	const unsigned int sourcePitch = (pixelsPerRow - viewW);
 	const unsigned int targetPitch = sourcePitch;
 	const unsigned int *texture = target;
 	unsigned int i, j;
@@ -429,28 +438,31 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 	//
 #ifndef USE_OPENGL
 	if (g_bUseOverlay) {
-		video_convert_buffer(target, pixelsPerRow, src);
+		video_convert_buffer(target, pixelsPerRow, src, viewW, viewH);
 	} else {
 		static unsigned int *palette = palette_get_rgb();
-		for(i = 0; i < SCREENY; i++) {
-			for(j = 0; j < SCREENX; j++) {
+		for(i = 0; i < viewH; i++) {
+			for(j = 0; j < viewW; j++) {
 				target[j] = palette[src[j]];
 			}
-			src += sourcePitch + SCREENX;
-			target += targetPitch + SCREENX;
+			src += sourcePitch + viewW;
+			target += targetPitch + viewW;
 		}
 	}
+	// the texture is larger than the view: only the view part is uploaded
+	// and only that part is copied to the renderer
+	const unsigned int scaleY = g_bUseOverlay ? 1 : 0;
+	const bool isNtsc = ted8360->isNtscMode();
+	SDL_Rect srcrc = { 0, 0, (int)viewW, (int)(viewH << scaleY) };
+	if (g_iEmulationLevel != 3 && isNtsc && g_bActive) {
+		const int ySize = 240;
+		srcrc.y = 1 << scaleY;
+		srcrc.h = (ySize - 4) << scaleY;
+	}
+	SDL_Rect updrc = { 0, 0, (int)viewW, (int)(viewH << scaleY) };
 	// TODO: use SDL_LockTexture instead
-	int e = SDL_UpdateTexture(sdlTexture, NULL, texture, pixelsPerRow * sizeof (unsigned int));
-	// VIC20 source rectangle is smaller
-	bool isNtsc = ted8360->isNtscMode();
-	if (g_iEmulationLevel == 3 || (isNtsc && g_bActive)) {
-		const int ySize = isNtsc ? 240 : SCREENY;
-		unsigned int scaleY = g_bUseOverlay ? 1 : 0;
-		SDL_Rect srcrc = { 0, 1 << scaleY, SCREENX, (ySize - 4) << scaleY };
-		e = SDL_RenderCopy(sdlRenderer, sdlTexture, &srcrc, NULL);
-	} else
-		e = SDL_RenderCopy(sdlRenderer, sdlTexture, NULL, NULL);
+	int e = SDL_UpdateTexture(sdlTexture, &updrc, texture, pixelsPerRow * sizeof (unsigned int));
+	e = SDL_RenderCopy(sdlRenderer, sdlTexture, &srcrc, NULL);
 	if (timeOutOverlayKeys) {
 		showKeyboardOverlay();
 		//SDL_StartTextInput();
@@ -460,24 +472,34 @@ void frameUpdate(unsigned char *src, unsigned int *target)
 	SDL_RenderPresent(sdlRenderer);
 #else
 	static unsigned int* palette = palette_get_rgb();
-	for (i = 0; i < SCREENY; i++) {
-		for (j = 0; j < SCREENX; j++) {
+	for (i = 0; i < viewH; i++) {
+		for (j = 0; j < viewW; j++) {
 			target[j] = palette[src[j]];
 		}
-		src += sourcePitch + SCREENX;
+		src += sourcePitch + viewW;
 	}
-	openGLFrameUpdate(sdlWindow, (void*)texture, SCREENX, SCREENY, g_bVideoVsync);
+	openGLFrameUpdate(sdlWindow, (void*)texture, viewW, viewH, g_bVideoVsync);
 #endif
+}
+
+void frameUpdate(unsigned char *src, unsigned int *target)
+{
+	frameUpdateView(src, target, SCREENX, SCREENY);
 }
 
 static void frameUpdate()
 {
 	const unsigned int cyclesPerRow = ted8360->getCyclesPerRow();
-	const int offsetX = cyclesPerRow == VIC_PIXELS_PER_ROW ? -72 : 8;
-	const int offsetY = cyclesPerRow == VIC_PIXELS_PER_ROW ? 9 : 0;
 
 	if (popupMessageTimeOut)
 		showPopUpMessage();
+	if (g_iEmulationLevel == 3) {
+		frameUpdateView(ted8360->getScreenData() + VIC20_VIEW_Y * cyclesPerRow + VIC20_VIEW_X, pixels, VIC20_VIEW_W, VIC20_VIEW_H);
+		return;
+	}
+	const int offsetX = cyclesPerRow == VIC_PIXELS_PER_ROW ? -72 : 8;
+	const int offsetY = cyclesPerRow == VIC_PIXELS_PER_ROW ? 9 : 0;
+
 	frameUpdate(ted8360->getScreenData() + (cyclesPerRow - 384 - offsetX) / 2 + offsetY * cyclesPerRow, pixels);
 }
 
@@ -843,7 +865,7 @@ static void toggleCrtEmulation(void *none)
 	sdlTexture = SDL_CreateTexture(sdlRenderer,
 			g_bUseOverlay ? SDL_PIXELFORMAT_UYVY : SDL_PIXELFORMAT_ARGB8888,
 			SDL_TEXTUREACCESS_STREAMING,
-			WINDOWX, WINDOWY * (g_bUseOverlay ? 2 : 1));
+			TEXTUREX, WINDOWY * (g_bUseOverlay ? 2 : 1));
 	PopupMsg(" CRT emulation %s ", g_bUseOverlay ? "ON" : "OFF");
 }
 
@@ -968,7 +990,7 @@ inline static void poll_events(void)
 			SDL_ShowCursor(0);
 	}
 
-	if ( SDL_PollEvent(&event) ) {
+	while ( SDL_PollEvent(&event) ) {
 		switch (event.type) {
 
 			case SDL_WINDOWEVENT:
@@ -1345,7 +1367,7 @@ static void app_initialise()
 	sdlTexture = SDL_CreateTexture(sdlRenderer,
 							   g_bUseOverlay ? SDL_PIXELFORMAT_UYVY : SDL_PIXELFORMAT_ARGB8888,
 							   SDL_TEXTUREACCESS_STREAMING | SDL_TEXTUREACCESS_TARGET,
-							   WINDOWX, WINDOWY * (g_bUseOverlay ? 2 : 1));
+							   TEXTUREX, WINDOWY * (g_bUseOverlay ? 2 : 1));
 	// Make target texture to render to
 	SDL_SetRenderTarget(sdlRenderer, sdlTexture);
 	init_audio();
@@ -1441,7 +1463,7 @@ int main(int argc, char *argv[])
 		ad_get_curr_dir(tmpStr);
 		fprintf(stderr, "IEC drive path: %s\n", tmpStr);
 		setEmulationLevel(g_iEmulationLevel);
-		machineReset(true);
+		machineReset(3);
 	} else
 		fprintf(stderr,"Error loading settings or no .ini file present...\n");
 #endif

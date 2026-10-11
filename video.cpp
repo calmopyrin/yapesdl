@@ -143,7 +143,7 @@ rvar_t videoSettings[] = {
 	{ "", "", NULL, NULL, RVAR_NULL, NULL }
 };
 
-void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned char *screenptr)
+void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned char *screenptr, unsigned int width, unsigned int height)
 {
 	int i;
 	int Uc[4], Vc[4], Up[4], Vp[4];
@@ -154,7 +154,7 @@ void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned 
 	unsigned char *fb = screenptr;
 	unsigned char *prevLine = fb;
 
-	i = SCREENY; /// 2;
+	i = height; /// 2;
 
 	Up[0] = Up[1] = Up[2] = Up[3] = Vp[0] = Vp[1] = Vp[2] = Vp[3] = 0;
 	do {
@@ -209,7 +209,7 @@ void video_convert_buffer(unsigned int *pImage, unsigned int srcpitch, unsigned 
 					| (V << 16)
 					| (Y1 << 24);
 
-			} while (j++ < SCREENX / 2);
+			} while (j++ < (int)(width / 2));
 			// take care of double scan
 			if (k == 0) {
 				prevLine = fb;
