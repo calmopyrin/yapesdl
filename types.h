@@ -110,6 +110,9 @@ public:
 	// Remove node from list
 	static void remove(T* node) {
 		if (!node) return;
+		// not linked (any more)
+		if (!node->prev && root != node)
+			return;
 
 		if (node->prev)
 			node->prev->next = node->next;

@@ -205,6 +205,7 @@ TED::TED() : SaveState(), sidCard(0), crsrphase(0), ramExt(0), reuBank(3), align
 	irqFlag = 0;
 	BadLine = 0;
 	CycleCounter = 0;
+	sound_reset_clock();
 	retraceScanLine = RETRACESCANLINEMAX;
 	scanLineOffset = 0;
 

@@ -189,6 +189,14 @@ static unsigned int calibrateAudioBufferSize(unsigned int msec, unsigned int sam
 #endif
 }
 
+// the sample position follows the emulated clock, so it has to restart
+// together with it
+void sound_reset_clock()
+{
+	lastUpdateCycle = 0;
+	lastSamplePos = 0;
+}
+
 // Emscripten requires audio buffers to be cleaned when stopped
 void sound_reset()
 {

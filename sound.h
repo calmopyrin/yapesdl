@@ -38,6 +38,7 @@ extern void close_audio();
 extern void sound_pause();
 extern void sound_resume();
 extern void sound_reset();
+extern void sound_reset_clock();
 extern void sound_change_freq(unsigned int &newFreq);
 extern void flushBuffer(ClockCycle cycle, unsigned int frq);
 extern rvar_t soundSettings[];
