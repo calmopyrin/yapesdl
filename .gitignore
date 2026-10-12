@@ -165,3 +165,4 @@ yapesdl_0.80.1-1/usr/local/bin/yapesdl
 *.recipe
 *.depend
 *.layout
+*.d
