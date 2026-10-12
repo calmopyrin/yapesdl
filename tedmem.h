@@ -84,6 +84,7 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	__forceinline unsigned char ReadMem(unsigned int addr);
 #else
 	virtual unsigned char Read(unsigned int addr);
+	inline unsigned char ReadMem(unsigned int addr) { return Read(addr); };
 #endif
 	virtual void Write(unsigned int addr, unsigned char value);
 	virtual unsigned char readOpenAddressSpace(unsigned int addr);

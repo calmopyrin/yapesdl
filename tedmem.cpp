@@ -31,7 +31,7 @@
 #ifdef BUS_EMUL
 #define BUS_UPDATE do { busHist = (busHist << 8) | dataBus; } while (0)
 #else
-		BUS_UPDATE (void)
+#define BUS_UPDATE do {} while (0)
 #endif
 
 #define RETRACESCANLINEMAX 360
