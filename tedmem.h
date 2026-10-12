@@ -19,6 +19,15 @@
 #include "SaveState.h"
 #include "cpu.h"
 
+// forced inlining of the memory decoder, independent of the compiler
+#if defined(_MSC_VER)
+#define TED_FORCEINLINE __forceinline
+#elif defined(__GNUC__)
+#define TED_FORCEINLINE inline __attribute__((always_inline))
+#else
+#define TED_FORCEINLINE inline
+#endif
+
 #define RAMSIZE 65536
 #define ROMSIZE 16384
 #define SCR_HSIZE 456
@@ -79,11 +88,11 @@ class TED : public CSerial , public MemoryHandler, public SoundSource, public Sa
 	virtual void Reset() { Reset(3); };
 	void soundReset();
 	// read memory through memory decoder
-#ifdef BUS_EMUL
-	virtual unsigned char Read(unsigned int addr) { return dataBus = ReadMem(addr); };
-	__forceinline unsigned char ReadMem(unsigned int addr);
-#else
 	virtual unsigned char Read(unsigned int addr);
+#ifdef BUS_EMUL
+	// ReadMem() is only used inside tedmem.cpp, Read() wraps it and latches the data bus
+	TED_FORCEINLINE unsigned char ReadMem(unsigned int addr);
+#else
 	inline unsigned char ReadMem(unsigned int addr) { return Read(addr); };
 #endif
 	virtual void Write(unsigned int addr, unsigned char value);

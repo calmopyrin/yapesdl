@@ -503,7 +503,7 @@ unsigned char* TED::getCharSetPtr()
 }
 
 #ifdef BUS_EMUL
-__forceinline unsigned char TED::ReadMem(unsigned int addr)
+TED_FORCEINLINE unsigned char TED::ReadMem(unsigned int addr)
 #else
 unsigned char TED::Read(unsigned int addr)
 #endif
@@ -674,6 +674,13 @@ unsigned char TED::Read(unsigned int addr)
 	//fprintf(stderr,"Unhandled read %04X\n", addr);
 	return 0;
 }
+
+#ifdef BUS_EMUL
+unsigned char TED::Read(unsigned int addr)
+{
+	return dataBus = ReadMem(addr);
+}
+#endif
 
 void TED::updateSerialDevices(unsigned char newAtn)
 {
