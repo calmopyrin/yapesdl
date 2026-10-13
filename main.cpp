@@ -1313,6 +1313,18 @@ static void app_initialise()
 	atexit(app_close);
 
 	//SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#screen");
+#ifdef __EMSCRIPTEN__
+	// With browser zoom (e.g. 110%) a 1x1 canvas measures 0.994 CSS pixels; SDL floors that
+	// to 0, takes the canvas as sized by CSS and shrinks the window to 0x0. Snap such sizes.
+	EM_ASM({
+		var getRect = HTMLCanvasElement.prototype.getBoundingClientRect;
+		var snap = function(v) { return Math.abs(v - Math.round(v)) < 0.05 ? Math.round(v) : v; };
+		HTMLCanvasElement.prototype.getBoundingClientRect = function() {
+			var r = getRect.call(this);
+			return new DOMRect(r.x, r.y, snap(r.width), snap(r.height));
+		};
+	}, 0);
+#endif
 	// create a new window
 	sdlWindow = SDL_CreateWindow(NAME,
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
