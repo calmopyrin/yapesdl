@@ -27,15 +27,20 @@ public:
 	virtual void setFrequency(unsigned int sid_frequency);
 	virtual void setSampleRate(unsigned int sampleRate_);
 	virtual void calcSamples(short *buf, unsigned int count);
+	virtual void skipSamples(unsigned int count);
+	virtual void holdSamples() {
+		// the samples of the cycles already advanced are dropped, too
+		suspended = true;
+		cyclesAhead = 0;
+	}
 	// this is for the FRE support
 	virtual void dumpState();
 	virtual void readState();
 	//
 	inline void updateState(unsigned int cyclesToDo);
 	inline int getOutput(int cyclesToDo);
-	void updateLastCycleCount(ClockCycle currCycle);
 	void catchUpOnState(ClockCycle currCycle);
-	void calcSamplesCycleBased(short* buf, unsigned int count);
+	inline void advanceForSample(unsigned int cycles);
 	static void setModel(unsigned int model);
 	void calcEnvelopeTable();
 	unsigned char read(unsigned int adr);
@@ -63,7 +68,7 @@ private:
 	};
 	// Envelope Genarator states
 	enum {
-		EG_FROZEN, EG_ATTACK, EG_DECAY, EG_RELEASE
+		EG_ATTACK, EG_DECAY, EG_RELEASE
 	};
 	// Filter types
 	enum {
@@ -88,14 +93,22 @@ private:
 		unsigned int freq;	// voice frequency
 		unsigned int pw;		// pulse-width value
 
-		unsigned int envAttackAdd;
-		unsigned int envDecaySub;
+		unsigned int envAttack;		// attack rate index
+		unsigned int envDecay;		// decay rate index
 		unsigned int envSustainLevel;
-		unsigned int envReleaseSub;
-		unsigned int envCurrLevel;
-		unsigned int envCounter;
+		unsigned int envRelease;	// release rate index
+		unsigned int envRate;		// rate index currently compared against
+		unsigned int envCurrLevel;	// envelope counter
+		unsigned int envRead;		// value visible through the ENV3 register
+		unsigned int envCounter;	// 15 bit LFSR rate counter
+		unsigned int envResetLfsr;
 		unsigned int envExpCounter;
-		unsigned int envCounterCompare;
+		unsigned int envExpPeriod;
+		unsigned int envCounterEnabled;
+		unsigned int envNextState;
+		unsigned int envStatePipeline;
+		unsigned int envEnvelopePipeline;
+		unsigned int envExponentialPipeline;
 
 		unsigned int gate;		// EG gate flag
 		unsigned int ring;		// ring modulation flag
@@ -111,6 +124,9 @@ private:
 		inline void doAccuCycles(const unsigned int count);
 		inline void updateShiftReg();
 		inline void doEnvelopeGenerator(const unsigned int cycles);
+		inline void envStateChange();
+		inline void envSetExpPeriod();
+		void envGate(bool on);
 		inline void applySync();
 
 	} voice[3];			// array for the 3 channels
@@ -119,7 +135,10 @@ private:
 	unsigned int sidCyclesPerSampleInt;
 	unsigned int clockDeltaRemainder; // Accumulator for frequency conversion
 	unsigned int clockDeltaFraction; // Fractional component for frequency conversion
-	ClockCycle lastUpdate; // Last cycle the SID was updated in for readout
+	ClockCycle stateTime; // machine cycle the chip state has been advanced to
+	bool stateTimeValid; // stateTime refers to the current machine clock
+	bool suspended; // rendering is on hold, the state is not advanced
+	unsigned int cyclesAhead; // cycles the state is ahead of the rendered samples
 	static int dcMixer; // different for 6581 and 8580 (constant level output for digi)
 	static int dcVoice;
 	static int dcWave;
@@ -139,7 +158,6 @@ private:
 	inline static int getWaveSample(SIDVoice &v);
 	
 	static const unsigned int RateCountPeriod[16]; // Factors for A/D/S/R Timing
-	static const unsigned char envGenDRdivisors[256]; // For exponential approximation of D/R
 	static unsigned int masterVolume;
 	unsigned char reg[32];
 	// filter stuff

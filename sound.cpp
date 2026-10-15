@@ -48,6 +48,7 @@ void SoundSource::bufferFill(unsigned int nrsamples, short *buffer)
 		cb = cb->getNext();
 	} else {
 		memset(buffer, 0, nrsamples * 2);
+		holdAll();
 		return;
 	}
 	// multiple sources
@@ -59,6 +60,18 @@ void SoundSource::bufferFill(unsigned int nrsamples, short *buffer)
 		} while(i--);
 		cb = cb->getNext();
 	}
+}
+
+void SoundSource::skipAll(unsigned int nrsamples)
+{
+	for (SoundSource *cb = getRoot(); cb; cb = cb->getNext())
+		cb->skipSamples(nrsamples);
+}
+
+void SoundSource::holdAll()
+{
+	for (SoundSource *cb = getRoot(); cb; cb = cb->getNext())
+		cb->holdSamples();
 }
 
 static void add_new_frag()
@@ -128,14 +141,17 @@ static void audioCallback(void *userdata, Uint8 *stream, int len)
 static void updateAudio(unsigned int nrsamples)
 {
 	// SDL openaudio failed?
-	if (!sndWriteBufferPtr)
+	if (!sndWriteBufferPtr) {
+		SoundSource::skipAll(nrsamples);
 		return;
+	}
 
 	if (sndBufferPos + nrsamples >= BufferLength) {
 		if (getLeadInFrags() > SND_LATENCY_IN_FRAGS) {
 #ifdef LOG_AUDIO
 			fprintf(stderr, "Skipping a frag.\n");
 #endif
+			SoundSource::holdAll();
 		} else {
 			// Finish pending buffer...
 			SoundSource::bufferFill(BufferLength - sndBufferPos, sndWriteBufferPtr + sndBufferPos);

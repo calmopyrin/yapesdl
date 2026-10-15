@@ -637,7 +637,7 @@ unsigned char Vic2mem::Read(unsigned int addr)
 					case 0xD7:
 						if (sidCard) {
 							flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
-							//sidCard->catchUpOnState(CycleCounter);
+							sidCard->catchUpOnState(CycleCounter);
 							return sidCard->read(addr & 0x1F);
 						}
 						return 0xD4;
@@ -951,9 +951,8 @@ skip:
 					case 0xD6:
 					case 0xD7:
 						if (sidCard) {
-							//sidCard->catchUpOnState(CycleCounter);
-							sidCard->updateLastCycleCount(CycleCounter);
 							flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
+							sidCard->catchUpOnState(CycleCounter);
 							sidCard->write(addr & 0x1f, value);
 						}
 						return;
@@ -1128,7 +1127,6 @@ void Vic2mem::ted_process(const unsigned int continuous)
 				// the beam reached a new line
 				doHRetrace();
 				newLine();
-				sidCard->updateLastCycleCount(CycleCounter);
 				flushBuffer(CycleCounter, VIC_SOUND_CLOCK);
 				if (attribFetch) {
 					BadLine = (vshift == (beamy & 7));

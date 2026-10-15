@@ -25,6 +25,12 @@ public:
 		sampleRate = sampleRate_;
 	}
 	virtual void calcSamples(short *buffer, unsigned int nrsamples) = 0;
+	// Time passes without audio being produced and the state follows the machine.
+	virtual void skipSamples(unsigned int nrsamples) {}
+	// Rendering is suspended; sources keep their state so that output resumes without a jump.
+	virtual void holdSamples() {}
+	static void skipAll(unsigned int nrsamples);
+	static void holdAll();
 	virtual void setFrequency(unsigned int frequency) = 0;
 	virtual void setSampleRate(unsigned int sampleRate) = 0;
 private:

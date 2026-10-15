@@ -153,25 +153,6 @@ const unsigned int SIDsound::RateCountPeriod[16] = {
 	0x1212,0x0222,0x1848,0x59B8,0x3840,0x77E2,0x7625,0x0A93
 };
 
-const unsigned char SIDsound::envGenDRdivisors[] = {
-	1,30,30,30,30,30,30,16,16,16,16,16,16,16,16,8,
-	8,8,8,8,8,8,8,8,8,8,8,4,4,4,4,4,
-	4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
-	4,4,4,4,4,4,4,2,2,2,2,2,2,2,2,2,
-	2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
-	2,2,2,2,2,2,2,2,2,2,2,2,2,2,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-	1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
-};
-
 void SIDsound::calcEnvelopeTable()
 {
 	// number of SID clocks per sample
@@ -194,7 +175,7 @@ void SIDsound::setSampleRate(unsigned int sampleRate_)
 	calcEnvelopeTable();
 }
 
-SIDsound::SIDsound(unsigned int model, unsigned int chnlDisableMask) : enableDigiBlaster(false), lastUpdate(0)
+SIDsound::SIDsound(unsigned int model, unsigned int chnlDisableMask) : stateTime(0), stateTimeValid(false), suspended(false), cyclesAhead(0), enableDigiBlaster(false)
 {
 	unsigned int i;
 
@@ -224,10 +205,11 @@ void SIDsound::reset(void)
 
 	for (int v=0; v<3; v++) {
 		voice[v].wave = WAVE_NONE;
-		voice[v].egState = EG_FROZEN;
+		voice[v].egState = EG_RELEASE;
+		voice[v].envNextState = EG_RELEASE;
 		voice[v].accu = 0;
 		voice[v].freq = voice[v].pw = 0;
-		voice[v].envCurrLevel = voice[v].envSustainLevel = 0;
+		voice[v].envCurrLevel = voice[v].envRead = voice[v].envSustainLevel = 0;
 		voice[v].gate = voice[v].ring = voice[v].test = 0;
 		voice[v].filter = voice[v].sync = false;
 		voice[v].muted = 0;
@@ -236,9 +218,12 @@ void SIDsound::reset(void)
 		voice[v].envExpCounter = 0;
 		// don't forget to zero the cached wave noise
 		voice[v].waveNoiseOut = 0;
-		voice[v].envAttackAdd = voice[v].envDecaySub = voice[v].envReleaseSub = 0;
-		voice[v].envCounterCompare = 0;
+		voice[v].envAttack = voice[v].envDecay = voice[v].envRelease = voice[v].envRate = 0;
+		voice[v].envExpPeriod = 1;
+		voice[v].envCounterEnabled = 0;
+		voice[v].envStatePipeline = voice[v].envEnvelopePipeline = voice[v].envExponentialPipeline = 0;
 		voice[v].envCounter = 0x7fff;
+		voice[v].envResetLfsr = 0;
 		voice[v].lastWaveFormOutput = 0;
 	}
 	for (unsigned int i = 0; i < 32; i++)
@@ -253,6 +238,10 @@ void SIDsound::reset(void)
 
 	dcDigiBlaster = 0;
 	clockDeltaRemainder = 0;
+	stateTime = 0;
+	stateTimeValid = false;
+	cyclesAhead = 0;
+	suspended = false;
 }
 
 void SIDsound::dumpState()
@@ -338,9 +327,7 @@ unsigned char SIDsound::read(unsigned int adr)
 
 		// Voice 3 EG readout
 		case 0x1C:
-			/*fprintf(stderr, "cycle: %010llu envcount : %04X state: %02X level: %02X\n",
-				lastUpdate, voice[2].envCounter, voice[2].egState, voice[2].envCurrLevel);*/
-			return (unsigned char)(voice[2].envCurrLevel);
+			return (unsigned char)voice[2].envRead;
 
 		case 0x1E: // Digiblaster DAC readout
 			if (enableDigiBlaster && model_ == SID8580)
@@ -389,16 +376,8 @@ void SIDsound::write(unsigned int adr, unsigned char value)
 		case 11:
 		case 18:
 			if ((value ^ v.gate) & 1) {
-				if (value & 1) {
-					// gate on
-					v.egState = EG_ATTACK;
-					v.envCounterCompare = v.envAttackAdd;
-				} else {
-					// gate off
-					v.egState = EG_RELEASE;
-					v.envCounterCompare = v.envReleaseSub;
-				}
 				v.gate = value & 1;
+				v.envGate(v.gate != 0);
 			}
 			v.sync = value & 2;
 			v.ring = value & 4;
@@ -424,21 +403,21 @@ void SIDsound::write(unsigned int adr, unsigned char value)
 		case 5:
 		case 12:
 		case 19:
-			v.envAttackAdd = value >> 4;
-			v.envDecaySub = value & 0x0F;
+			v.envAttack = value >> 4;
+			v.envDecay = value & 0x0F;
 			if (v.egState == EG_ATTACK)
-				v.envCounterCompare = v.envAttackAdd;
+				v.envRate = v.envAttack;
 			else if (v.egState == EG_DECAY)
-				v.envCounterCompare = v.envDecaySub;
+				v.envRate = v.envDecay;
 			break;
 
 		case 6:
 		case 13:
 		case 20:
 			v.envSustainLevel = (value >> 4) * 0x11;
-			v.envReleaseSub = value & 0x0F;
+			v.envRelease = value & 0x0F;
 			if (v.egState == EG_RELEASE)
-				v.envCounterCompare = v.envReleaseSub;
+				v.envRate = v.envRelease;
 			break;
 
 		case 21:
@@ -556,58 +535,110 @@ inline int SIDsound::filterOutput(unsigned int cycles, int Vi)
 	return Vf << 7;
 }
 
-// Envelope based on:
+inline void SIDsound::SIDVoice::envSetExpPeriod()
+{
+	switch (envCurrLevel) {
+	case 0xff: envExpPeriod = 1; break;
+	case 0x5d: envExpPeriod = 2; break;
+	case 0x36: envExpPeriod = 4; break;
+	case 0x1a: envExpPeriod = 8; break;
+	case 0x0e: envExpPeriod = 16; break;
+	case 0x06: envExpPeriod = 30; break;
+	case 0x00: envExpPeriod = 1; break;
+	}
+}
+
+inline void SIDsound::SIDVoice::envStateChange()
+{
+	--envStatePipeline;
+	switch (envNextState) {
+	case EG_ATTACK:
+		if (!envStatePipeline) {
+			egState = EG_ATTACK;
+			envRate = envAttack;
+			envCounterEnabled = 1;
+		}
+		break;
+	case EG_RELEASE:
+		if ((egState == EG_ATTACK && !envStatePipeline) || (egState == EG_DECAY && envStatePipeline == 1)) {
+			egState = EG_RELEASE;
+			envRate = envRelease;
+		}
+		break;
+	}
+}
+
+void SIDsound::SIDVoice::envGate(bool on)
+{
+	if (on) {
+		// The decay rate stays in effect until the attack state is entered.
+		// Entering it is held back while an exponential step that is already
+		// under way (or about to start) still has to pass through the pipeline.
+		envNextState = EG_ATTACK;
+		egState = EG_DECAY;
+		envRate = envDecay;
+		if (envExponentialPipeline)
+			envStatePipeline = 3;
+		else if (envResetLfsr && envCounterEnabled && envExpCounter + 1 == envExpPeriod)
+			envStatePipeline = envExpPeriod != 1 ? 4 : 3;
+		else
+			envStatePipeline = 2;
+	} else {
+		envNextState = EG_RELEASE;
+		envStatePipeline = envEnvelopePipeline ? 3 : 2;
+	}
+}
+
+// Envelope generator. The rate counter is a 15 bit LFSR that is compared with
+// the value belonging to the current rate; a match restarts the counter and
+// clocks the exponential divider and the envelope counter through a small
+// pipeline. Based on:
 // http://blog.kevtris.org/?p=13
 inline void SIDsound::SIDVoice::doEnvelopeGenerator(const unsigned int cycles)
 {
 	unsigned int count = cycles;
 
 	do {
-		unsigned int LFSR = envCounter;
-		const unsigned int feedback = ((LFSR >> 14) ^ (LFSR >> 13)) & 1;
-		LFSR = ((LFSR << 1) | feedback) & 0x7FFF;
-		envCounter = LFSR;
-		if (LFSR == RateCountPeriod[envCounterCompare & 0x0f]) {
-			// LFSR = 0x7fff reset LFSR
-			envCounter = 0x7fff;
+		envRead = envCurrLevel;
 
-			if (egState == EG_ATTACK || ((egState != EG_FROZEN) && ++envExpCounter == envGenDRdivisors[envCurrLevel & 0xff])) {
+		if (envStatePipeline)
+			envStateChange();
 
-				envExpCounter = 0;
-
-				switch (egState) {
-
-				case EG_ATTACK:
-					// According to Bob Yannes, Attack is linear...
-					if ( ((++envCurrLevel) & 0xFF) == 0xFF) {
+		if (envEnvelopePipeline && --envEnvelopePipeline == 0) {
+			if (envCounterEnabled) {
+				if (egState == EG_ATTACK) {
+					envCurrLevel = (envCurrLevel + 1) & 0xFF;
+					if (envCurrLevel == 0xff) {
 						egState = EG_DECAY;
-						envCounterCompare = envDecaySub;
+						envRate = envDecay;
 					}
-					break;
-
-				case EG_DECAY:
-					if (envCurrLevel != envSustainLevel) {
-						if (envCurrLevel > 0) {
-							--envCurrLevel &= 0xFF;
-							if (!envCurrLevel)
-								egState = EG_FROZEN;
-						}
-					}
-					break;
-
-				case EG_RELEASE:
-					if (envCurrLevel > 0) {
-						envCurrLevel = (envCurrLevel - 1) & 0xFF;
-						if (!envCurrLevel)
-							egState = EG_FROZEN;
-					}
-					break;
-
-				case EG_FROZEN:
-					//envCurrLevel = 0; // case currently edged out
-					break;
+				} else {
+					envCurrLevel = (envCurrLevel - 1) & 0xFF;
+					if (envCurrLevel == 0)
+						envCounterEnabled = 0;
 				}
+				envSetExpPeriod();
 			}
+		} else if (envExponentialPipeline && --envExponentialPipeline == 0) {
+			envExpCounter = 0;
+			if ((egState == EG_DECAY && envCurrLevel != envSustainLevel) || egState == EG_RELEASE)
+				envEnvelopePipeline = 1;
+		} else if (envResetLfsr) {
+			envCounter = 0x7fff;
+			envResetLfsr = 0;
+			if (egState == EG_ATTACK) {
+				envExpCounter = 0;
+				envEnvelopePipeline = 2;
+			} else if (envCounterEnabled && ++envExpCounter == envExpPeriod) {
+				envExponentialPipeline = envExpPeriod != 1 ? 2 : 1;
+			}
+		}
+
+		if (envCounter != RateCountPeriod[envRate & 0x0f]) {
+			const unsigned int feedback = ((envCounter >> 14) ^ (envCounter >> 13)) & 1;
+			envCounter = ((envCounter << 1) | feedback) & 0x7FFF;
+		} else {
+			envResetLfsr = 1;
 		}
 	} while (--count);
 }
@@ -693,13 +724,37 @@ inline int SIDsound::getOutput(int cyclesToDo)
 		+ dcMixer + dcDigiBlaster) * volume;
 }
 
+inline void SIDsound::advanceForSample(unsigned int cycles)
+{
+	if (cyclesAhead >= cycles) {
+		cyclesAhead -= cycles;
+	} else {
+		const unsigned int todo = cycles - cyclesAhead;
+		cyclesAhead = 0;
+		updateState(todo);
+		stateTime += todo;
+	}
+}
+
 void SIDsound::calcSamples(short *buf, unsigned int count)
 {
+	suspended = false;
 	do {
 		const int cyclesToDo = clock();
-		updateState(cyclesToDo);
-		*buf++ = (short) (getOutput(cyclesToDo) >> 11);
+		advanceForSample(cyclesToDo);
+		// the 6581 mixing offsets leave little headroom with filtered voices;
+		// saturate instead of letting the conversion wrap around
+		int sample = getOutput(cyclesToDo) >> 11;
+		if (sample > 32767) sample = 32767;
+		else if (sample < -32768) sample = -32768;
+		*buf++ = (short) sample;
 	} while (--count);
+}
+
+void SIDsound::skipSamples(unsigned int count)
+{
+	while (count--)
+		advanceForSample(clock());
 }
 
 SIDsound::~SIDsound()
@@ -707,103 +762,43 @@ SIDsound::~SIDsound()
 	masterVolume = volume;
 }
 
-static short interimBuffer[312 * 63 * 2];
-static unsigned int sampleUpdatePointer = 0;
-static int lastCount = 0;
-
-/*
+// Brings the chip state up to the given machine cycle. Register accesses
+// call this so that they observe and modify the chip at the exact cycle,
+// while the sample renderer consumes the cycles advanced this way first.
 void SIDsound::catchUpOnState(ClockCycle currCycle)
 {
-	int todo = (int)(currCycle - lastUpdate);
-	while (todo > lastCount) {
-		if (lastCount) {
-			updateState(lastCount);
-			interimBuffer[sampleUpdatePointer++] = (short)(getOutput(lastCount) >> 11);
-			todo -= lastCount;
-		}
-		lastCount = clock();
+	// The machine clock is not necessarily restarted together with the chip
+	// (and may be restarted without it), so the first access after a reset
+	// or a large discontinuity only establishes the time reference.
+	const ClockCycle maxLead = (ClockCycle) 1 << 21;
+	if (!stateTimeValid || currCycle + maxLead < stateTime) {
+		stateTime = currCycle;
+		cyclesAhead = 0;
+		stateTimeValid = true;
+		return;
 	}
-	//fprintf(stderr, "UPDATE cycle: %012llu todo: %012llu sample: %u\n", currCycle, lastUpdate, sampleUpdatePointer);
-	if (todo > 0) {
-		updateState(todo);
-		lastCount -= todo;
+	if (suspended) {
+		// output is not being produced; keep the time reference current so
+		// that rendering continues from this very state later
+		if (currCycle > stateTime)
+			stateTime = currCycle;
+		return;
 	}
-	lastUpdate = currCycle;
-}
-
-void SIDsound::calcSamples(short* buf, unsigned int count)
-{
-	//if (count > sizeof(interimBuffer) / 2)
-	//	count = sizeof(interimBuffer) / 2;
-	while (count > sampleUpdatePointer) {
-		if (lastCount) {
-			updateState(lastCount);
-			interimBuffer[sampleUpdatePointer++] = (short)(getOutput(lastCount) >> 11);
-			lastUpdate += lastCount;
-		}
-		if (count > sampleUpdatePointer)
-			lastCount = clock();
-		else
-			lastCount = 0;
-	}
-	//fprintf(stderr, "FLUSH  cycle: %012llu todo: %08i sample: %08u\n", lastUpdate, lastCount, sampleUpdatePointer);
-	//if (count < sampleUpdatePointer) {
-	//	for (register unsigned int i = 0; i < count; i++)
-	//		buf[i] = interimBuffer[i];
-	//	for (register unsigned int i = 0; i < sampleUpdatePointer - count; i++)
-	//		buf[count + i] = interimBuffer[count + i];
-	//	sampleUpdatePointer = sampleUpdatePointer - count;
-	//}
-	for (register unsigned int i = 0; i < count; i++)
-		buf[i] = interimBuffer[i];
-	sampleUpdatePointer = 0;
-}
-*/
-
-int cycleCountForSample = 0;
-
-void SIDsound::updateLastCycleCount(ClockCycle currCycle)
-{
-	lastUpdate = currCycle;
-}
-
-void SIDsound::catchUpOnState(ClockCycle currCycle)
-{
-	int todo = (int)(currCycle - lastUpdate);
-
-	if (todo > 0) {
-		int cyclesLeft = todo;
-		//cycleCountForSample += todo;
-		//while (cycleCountForSample > lastCount) {
-		//	lastCount = clock();
-		//	if (sampleUpdatePointer >= sizeof(interimBuffer) / 2)
-		//		return;
-		//	updateState(lastCount);
-		//	interimBuffer[sampleUpdatePointer++] = (short)(getOutput(lastCount) >> 11);
-		//	cycleCountForSample -= lastCount;
-		//	cyclesLeft -= lastCount;
-		//}
-		if (cyclesLeft <= 0)
+	// Register accesses are preceded by rendering all whole samples up to
+	// the access, so only a fraction of a sample can be left unrendered here.
+	// A larger value means samples were dropped by the output, and keeping
+	// the excess would make every following sample come from a later state.
+	if (cyclesAhead > 4 * (sidCyclesPerSampleInt + 1))
+		cyclesAhead = 0;
+	if (currCycle > stateTime) {
+		const ClockCycle gap = currCycle - stateTime;
+		if (gap > maxLead) {
+			stateTime = currCycle;
 			return;
-		updateState(cyclesLeft);
-		updateLastCycleCount(currCycle);
-	}
-}
-
-void SIDsound::calcSamplesCycleBased(short* buf, unsigned int count)
-{
-	//if (count > sizeof(interimBuffer) / 2)
-	//	count = sizeof(interimBuffer) / 2;
-	while (count > sampleUpdatePointer) {
-		catchUpOnState(lastUpdate + 1);
-	}
-	for (unsigned int i = 0; i < count; i++)
-		buf[i] = interimBuffer[i];
-	sampleUpdatePointer -= count;
-	//fprintf(stderr, "FLUSH  cycle: %012llu todo: %08i sample: %08u\n", lastUpdate, lastCount, sampleUpdatePointer);
-	if (sampleUpdatePointer) {
-		for (unsigned int i = 0; i < sampleUpdatePointer; i++)
-			interimBuffer[i] = interimBuffer[count + i];
-		sampleUpdatePointer = 0;
+		}
+		const unsigned int todo = (unsigned int) gap;
+		updateState(todo);
+		cyclesAhead += todo;
+		stateTime = currCycle;
 	}
 }

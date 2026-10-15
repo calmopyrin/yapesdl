@@ -614,6 +614,7 @@ unsigned char TED::Read(unsigned int addr)
 						case 0xFE9:
 							if (sidCard) {
 								flushBuffer(CycleCounter, TED_SOUND_CLOCK);
+								sidCard->catchUpOnState(CycleCounter >> 1);
 								return sidCard->read(addr & 0x1f);
 							}
 							return readOpenAddressSpace(addr);
@@ -650,6 +651,7 @@ unsigned char TED::Read(unsigned int addr)
 						case 0xFD5:
 							if (sidCard) {
 								flushBuffer(CycleCounter, TED_SOUND_CLOCK);
+								sidCard->catchUpOnState(CycleCounter >> 1);
 								return sidCard->read(addr & 0x1f);
 							}
 							return readOpenAddressSpace(addr);
@@ -1134,6 +1136,7 @@ void TED::Write(unsigned int addr, unsigned char value)
 						case 0xFE9:
 							if (sidCard) {
 								flushBuffer(CycleCounter, TED_SOUND_CLOCK);
+								sidCard->catchUpOnState(CycleCounter >> 1);
 								sidCard->write(addr & 0x1f, value);
 							}
 							return;
