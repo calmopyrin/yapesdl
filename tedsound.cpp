@@ -41,9 +41,10 @@ void TED::tedSoundInit(unsigned int mixingFreq)
 	for (int i = 0; i < 64; i++) {
 		int chdbl = (i & 0x30) == 0x30;
 		int vol = ((i & 0x0F) < 9 ? (i & 0x0F) : 8);
+		int base = 586 + (vol - 1) * 1024;
 		int nonl = ((chdbl && vol > 1) ? vol * vol * 54 - 173 * vol + 162 : 0);
 		volumeTable[i] = (vol && i & 0x30) ? 
-			(nonl + (586 + (vol - 1) * 1024) << (chdbl ? 1 : 0)) : 0;
+			base + chdbl * (base + (nonl * 35 + 50) / 100) : 0;
 	}
 }
 
