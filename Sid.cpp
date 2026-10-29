@@ -148,6 +148,26 @@ void SIDsound::setPaddleReadCallback(CallBackReadMemory func)
 }
 
 // Static data members
+// Position of each rate counter value in the counter's 32767 long sequence
+// starting from 0x7fff, and the value at each position, so that runs of idle
+// cycles can be skipped in one step.
+static const unsigned int lfsrLength = 0x7FFF;
+static unsigned short lfsrPosition[0x8000];
+static unsigned short lfsrValue[0x7FFF];
+
+static void buildLfsrTables()
+{
+	if (lfsrValue[0])
+		return;
+	unsigned int counter = 0x7FFF;
+	for (unsigned int i = 0; i < lfsrLength; i++) {
+		lfsrValue[i] = (unsigned short) counter;
+		lfsrPosition[counter] = (unsigned short) i;
+		const unsigned int feedback = ((counter >> 14) ^ (counter >> 13)) & 1;
+		counter = ((counter << 1) | feedback) & 0x7FFF;
+	}
+}
+
 const unsigned int SIDsound::RateCountPeriod[16] = {
 	0x7F00,0x0006,0x003C,0x0330,0x20C0,0x6755,0x3800,0x500E,
 	0x1212,0x0222,0x1848,0x59B8,0x3840,0x77E2,0x7625,0x0A93
@@ -175,7 +195,7 @@ void SIDsound::setSampleRate(unsigned int sampleRate_)
 	calcEnvelopeTable();
 }
 
-SIDsound::SIDsound(unsigned int model, unsigned int chnlDisableMask) : stateTime(0), stateTimeValid(false), suspended(false), cyclesAhead(0), enableDigiBlaster(false)
+SIDsound::SIDsound(unsigned int model, unsigned int chnlDisableMask) : stateTime(0), stateTimeValid(false), renderLimit(0), cyclesAhead(0), enableDigiBlaster(false)
 {
 	unsigned int i;
 
@@ -187,6 +207,7 @@ SIDsound::SIDsound(unsigned int model, unsigned int chnlDisableMask) : stateTime
 		voice[i].modulatesThis = &voice[(i+1)%3]; // next voice
 		voice[i].disabled = !!((chnlDisableMask >> i) & 1);
 	}
+	buildLfsrTables();
 	// startup defaults
 	sidBaseFreq = SOUND_FREQ_PAL_C64;
 	sampleRate = SAMPLE_FREQ;
@@ -240,8 +261,8 @@ void SIDsound::reset(void)
 	clockDeltaRemainder = 0;
 	stateTime = 0;
 	stateTimeValid = false;
+	renderLimit = 0;
 	cyclesAhead = 0;
-	suspended = false;
 }
 
 void SIDsound::dumpState()
@@ -599,6 +620,22 @@ inline void SIDsound::SIDVoice::doEnvelopeGenerator(const unsigned int cycles)
 	unsigned int count = cycles;
 
 	do {
+		// Nothing is pending, so until the rate counter reaches the compare
+		// value each cycle only shifts it: jump over those cycles at once.
+		if (!(envStatePipeline | envEnvelopePipeline | envExponentialPipeline | envResetLfsr)) {
+			envRead = envCurrLevel;
+			const unsigned int pos = lfsrPosition[envCounter];
+			const unsigned int target = lfsrPosition[RateCountPeriod[envRate & 0x0f]];
+			const unsigned int distance = target >= pos ? target - pos : target + lfsrLength - pos;
+			if (count <= distance) {
+				const unsigned int next = pos + count;
+				envCounter = lfsrValue[next >= lfsrLength ? next - lfsrLength : next];
+				return;
+			}
+			envCounter = RateCountPeriod[envRate & 0x0f];
+			count -= distance;
+		}
+
 		envRead = envCurrLevel;
 
 		if (envStatePipeline)
@@ -724,21 +761,31 @@ inline int SIDsound::getOutput(int cyclesToDo)
 		+ dcMixer + dcDigiBlaster) * volume;
 }
 
+// Steps the state for one sample, using up the cycles register accesses have
+// already advanced first, and never going past the cycle the current batch of
+// samples reaches. What cannot be stepped yet is owed and taken from the next
+// catch-up, so register accesses always find the chip at their own cycle.
 inline void SIDsound::advanceForSample(unsigned int cycles)
 {
-	if (cyclesAhead >= cycles) {
-		cyclesAhead -= cycles;
-	} else {
-		const unsigned int todo = cycles - cyclesAhead;
-		cyclesAhead = 0;
-		updateState(todo);
-		stateTime += todo;
+	int todo = (int) cycles;
+	if (cyclesAhead > 0) {
+		const int used = cyclesAhead < todo ? cyclesAhead : todo;
+		cyclesAhead -= used;
+		todo -= used;
+	}
+	if (todo > 0) {
+		const ClockCycle room = renderLimit > stateTime ? renderLimit - stateTime : 0;
+		const int step = room < (ClockCycle) todo ? (int) room : todo;
+		if (step) {
+			updateState(step);
+			stateTime += step;
+		}
+		cyclesAhead -= todo - step;
 	}
 }
 
 void SIDsound::calcSamples(short *buf, unsigned int count)
 {
-	suspended = false;
 	do {
 		const int cyclesToDo = clock();
 		advanceForSample(cyclesToDo);
@@ -749,6 +796,40 @@ void SIDsound::calcSamples(short *buf, unsigned int count)
 		else if (sample < -32768) sample = -32768;
 		*buf++ = (short) sample;
 	} while (--count);
+}
+
+// Samples ahead of the machine are rendered from a copy of the state: the
+// chip itself has to stay at the machine's time for register accesses.
+void SIDsound::calcSamplesAhead(short *buf, unsigned int count)
+{
+	const SIDVoice savedVoice[3] = { voice[0], voice[1], voice[2] };
+	const int savedVhp = Vhp, savedVbp = Vbp, savedVlp = Vlp;
+	const unsigned int savedRemainder = clockDeltaRemainder;
+	const ClockCycle savedTime = stateTime, savedLimit = renderLimit;
+	const int savedAhead = cyclesAhead;
+
+	renderLimit = ~(ClockCycle) 0;
+	calcSamples(buf, count);
+
+	for (unsigned int i = 0; i < 3; i++)
+		voice[i] = savedVoice[i];
+	Vhp = savedVhp;
+	Vbp = savedVbp;
+	Vlp = savedVlp;
+	clockDeltaRemainder = savedRemainder;
+	stateTime = savedTime;
+	renderLimit = savedLimit;
+	cyclesAhead = savedAhead;
+}
+
+void SIDsound::setRenderLimit(ClockCycle cycle, unsigned int frq)
+{
+	if (frq == sidBaseFreq)
+		renderLimit = cycle;
+	else if (frq == 2 * sidBaseFreq)
+		renderLimit = cycle >> 1;
+	else
+		renderLimit = cycle / frq * sidBaseFreq + (cycle % frq) * sidBaseFreq / frq;
 }
 
 void SIDsound::skipSamples(unsigned int count)
@@ -769,36 +850,29 @@ void SIDsound::catchUpOnState(ClockCycle currCycle)
 {
 	// The machine clock is not necessarily restarted together with the chip
 	// (and may be restarted without it), so the first access after a reset
-	// or a large discontinuity only establishes the time reference.
-	const ClockCycle maxLead = (ClockCycle) 1 << 21;
-	if (!stateTimeValid || currCycle + maxLead < stateTime) {
+	// or a clock that went backwards only establishes the time reference.
+	if (!stateTimeValid || currCycle + ((ClockCycle) 1 << 21) < stateTime) {
 		stateTime = currCycle;
 		cyclesAhead = 0;
 		stateTimeValid = true;
 		return;
 	}
-	if (suspended) {
-		// output is not being produced; keep the time reference current so
-		// that rendering continues from this very state later
-		if (currCycle > stateTime)
-			stateTime = currCycle;
-		return;
-	}
-	// Register accesses are preceded by rendering all whole samples up to
-	// the access, so only a fraction of a sample can be left unrendered here.
-	// A larger value means samples were dropped by the output, and keeping
-	// the excess would make every following sample come from a later state.
-	if (cyclesAhead > 4 * (sidCyclesPerSampleInt + 1))
-		cyclesAhead = 0;
 	if (currCycle > stateTime) {
+		// Long gaps without output (sound paused, warp, dropped fragments)
+		// still have to pass for the chip. Beyond this many cycles every
+		// envelope has settled, so the rest is not worth emulating.
+		const ClockCycle maxGap = (ClockCycle) 1 << 25;
 		const ClockCycle gap = currCycle - stateTime;
-		if (gap > maxLead) {
-			stateTime = currCycle;
-			return;
-		}
-		const unsigned int todo = (unsigned int) gap;
+		const unsigned int todo = (unsigned int) (gap > maxGap ? maxGap : gap);
 		updateState(todo);
-		cyclesAhead += todo;
+		cyclesAhead += (int) todo;
 		stateTime = currCycle;
 	}
+	// Register accesses are preceded by rendering all whole samples up to
+	// the access, so only about a sample can be left unrendered or owed here.
+	// More than that means the output dropped samples, and keeping it would
+	// make the following samples come from the wrong state.
+	const int limit = 4 * (int) (sidCyclesPerSampleInt + 1);
+	if (cyclesAhead > limit || cyclesAhead < -limit)
+		cyclesAhead = 0;
 }

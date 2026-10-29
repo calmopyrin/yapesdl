@@ -28,9 +28,11 @@ public:
 	virtual void setSampleRate(unsigned int sampleRate_);
 	virtual void calcSamples(short *buf, unsigned int count);
 	virtual void skipSamples(unsigned int count);
+	virtual void calcSamplesAhead(short *buf, unsigned int count);
+	virtual void setRenderLimit(ClockCycle cycle, unsigned int frq);
 	virtual void holdSamples() {
-		// the samples of the cycles already advanced are dropped, too
-		suspended = true;
+		// the chip keeps running with the machine; only the samples of the
+		// cycles already advanced are dropped
 		cyclesAhead = 0;
 	}
 	// this is for the FRE support
@@ -137,8 +139,8 @@ private:
 	unsigned int clockDeltaFraction; // Fractional component for frequency conversion
 	ClockCycle stateTime; // machine cycle the chip state has been advanced to
 	bool stateTimeValid; // stateTime refers to the current machine clock
-	bool suspended; // rendering is on hold, the state is not advanced
-	unsigned int cyclesAhead; // cycles the state is ahead of the rendered samples
+	ClockCycle renderLimit; // machine cycle rendering may advance the state to
+	int cyclesAhead; // cycles the state is ahead of the rendered samples (negative: behind)
 	static int dcMixer; // different for 6581 and 8580 (constant level output for digi)
 	static int dcVoice;
 	static int dcWave;

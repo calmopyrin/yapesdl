@@ -20,16 +20,25 @@ public:
 	~SoundSource() {
 		remove(this);
 	}
-	static void bufferFill(unsigned int nrsamples, short *buffer);
+	static void bufferFill(unsigned int nrsamples, short *buffer, bool ahead = false);
 	static void setSamplingRate(unsigned int sampleRate_) {
 		sampleRate = sampleRate_;
 	}
 	virtual void calcSamples(short *buffer, unsigned int nrsamples) = 0;
+	// Samples the output needs before the machine has got that far, to keep it
+	// from running dry. A source whose state must stay at the machine's time
+	// renders them without advancing that state.
+	virtual void calcSamplesAhead(short *buffer, unsigned int nrsamples) { calcSamples(buffer, nrsamples); }
 	// Time passes without audio being produced and the state follows the machine.
 	virtual void skipSamples(unsigned int nrsamples) {}
-	// Rendering is suspended; sources keep their state so that output resumes without a jump.
+	// Samples are being dropped by the output; a source that runs ahead of its
+	// samples discards that lead, while its state keeps following the machine.
 	virtual void holdSamples() {}
+	// The machine cycle (in units of frq) that the samples about to be
+	// rendered reach; sources must not run their state past it.
+	virtual void setRenderLimit(ClockCycle cycle, unsigned int frq) {}
 	static void skipAll(unsigned int nrsamples);
+	static void setRenderLimitAll(ClockCycle cycle, unsigned int frq);
 	static void holdAll();
 	virtual void setFrequency(unsigned int frequency) = 0;
 	virtual void setSampleRate(unsigned int sampleRate) = 0;

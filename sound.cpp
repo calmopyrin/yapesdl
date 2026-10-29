@@ -40,11 +40,14 @@ unsigned int SoundSource::sampleRate = SAMPLE_FREQ;
 static unsigned int soundEnabled = 1;
 static unsigned int soundPaused = 0;
 
-void SoundSource::bufferFill(unsigned int nrsamples, short *buffer)
+void SoundSource::bufferFill(unsigned int nrsamples, short* buffer, bool ahead)
 {
-	SoundSource *cb = SoundSource::getRoot();
+	void (SoundSource:: * render)(short*, unsigned int) =
+		ahead ? &SoundSource::calcSamplesAhead : &SoundSource::calcSamples;
+
+	SoundSource* cb = SoundSource::getRoot();
 	if (cb && !soundPaused) {
-		cb->calcSamples(buffer, nrsamples);
+		(cb->*render)(buffer, nrsamples);
 		cb = cb->getNext();
 	} else {
 		memset(buffer, 0, nrsamples * 2);
@@ -54,10 +57,10 @@ void SoundSource::bufferFill(unsigned int nrsamples, short *buffer)
 	// multiple sources
 	while (cb) {
 		int i = nrsamples - 1;
-		cb->calcSamples(mixingBuffer, nrsamples);
+		(cb->*render)(mixingBuffer, nrsamples);
 		do {
 			buffer[i] += mixingBuffer[i];
-		} while(i--);
+		} while (i--);
 		cb = cb->getNext();
 	}
 }
@@ -66,6 +69,12 @@ void SoundSource::skipAll(unsigned int nrsamples)
 {
 	for (SoundSource *cb = getRoot(); cb; cb = cb->getNext())
 		cb->skipSamples(nrsamples);
+}
+
+void SoundSource::setRenderLimitAll(ClockCycle cycle, unsigned int frq)
+{
+	for (SoundSource *cb = getRoot(); cb; cb = cb->getNext())
+		cb->setRenderLimit(cycle, frq);
 }
 
 void SoundSource::holdAll()
@@ -112,7 +121,7 @@ static void fragmentDone()
 #ifdef LOG_AUDIO
 		fprintf(stderr, "   adding an extra frag.\n");
 #endif
-		SoundSource::bufferFill(BufferLength, sndWriteBufferPtr);
+		SoundSource::bufferFill(BufferLength, sndWriteBufferPtr, true);
 		add_new_frag();
 		lead_in_frags++;
 	}
@@ -183,6 +192,7 @@ void flushBuffer(ClockCycle cycle, unsigned int frq)
 {
 	unsigned int samplesToDo = getNrOfSamplesToGenerate(cycle, frq);
 	if (samplesToDo) {
+		SoundSource::setRenderLimitAll(cycle, frq);
 		updateAudio(samplesToDo);
 		lastUpdateCycle = cycle;
 		lastSamplePos += samplesToDo;
