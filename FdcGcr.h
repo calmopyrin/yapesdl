@@ -68,6 +68,9 @@ public:
 		vFlagCallback = cbptr;
 		vFlagCallbackParam = param;
 	}
+	static void dummyCallback(void* param) {
+		(void)(param);
+	}
 
 private:
 
@@ -104,7 +107,6 @@ private:
 	unsigned char *gcrTrackEnd;		// pointer to end of GCR data of actual track
 	unsigned char byteLatched;		// GCR byte latched in from the disk surface
 	unsigned char byteWritten;		// GCR byte to be written
-	unsigned char byteReady;		// Shift reg finished, new byte is ready
 	bool motorSpinning;		// Flag: Disk motor is on/off
 	bool isDiskInserted;		// Flag: Disk inserted
 	bool isImageWriteProtected;	// Flag: Disk write-protected
@@ -116,17 +118,35 @@ private:
 	unsigned short g64TrackSize[MAX_G64_TRACKS];
 	unsigned int gcrBitsPerClock[MAX_G64_TRACKS];
 	bool isSyncEnabled; // Flag: sync enabled
-	CallBackFunctor byteReadEdgeCallback = NULL;
+	CallBackFunctor byteReadEdgeCallback = dummyCallback;
 	void* byteReadEdgeCallbackParam = NULL;
-	CallBackFunctor vFlagCallback = NULL;
+	CallBackFunctor vFlagCallback = dummyCallback;
 	void* vFlagCallbackParam = NULL;
+	unsigned int rngState = 0x2545F491;
+	unsigned int nextRandom() {
+		rngState ^= rngState << 13; rngState ^= rngState >> 17; rngState ^= rngState << 5;
+		return rngState;
+	}
 #ifdef FDC_CYCLE_BASED
+	// --- write path (byte/bit-clocked at the density rate) ---
 	unsigned int bitAccumulator = 0;
 	unsigned int currentSpeedZoneTarget = 4000;
 	unsigned int bitOffset = 0;
+	// --- read circuit model: the disk rotates at a fixed 300 rpm (bit rate follows the
+	// track length), UE7/UF4 (data separator) are set by the density bits only ---
 	bool inSync = false;
-	unsigned int postSyncBitCount = 0;
-	unsigned int shiftRegister = 0;
+	unsigned int diskPhase = 0;			// disk bit position accumulator (16 MHz ticks * track bits)
+	unsigned int ue7Counter = 0;		// 4-bit divider, counts up to 16
+	unsigned int ue7Dcba = 0;			// UE7 preset = density bits (0..3)
+	unsigned int uf4Counter = 0;		// bit cell phase counter, cleared by flux reversals
+	unsigned int lastReadData = 0;		// 10 bit read shifter
+	unsigned int bitCounter = 0;		// bits since last sync
+	int frRandCount = 289;				// ticks until a random flux reversal (no-flux areas)
+	unsigned int cycleTick = 0;			// 16 MHz phase within a drive CPU cycle
+	unsigned int soDelay = 0;			// ticks until the byte ready edge reaches CA1/SO
+	void readCircuit(unsigned int ticks);
+	void fluxReversal(bool isRandom);
+	void clockShifter();
 #endif
 };
 
@@ -148,7 +168,7 @@ inline unsigned char FdcGcr::SyncFound(void)
 		if ((prevbyte & 3) == 3)
 			return 0x00;
 
-		unsigned int shiftReg = gcrCurrentBitcount * 8 / gcrCurrentBitRate;
+		unsigned int shiftReg = gcrCurrentBitcount * 8 / (100000 * spinFactor);
 		unsigned char* next_gcr_byte_ptr = (gcrPtr == gcrTrackEnd - 1) ? (gcrTrackBegin) : gcrPtr + 1;
 		unsigned char nextbyte = *next_gcr_byte_ptr;
 		unsigned int syncWindow = (currbyte << shiftReg) | (nextbyte >> (8 - shiftReg));
@@ -223,10 +243,10 @@ inline unsigned char FdcGcr::getMotorState()
 */
 inline void FdcGcr::clockCycles()
 {
-	gcrCurrentBitcount += 1;
-	if (gcrCurrentBitcount >= gcrCurrentBitRate)
+	gcrCurrentBitcount += (unsigned int)(gcrTrackEnd - gcrTrackBegin);
+	if (gcrCurrentBitcount >= 100000 * spinFactor)
 	{
-		gcrCurrentBitcount -= gcrCurrentBitRate;
+		gcrCurrentBitcount -= 100000 * spinFactor;
 		if (motorSpinning) {
 			// here set byte ready line high, but
 			// only when no sync is found.
@@ -246,7 +266,7 @@ inline void FdcGcr::clockCycles()
 				if (rawByte == 0x00) {
 					// Inject pseudo-random noise bits instead of static 0x00
 					// Real hardware generates random noise on empty flux
-					rawByte = static_cast<unsigned char>(rand() & 0xFF);
+					rawByte = static_cast<unsigned char>(nextRandom() >> 16);
 				}
 				byteLatched = rawByte;
 			}
@@ -256,97 +276,149 @@ inline void FdcGcr::clockCycles()
 			}
 		} else {
 			// Spindle is stopped: head sees no flux transitions (no SYNC possible), BYTE READY fires
-			byteLatched = static_cast<unsigned char>(rand() & 0xFF); // should be random
+			byteLatched = static_cast<unsigned char>(nextRandom() >> 16);
 			if (byteLatched == 0xFF) byteLatched &= 0xEE;
 		}
 	}
 }
-#endif
 
 /*
 	Select new speed zone (shift register frequency)
 */
 inline void FdcGcr::SetDensity(unsigned int ds)
 {
-#ifdef FDC_CYCLE_BASED
+	const unsigned int currentSpeedZone = 16 - ((ds >> 5) & 3);
+	gcrCurrentBitRate = currentSpeedZone * spinFactor;
+}
+#else
+inline void FdcGcr::SetDensity(unsigned int ds)
+{
 	// CPU cycles per bit scaled by 1000 to avoid floats
 	const unsigned int CPU_CYCLES_PER_BIT_FP[4] = { 4000, 3750, 3500, 3250 };
 	currentSpeedZoneTarget = CPU_CYCLES_PER_BIT_FP[(ds >> 5) & 3];
+	ue7Dcba = (ds >> 5) & 3;	// preset of the UE7 divider: 16 - dcba reference ticks per quarter bit cell
 	//fprintf(stderr, "Speed zone set to: %u on halftrack: %u\n", (ds >> 5) & 3, currentHalfTrack);
-#else
-	const unsigned int currentSpeedZone = 16 - ((ds >> 5) & 3);
-	gcrCurrentBitRate = currentSpeedZone * spinFactor;
-#endif
 }
-#ifdef FDC_CYCLE_BASED
+
 inline void FdcGcr::clockCycles()
 {
-	bitAccumulator += (spinFactor * 500);
-
-	while (bitAccumulator >= currentSpeedZoneTarget) {
-		bitAccumulator -= currentSpeedZoneTarget;
-		feedOneBit();
-	}
+	if (writeMode) {
+		bitAccumulator += (2000 / spinFactor);
+		while (bitAccumulator >= currentSpeedZoneTarget) {
+			bitAccumulator -= currentSpeedZoneTarget;
+			feedOneBit();
+		}
+	} else
+		readCircuit(32 / spinFactor); // 16 reference ticks (16 MHz) per 1 MHz drive cycle
 }
 
+// write mode only: bit clocked at the density rate
 inline void FdcGcr::feedOneBit()
 {
-	if (writeMode) {
-		// --- WRITE MODE ---
-		if (bitOffset == 7) {
-			*gcrPtr = byteWritten;
-			byteReadEdgeCallback(byteReadEdgeCallbackParam);
-			vFlagCallback(vFlagCallbackParam);
-		}
-		inSync = false;
+	if (bitOffset == 7) {
+		*gcrPtr = byteWritten;
+		byteReadEdgeCallback(byteReadEdgeCallbackParam);
+		vFlagCallback(vFlagCallbackParam);
 	}
-	else {
-		unsigned int bit = (byteReady >> (7 - bitOffset)) & 1;
-
-		// shift into 10-bit Gate Array SYNC window
-		shiftRegister = ((shiftRegister << 1) | bit) & 0x03FF;
-
-		if (shiftRegister == 0x03FF) {
-			// 10 consecutive ones = SYNC detected
-			inSync = isSyncEnabled;
-			//postSyncBitCount = 0;
-			byteLatched = 0xFF;
-		}
-		else if (inSync) {
-			// First '0' bit exits SYNC state
-			inSync = false;
-			postSyncBitCount = 0;
-		}
-
-		// assemble 8 post-SYNC bits into byte latch
-		if (!inSync) {
-			postSyncBitCount++;
-			if (postSyncBitCount == 8) {
-				postSyncBitCount = 0;
-				byteLatched = shiftRegister & 0xFF;
-				// assert SO pin + VIA2 CA1 interrupt
-				// make sure this is never null!
-				byteReadEdgeCallback(byteReadEdgeCallbackParam);
-				vFlagCallback(vFlagCallbackParam);
-			}
-		}
-	}
-
-	// advance GCR bit stream pointer
+	inSync = false;
 	bitOffset++;
 	if (bitOffset >= 8) {
 		bitOffset = 0;
 		if (motorSpinning) {
 			gcrPtr++;
-			if (gcrPtr >= gcrTrackEnd) {
+			if (gcrPtr >= gcrTrackEnd)
 				gcrPtr = gcrTrackBegin;
+		}
+	}
+}
+
+// a flux reversal (real or noise) resynchronises the data separator
+inline void FdcGcr::fluxReversal(bool isRandom)
+{
+	ue7Counter = ue7Dcba;
+	uf4Counter = 0;
+	// start seeing random flux reversals if 18us passed since the last real flux reversal
+	frRandCount = isRandom ? (int)((nextRandom() >> 16) % 367) + 33
+						   : (int)((nextRandom() >> 16) % 31) + 289;
+}
+
+// UF4 stage B rising edge clocks the read shifter; the NOR gate shifts a 1 only while UF4 < 4
+inline void FdcGcr::clockShifter()
+{
+	lastReadData = ((lastReadData << 1) & 0x3FE) | (uf4Counter < 4 ? 1 : 0);
+	if (lastReadData == 0x3FF) {
+		// sync: byte counter is held in reset
+		bitCounter = 0;
+		inSync = isSyncEnabled;
+		byteLatched = 0xFF;
+	} else {
+		inSync = false;
+		if (++bitCounter == 8) {
+			bitCounter = 0;
+			byteLatched = (unsigned char)(lastReadData & 0xFF);
+			// byte ready reaches the CPU after the next CPU clock edge
+			soDelay = 16 - cycleTick;
+			if (soDelay < 10)
+				soDelay += 16;
+		}
+	}
+}
+
+inline void FdcGcr::readCircuit(unsigned int ticks)
+{
+	const unsigned int REV_TICKS = 3200000;	// 16 MHz * 200 ms (300 rpm)
+	const unsigned int trackBits = (unsigned int)(gcrTrackEnd - gcrTrackBegin) * 8;
+
+	while (ticks) {
+		unsigned int step = ticks;
+		unsigned int toBit = 0xFFFFFFFF;
+		if (motorSpinning && trackBits) {
+			toBit = (REV_TICKS - diskPhase + trackBits - 1) / trackBits;
+			if (!toBit) toBit = 1;
+			if (toBit < step) step = toBit;
+		}
+		if (16 - ue7Counter < step) step = 16 - ue7Counter;
+		if (frRandCount > 0 && (unsigned int)frRandCount < step) step = (unsigned int)frRandCount;
+		if (soDelay && soDelay < step) step = soDelay;
+		if (!step) step = 1;
+
+		ticks -= step;
+		cycleTick = (cycleTick + step) & 15;
+		ue7Counter += step;
+		frRandCount -= (int)step;
+		if (motorSpinning && trackBits)
+			diskPhase += step * trackBits;
+
+		// disk delivers its next bit cell; a 1 is a flux reversal
+		if (motorSpinning && trackBits && diskPhase >= REV_TICKS) {
+			diskPhase -= REV_TICKS;
+			unsigned int bit = (*gcrPtr >> (7 - bitOffset)) & 1;
+			if (++bitOffset >= 8) {
+				bitOffset = 0;
+				if (++gcrPtr >= gcrTrackEnd)
+					gcrPtr = gcrTrackBegin;
 			}
-			if (!writeMode)
-				// fetch raw byte from GCR buffer
-				byteReady = *gcrPtr;
-		} else 
-			byteReady = 0;
-		// FIXME inject weak-bit noise on empty flux in read mode
+			if (bit)
+				fluxReversal(false);
+		}
+		// no flux for 18 us: weak/random flux reversals from the read amplifier
+		if (frRandCount <= 0)
+			fluxReversal(true);
+		// UE7 carry advances the bit cell phase
+		if (ue7Counter >= 16) {
+			ue7Counter = ue7Dcba;
+			uf4Counter = (uf4Counter + 1) & 0xF;
+			if ((uf4Counter & 3) == 2)
+				clockShifter();
+		}
+		// byte ready edge towards VIA2 CA1 and the CPU's SO pin
+		if (soDelay) {
+			soDelay -= step;
+			if (!soDelay) {
+				byteReadEdgeCallback(byteReadEdgeCallbackParam);
+				vFlagCallback(vFlagCallbackParam);
+			}
+		}
 	}
 }
 #endif

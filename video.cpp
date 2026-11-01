@@ -72,7 +72,7 @@ void init_palette(TED *videoChip)
 		Uint8 Gc = (Uint8) myMax<double>(myMin<double>(gf, 255.0), 0);
 		Uint8 Bc = (Uint8) myMax<double>(myMin<double>(bf, 255.0), 0);
 
-		palette[ix + 128] = palette[ix] = Bc | (Gc << 8) | (Rc << 16);
+		palette[ix + 128] = palette[ix] = Bc | (Gc << 8) | (Rc << 16) | 0xFF000000;
 #if 0
 		yuvPalette[ix].y = (unsigned char)(Yc);
 		yuvPalette[ix].u = (int)(Uc + 128);

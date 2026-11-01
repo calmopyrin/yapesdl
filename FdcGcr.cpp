@@ -84,6 +84,30 @@ static g64_header_t g64hdr = { 0 };
 
 unsigned int FdcGcr::sectorSize[MAX_NUM_TRACKS+1];
 
+// Sector layout of a freshly formatted track. The tail gap depends on the speed zone,
+// and every track starts at an angular offset that grows with the time the formatting
+// pass needed for the previous track (sector writes plus one head step).
+static const unsigned int GCR_SECTOR_BASE_SIZE = NUM_SYNC + 10 + 9 + NUM_SYNC + 325;
+static const unsigned int gcrTailGapByZone[4] = { 9, 12, 17, 8 };
+
+static inline unsigned int gcrSectorPitch(unsigned int track)
+{
+	return GCR_SECTOR_BASE_SIZE + gcrTailGapByZone[speedZoneDefaults[track] & 3];
+}
+
+// Byte offset of the first sector of a track, measured from the start of the track buffer
+static unsigned int gcrTrackSkew(unsigned int track, const unsigned int *trackLength)
+{
+	unsigned int offset = 0;
+	for (unsigned int t = 1; t <= track; t++) {
+		const unsigned int len = trackLength[t];
+		offset += d64NumOfSectors[t] * gcrSectorPitch(t) - gcrTailGapByZone[speedZoneDefaults[t] & 3];
+		offset += len * 100 / 270;
+		offset %= len;
+	}
+	return offset;
+}
+
 FdcGcr::FdcGcr()
 {
 	setId("FDC8");
@@ -136,7 +160,7 @@ void FdcGcr::dumpState()
 	saveVar(&tmp, sizeof(tmp));
 	saveVar(&byteLatched, sizeof(byteLatched));
 	saveVar(&byteWritten, sizeof(byteWritten));
-	saveVar(&byteReady, sizeof(byteReady));
+	saveVar(&byteWritten, sizeof(byteWritten));
 	saveVar(&motorSpinning, sizeof(motorSpinning));
 	saveVar(&isDiskInserted, sizeof(isDiskInserted));
 	saveVar(&isImageWriteProtected, sizeof(isImageWriteProtected));
@@ -170,7 +194,7 @@ void FdcGcr::readState()
 	gcrTrackEnd = tmp + gcrData;
 	readVar(&byteLatched, sizeof(byteLatched));
 	readVar(&byteWritten, sizeof(byteWritten));
-	readVar(&byteReady, sizeof(byteReady));
+	readVar(&byteWritten, sizeof(byteWritten));
 	readVar(&motorSpinning, sizeof(motorSpinning));
 	readVar(&isDiskInserted, sizeof(isDiskInserted));
 	readVar(&isImageWriteProtected, sizeof(isImageWriteProtected));
@@ -186,6 +210,9 @@ void FdcGcr::openDiskImage(const char *filepath)
 	closeDiskImage();
 	attachDiskImage(filepath);
 	strcpy(imageName, filepath);
+	// the head keeps its position over the old image: pick up the track length of the new one
+	if (isDiskInserted)
+		updateTrackPointers(currentHalfTrack);
 }
 
 void FdcGcr::reset()
@@ -194,7 +221,9 @@ void FdcGcr::reset()
 	writeMode = false;
 #ifdef FDC_CYCLE_BASED
 	inSync = false;
-	bitAccumulator = bitOffset = shiftRegister = postSyncBitCount = 0;
+	bitAccumulator = bitOffset = 0;
+	diskPhase = ue7Counter = uf4Counter = lastReadData = bitCounter = cycleTick = soDelay = 0;
+	frRandCount = 289;
 #endif
 }
 
@@ -380,7 +409,10 @@ bool FdcGcr::readSector(int track, int sector, unsigned char *buffer)
 void FdcGcr::trackSector(unsigned int &track, unsigned int &sector)
 {
 	track = ((currentHalfTrack >> 1));
-	sector = (unsigned int) ((gcrPtr - gcrTrackBegin) / GCR_SECTOR_SIZE);
+	const unsigned int len = sectorSize[track ? track : 1];
+	const unsigned int skew = track ? gcrTrackSkew(track, sectorSize) : 0;
+	const unsigned int pos = (unsigned int) (gcrPtr - gcrTrackBegin);
+	sector = ((pos + len - skew) % len) / gcrSectorPitch(track ? track : 1);
 }
 
 /*
@@ -470,8 +502,8 @@ void FdcGcr::sector2gcr(int track, int sector)
 	unsigned char *p = gcrData + (track-1) * GCR_MAX_TRACK_SIZE +
 		sector * sectorSize[track] / d64NumOfSectors[track];
 */
-	unsigned char *p = gcrData + (track-1) * GCR_MAX_TRACK_SIZE + sector * GCR_SECTOR_SIZE;
-	//Log::write("Track %02i, sector %02i at offset %04i.\n", track, sector, p - gcrData );
+	unsigned char scratch[GCR_SECTOR_SIZE + 32];
+	unsigned char *p = scratch;
 	readSector(track, sector, block);
 
 	const unsigned char errCode = job_codes[ diskErrorInfo[d64SectorOffset[track]+sector]].error_code;
@@ -526,8 +558,20 @@ void FdcGcr::sector2gcr(int track, int sector)
 	gcrConv4bytesTo5(buf, p);
 	p += 5;
 
-	memset(p, 0x55, GCR_SECTOR_GAP_LENGTH);	// Gap before next sector
-	//p += GCR_SECTOR_GAP_LENGTH;
+	const unsigned int tailGap = gcrTailGapByZone[speedZoneDefaults[track] & 3];
+	memset(p, 0x55, tailGap);	// Gap before next sector
+	p += tailGap;
+
+	// Place the sector on the track at its angular position, wrapping around the track end
+	const unsigned int len = sectorSize[track];
+	const unsigned int size = (unsigned int)(p - scratch);
+	unsigned int pos = (gcrTrackSkew(track, sectorSize) + sector * gcrSectorPitch(track)) % len;
+	unsigned char *trackBase = gcrData + (track - 1) * GCR_MAX_TRACK_SIZE;
+	for (unsigned int i = 0; i < size; i++) {
+		trackBase[pos] = scratch[i];
+		if (++pos == len)
+			pos = 0;
+	}
 }
 
 void FdcGcr::gcr2sector(unsigned char *buffer, unsigned char *p,
@@ -616,9 +660,11 @@ void FdcGcr::dumpGcr(unsigned char* p)
 void FdcGcr::disk2gcr(void)
 {
 	// Convert all tracks and sectors
-	for ( unsigned int track=1; track<=NrOfTracks; track++)
+	for ( unsigned int track=1; track<=NrOfTracks; track++) {
+		memset(gcrData + (track - 1) * GCR_MAX_TRACK_SIZE, 0x55, sectorSize[track]);
 		for( unsigned int sector=0; sector<d64NumOfSectors[track]; sector++)
 			sector2gcr(track, sector);
+	}
 #if 0
 	dumpGcr(gcrData);
 #endif
