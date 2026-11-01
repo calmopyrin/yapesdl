@@ -13,121 +13,29 @@
 #ifndef _INTERFACE_H
 #define _INTERFACE_H
 
+#include <string>
+#include <vector>
+#include <memory>
 #include "archdep.h"
 
-enum UI_MenuTypes {
-	MENU_LIST,
-	MENU_CALLBACK
-};
+class TED;
+struct UiMenu;
+union SDL_Event;
 
-enum UI_MenuClass {
-	UI_MENUITEM_MENULINK = 0,
-	UI_MENUITEM_SEPARATOR,
-	UI_MENUITEM_CALLBACKS,
-	UI_PRG_ITEM,
-	UI_TAP_ITEM,
-	UI_D64_ITEM,
-	UI_CRT_ITEM,
-	UI_ZIP_ITEM,
-	UI_DIR_ITEM,
-	UI_DRIVE_ITEM,
-	UI_T64_ITEM,
-	UI_FRE_ITEM,
-	UI_FILE_LOAD_PRG,
-	UI_FILE_LOAD_FRE,
-	UI_FILE_SAVE_FRE,
-	UI_CRT_ATTACH,
-	UI_CRT_DETACH,
-	UI_TAPE_ATTACH_TAP,
-	UI_TAPE_CREATE_TAP,
-	UI_TAPE_DETACH_TAP,
-	UI_TAPE_PLAY,
-	UI_TAPE_RECORD,
-	UI_TAPE_STOP,
-	UI_TAPE_REWIND,
-	UI_DRIVE_ATTACH_IMAGE,
-	UI_DRIVE_DETACH_IMAGE,
-	UI_DRIVE_SET_DIR,
-	//UI_TAPE_CONTROLS,
-	UI_EMULATOR_OPTIONS,
-	UI_SNAPSHOT_LOAD,
-	UI_SNAPSHOT_QUICKSAVE,
-	UI_EMULATOR_MONITOR,
-	UI_EMULATOR_RESUME,
-	UI_EMULATOR_RESET,
-	UI_EMULATOR_EXIT,
-	UI_FILE_LOAD_C0LO,
-	UI_FILE_LOAD_C0HI,
-	UI_FILE_LOAD_C1LO,
-	UI_FILE_LOAD_C1HI,
-	UI_FILE_LOAD_C2LO,
-	UI_FILE_LOAD_C2HI,
-	UI_FILE_LOAD_C3LO,
-	UI_FILE_LOAD_C3HI
-};
-
-struct menu_t;
-
-struct element_t {
-	char name[MAX_PATH];
-	menu_t *child;
-	UI_MenuClass menufunction;
-	UI_MenuTypes type;
-};
-
-struct menu_t {
-	char title[MAX_PATH];
-	char subtitle[MAX_PATH];
-	struct element_t element[512];
-	menu_t *parent;
-	int nr_of_elements;
-	int curr_sel;
-	int uppermost;
-	int curr_line;
-};
-
-class MEM;
+// Text shown as the value of a setting, and the action taken when it is
+// activated. They know nothing about SDL so any front end can use them.
+std::string uiSettingText(const rvar_t *rv);
+void uiSettingActivate(rvar_t *rv);
 
 class UI {
-
-	private:
-		unsigned char *display; // pointer to the emulator screen
-
-		char bgcol; // background color
-		char fgcol; // foreground color
-
-		void screen_update(void);
-
-		void clear(char color, char shade);  // clears the screen with given C= 264 color and shade
-		void texttoscreen(int x,int y, char *scrtxt, size_t len);
-		void chrtoscreen(int x,int y, char scrchr);
-		void set_color(unsigned char foreground, unsigned char background);
-		void hide_sel_bar(menu_t *menu);
-		void show_sel_bar(menu_t *menu);
-		void show_title(menu_t * menu);
-		void show_menu(menu_t *menu);
-		void show_file_list(menu_t * menu, UI_MenuClass type);
-		void show_settings_list(menu_t * menu, rvar_t *rvItems);
-		void populateBankSelectionMenu();
-		bool handle_menu_command(struct element_t *element);
-		menu_t *curr_menu;
-		TED *ted8360;
-		void menuMove(int direction);
-		void menuMoveLeft();
-		int menuEnter(bool forceAutoRun);
-		void openD64Item(const char *name, bool);
-		bool autoStartNext;
-		char storedPath[MAX_PATH];
-		char shortElemName[45];
-		char* getShortName(char* itemName);
 
 	public:
 		UI(class TED *ted);
 		~UI();
-		char pet2asc(char c);
+
 		static unsigned char asc2pet(char c);
 		static unsigned char* stringToPETSCII(unsigned char* asciiStr, unsigned int count, bool useCaps = false);
-		char *petstr2ascstr(char *string);
+
 		int enterMenu();
 		void drawMenu();
 		int	 wait_events();
@@ -135,6 +43,70 @@ class UI {
 			ted8360 = newTed;
 			display = ted8360->screen;
 		};
+
+	private:
+		enum Command {
+			CMD_NONE,
+			CMD_UP,
+			CMD_DOWN,
+			CMD_PAGE_UP,
+			CMD_PAGE_DOWN,
+			CMD_HOME,
+			CMD_END,
+			CMD_BACK,
+			CMD_ENTER,
+			CMD_ENTER_AUTORUN,
+			CMD_CLOSE
+		};
+		enum BrowserKind {
+			BK_PRG,
+			BK_TAP,
+			BK_DISK,
+			BK_SNAPSHOT,
+			BK_ROM
+		};
+
+		// screen
+		unsigned char *display; // pointer to the emulator screen
+		std::vector<unsigned int> pixels;
+		unsigned char bgcol; // background color
+		unsigned char fgcol; // foreground color
+		void screen_update();
+		void clear(char color, char shade);
+		void set_color(unsigned char foreground, unsigned char background);
+		void glyphtoscreen(int x, int y, const unsigned char *rows);
+		void texttoscreen(int x, int y, const std::string &text);
+		void render();
+		void renderTitle(const UiMenu &menu);
+		void renderRows(const UiMenu &menu);
+		static std::string shortName(const std::string &name);
+
+		// menu model
+		TED *ted8360;
+		std::vector<std::unique_ptr<UiMenu> > menus;
+		std::vector<UiMenu*> nav; // navigation stack, back() is the visible menu
+		UiMenu *bankMenu;
+		std::string storedPath;
+		unsigned int axisState;
+		UiMenu *newMenu(const char *title);
+		UiMenu *newBrowser(const char *title, BrowserKind kind);
+		void buildMenus();
+		void enter(UiMenu *menu);
+		void back();
+
+		// browsing
+		void refreshBrowser(UiMenu &menu);
+		void changeDirectory(const std::string &name, bool isDrive);
+		static bool acceptsExtension(BrowserKind kind, bool ted264, const std::string &ext);
+		bool openFile(BrowserKind kind, const std::string &name, bool autorun);
+		void openD64Item(const char *name, bool autostart);
+		void populateBankMenu();
+		bool loadBank(unsigned int index);
+
+		// input
+		Command translate(const SDL_Event &event);
+		bool execute(Command cmd); // true when the menu has to be left
+		bool activate(bool autorun);
 };
 
 extern void interfaceLoop(void *arg);

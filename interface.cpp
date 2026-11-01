@@ -13,6 +13,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctype.h>
+#include <algorithm>
+#include <functional>
 #include "types.h"
 #include "monitor.h"
 #include "tedmem.h"
@@ -23,10 +26,6 @@
 #include "drive.h"
 #include "SaveState.h"
 
-#ifndef SDL_CONTROLLERBUTTONDOWN // Emscripten
-#define SDL_CONTROLLERBUTTONDOWN -1
-#endif
-
 extern bool autostart_file(const char *szFile, bool autostart = true);
 extern bool start_file(const char *szFile, bool autostart = true);
 extern bool openZipDisk(const char *fname, bool autostart);
@@ -35,192 +34,370 @@ extern void machineEnable1551(bool enable);
 extern bool machineIsTrueDriveEnabled(unsigned int dn);
 extern void machineReset(unsigned int resetlevel);
 extern void setMainLoop(int looptype);
-
-#define COLOR(COL, SHADE) ((SHADE<<4)|COL|0x80)
-#define MAX_LINES 25
-#define MAX_INDEX (MAX_LINES - 1)
-#define LISTOFFSET (ted8360->getCyclesPerRow() != 456 ? 114 : 52)
-
-// TODO this is ugly and kludgy like hell but I don't have time for better
-static menu_t main_menu = {
-	"Main menu",
-	"",
-	{
-		{"Load PRG file...", 0, UI_FILE_LOAD_PRG },
-		{"Attach disk image...", 0, UI_DRIVE_ATTACH_IMAGE },
-		{"Detach disk image", 0, UI_DRIVE_DETACH_IMAGE },
-		{ "             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Load emulator snapshot...", 0, UI_FILE_LOAD_FRE },
-		{"Save emulator snapshot", 0, UI_FILE_SAVE_FRE },
-		{ "             ", 0, UI_MENUITEM_SEPARATOR },
-		{ "Attach rom...", 0, UI_CRT_ATTACH },
-		{ "Detach rom...", 0, UI_CRT_DETACH },
-		{ "             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Tape controls...", 0, UI_MENUITEM_MENULINK },
-		{"             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Options..."	, 0, UI_MENUITEM_MENULINK },
-		{"             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Enter monitor", 0, UI_EMULATOR_MONITOR },
-		{"Resume emulation"	, 0, UI_EMULATOR_RESUME },
-		{ "             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Reset emulator", 0, UI_EMULATOR_RESET },
-		{ "             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Quit emulation", 0, UI_EMULATOR_EXIT }
-	},
-	0,
-	20,
-	0,
-	0,
-	0
-};
-
-static menu_t tape_menu = {
-	"Tape control menu",
-	"",
-	{
-		{"Attach TAP image...", 0, UI_TAPE_ATTACH_TAP },
-		{"             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Create TAP image", 0, UI_TAPE_CREATE_TAP },
-		{"             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Detach TAP image", 0, UI_TAPE_DETACH_TAP },
-		{"             ", 0, UI_MENUITEM_SEPARATOR },
-		{"Press PLAY"	, 0, UI_TAPE_PLAY },
-		{"Press RECORD"	, 0, UI_TAPE_RECORD },
-		{"Press STOP"	, 0, UI_TAPE_STOP },
-		{"Rewind tape"	, 0, UI_TAPE_REWIND }
-	},
-	0,
-	10,
-	0,
-	0,
-	0
-};
-
-static menu_t snapshot_menu = {
-	"Emulator snapshot menu",
-	"",
-	{
-		{"Load snapshot...", 0, UI_SNAPSHOT_LOAD },
-		{"Save quicksnapshot...", 0, UI_SNAPSHOT_QUICKSAVE }
-	},
-	0,
-	2,
-	0,
-	0,
-	0
-};
-
-static menu_t options_menu = {
-	"Options menu",
-	"",
-	{
-		{"Dummy", 0, UI_MENUITEM_MENULINK },
-	},
-	0,
-	5,
-	0,
-	0,
-	0
-};
-
-static menu_t bank_selection_menu = {
-	"CBM 264 ROM bank selection menu",
-	"",
-	{
-		{"", 0, UI_FILE_LOAD_C0LO },
-		{"", 0, UI_FILE_LOAD_C0HI },
-		{"", 0, UI_FILE_LOAD_C1LO },
-		{"", 0, UI_FILE_LOAD_C1HI },
-		{"", 0, UI_FILE_LOAD_C2LO },
-		{"", 0, UI_FILE_LOAD_C2HI },
-		{"", 0, UI_FILE_LOAD_C3LO },
-		{"", 0, UI_FILE_LOAD_C3HI }
-	},
-	0,	8,	0,	0,	0
-};
-
-static menu_t file_menu;
-static menu_t tap_list;
-static menu_t d64_list;
-static menu_t fre_list;
-static menu_t crt_list;
-static menu_t bank_list;
-static unsigned int *pixels;
 extern void frameUpdate(unsigned char *src, unsigned int *target);
 
-static rvar_t *findRVar(char *name)
-{
-	rvar_t **rv = settings;
-	while (*rv) {
-		rvar_t *item = *rv++;
-		while (item && item->value) {
-			if (!strcmp(name, item->menuName))
-				return item;
-			item++;
+#define COLOR(COL, SHADE) ((SHADE<<4)|COL|0x80)
+
+static const int VISIBLE_ROWS = 26;   // list lines that fit on the screen
+static const int LIST_TOP = 64;       // pixel row of the first list line
+static const int MAX_NAME_CHARS = 40; // longer names are shortened in the middle
+static const int VALUE_COLUMN = 43;   // right edge of setting values, in characters
+static const int SUBTITLE_WIDTH = 46; // characters per subtitle line
+
+//-----------------------------------------------------------------------------
+// Menu model
+//-----------------------------------------------------------------------------
+
+struct UiMenu;
+
+// An action returns true when the menu has to be left afterwards. Its
+// argument is true when the user asked for the "autostart" variant.
+typedef std::function<bool(bool)> UiAction;
+
+struct UiItem {
+	enum Kind { SEPARATOR, SUBMENU, ACTION, SETTING, DIR, FILE_ITEM };
+
+	Kind kind;
+	std::string label;
+	UiMenu *submenu;   // SUBMENU
+	rvar_t *setting;   // SETTING
+	bool drive;        // DIR: entry of the drive list
+	UiAction action;   // ACTION, DIR, FILE_ITEM
+
+	UiItem(Kind k = ACTION, const std::string &text = std::string())
+		: kind(k), label(text), submenu(0), setting(0), drive(false) {}
+};
+
+// A list with a cursor. All cursor movement lives here, so every menu
+// (including the file browsers) scrolls and pages the same way.
+struct UiMenu {
+	std::string title;
+	std::string subtitle;
+	std::vector<UiItem> items;
+	int sel;   // index of the selected item
+	int top;   // index of the first visible item
+	bool isBrowser;
+	int browserKind;
+
+	UiMenu() : sel(0), top(0), isBrowser(false), browserKind(0) {}
+
+	int count() const { return (int) items.size(); }
+
+	// Selects the nearest selectable item to 'index', looking in direction
+	// 'dir' first, and scrolls it into view.
+	void select(int index, int dir)
+	{
+		const int n = count();
+		if (n == 0) {
+			sel = top = 0;
+			return;
+		}
+		index = MAX(0, MIN(index, n - 1));
+		int i = index;
+		while (i >= 0 && i < n && items[i].kind == UiItem::SEPARATOR)
+			i += dir;
+		if (i < 0 || i >= n) {
+			i = index;
+			while (i >= 0 && i < n && items[i].kind == UiItem::SEPARATOR)
+				i -= dir;
+			if (i < 0 || i >= n)
+				i = index;
+		}
+		sel = i;
+		ensureVisible();
+	}
+
+	void ensureVisible()
+	{
+		const int n = count();
+		if (sel < top)
+			top = sel;
+		if (sel >= top + VISIBLE_ROWS)
+			top = sel - VISIBLE_ROWS + 1;
+		top = MAX(0, MIN(top, n - VISIBLE_ROWS));
+	}
+
+	void moveBy(int delta) { select(sel + delta, delta < 0 ? -1 : +1); }
+	void home() { select(0, +1); }
+	void end() { select(count() - 1, -1); }
+
+	// First press moves to the edge of the visible page, the next one
+	// scrolls by a whole page.
+	void pageBy(int dir)
+	{
+		const int before = sel;
+		const int page = VISIBLE_ROWS - 1;
+		if (dir < 0) {
+			select(top, +1);
+			if (sel == before)
+				select(sel - page, -1);
+		} else {
+			select(top + page, -1);
+			if (sel == before)
+				select(sel + page, +1);
 		}
 	}
-	return NULL;
+};
+
+static void addSeparator(UiMenu &menu)
+{
+	menu.items.push_back(UiItem(UiItem::SEPARATOR));
 }
 
-char* UI::getShortName(char* itemName)
+static void addSubmenu(UiMenu &menu, const char *label, UiMenu *submenu)
 {
-	size_t origlen = strlen(itemName);
-	if (origlen > 40) {
-		strncpy(shortElemName, itemName, 20);
-		strncpy(shortElemName + 20, "...", 3);
-		strncpy(shortElemName + 23, itemName + origlen - 20, 20);
-		shortElemName[43] = 0;
-		return shortElemName;
-	}
-	return itemName;
+	UiItem item(UiItem::SUBMENU, label);
+	item.submenu = submenu;
+	menu.items.push_back(item);
 }
+
+static void addAction(UiMenu &menu, const char *label, const UiAction &action)
+{
+	UiItem item(UiItem::ACTION, label);
+	item.action = action;
+	menu.items.push_back(item);
+}
+
+//-----------------------------------------------------------------------------
+// Settings
+//-----------------------------------------------------------------------------
+
+std::string uiSettingText(const rvar_t *rv)
+{
+	char buf[32];
+
+	switch (rv->type) {
+		case RVAR_TOGGLE:
+			return *((const unsigned int*)(rv->value)) ? "ON" : "OFF";
+		case RVAR_INT:
+			snprintf(buf, sizeof(buf), "%i", *((const int*)(rv->value)));
+			return buf;
+		case RVAR_HEX:
+			snprintf(buf, sizeof(buf), "$%04X", *((const unsigned int*)(rv->value)));
+			return buf;
+		case RVAR_STRING_FLIPLIST:
+			if (rv->label) {
+				const char *text = rv->label();
+				if (text)
+					return text;
+			}
+			break;
+		default:;
+	}
+	return std::string();
+}
+
+void uiSettingActivate(rvar_t *rv)
+{
+	switch (rv->type) {
+		case RVAR_TOGGLE:
+			// if a callback is specified call it, otherwise toggle the value
+			if (rv->callback)
+				(rv->callback)(NULL);
+			else {
+				int *value = (int*)(rv->value);
+				*value = !*value;
+			}
+			break;
+
+		case RVAR_HEX:
+		case RVAR_INT:
+			if (rv->callback)
+				(rv->callback)(NULL);
+			break;
+
+		case RVAR_STRING_FLIPLIST:
+			if (rv->callback) {
+				char text[64];
+				(rv->callback)(text);
+			}
+			break;
+
+		default:;
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Helpers
+//-----------------------------------------------------------------------------
+
+static std::string toLower(std::string text)
+{
+	for (size_t i = 0; i < text.size(); i++)
+		text[i] = (char) tolower((unsigned char) text[i]);
+	return text;
+}
+
+static std::string extensionOf(const std::string &name)
+{
+	const size_t dot = name.rfind('.');
+	return dot == std::string::npos ? std::string() : toLower(name.substr(dot + 1));
+}
+
+static bool itemLess(const UiItem &a, const UiItem &b)
+{
+	return toLower(a.label) < toLower(b.label);
+}
+
+static bool shiftHeld()
+{
+	const Uint8 *state = SDL_GetKeyboardState(NULL);
+	return state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT];
+}
+
+static std::string currentDirectory()
+{
+	char path[512] = "";
+	ad_get_curr_dir(path);
+	path[sizeof(path) - 1] = '\0';
+	return path;
+}
+
+//-----------------------------------------------------------------------------
+// Construction
+//-----------------------------------------------------------------------------
 
 UI::UI(class TED *ted) :
-	display(ted->screen), ted8360(ted)
+	display(ted->screen), pixels(568 * 312 * 2), bgcol(0), fgcol(0),
+	ted8360(ted), bankMenu(0), axisState(0)
 {
-	pixels = new unsigned int[568 * 312 * 2];
-	// Link menu structure
-	main_menu.element[0].child = &file_menu;
-	main_menu.element[1].child = &d64_list;
-	main_menu.element[4].child = &fre_list;// snapshot_menu;
-	main_menu.element[7].child = &crt_list;
-	main_menu.element[10].child = &tape_menu;
-	main_menu.element[12].child = &options_menu;
-	tape_menu.element[0].child = &tap_list;
+	buildMenus();
+}
 
-	curr_menu = &main_menu;
-	strcpy(file_menu.title, "PRG file selection menu");
-	strcpy(tape_menu.title, "Tape controls menu");
-	strcpy(tap_list.title, "TAP image selection menu");
-	strcpy(d64_list.title, "Disk image selection menu");
-	strcpy(fre_list.title, "Emulator savestate selection menu");
-	strcpy(crt_list.title, "Cartridge/ROM selection menu");
-	file_menu.parent = curr_menu;
-	options_menu.parent = curr_menu;
-	tape_menu.parent = curr_menu;
-	tap_list.parent = &tape_menu;
-	d64_list.parent = curr_menu;
-	//snapshot_menu.parent = curr_menu;
-	fre_list.parent = curr_menu;
-	crt_list.parent = curr_menu;
-	bank_list.parent = curr_menu;
-	bank_selection_menu.parent = &crt_list;
+UI::~UI()
+{
+}
 
-	// initialize settings menu
-	unsigned int i = 0, j = 0;
-	rvar_t **rv = settings;
-	while (rv[i]) {
-		rvar_t *item = rv[i++];
-		while (item && item->value) { // FIXME
-			strcpy(options_menu.element[j].name, item->menuName);
-			options_menu.element[j].menufunction = UI_MENUITEM_CALLBACKS;
-			options_menu.element[j].type = (UI_MenuTypes) item->type;
-			item++;
-			j++;
+UiMenu *UI::newMenu(const char *title)
+{
+	menus.push_back(std::unique_ptr<UiMenu>(new UiMenu));
+	menus.back()->title = title;
+	return menus.back().get();
+}
+
+UiMenu *UI::newBrowser(const char *title, BrowserKind kind)
+{
+	UiMenu *menu = newMenu(title);
+	menu->isBrowser = true;
+	menu->browserKind = kind;
+	return menu;
+}
+
+void UI::buildMenus()
+{
+	UiMenu *mainMenu = newMenu("Main menu");
+	UiMenu *tapeMenu = newMenu("Tape controls menu");
+	UiMenu *optionsMenu = newMenu("Options menu");
+	UiMenu *prgBrowser = newBrowser("PRG file selection menu", BK_PRG);
+	UiMenu *tapBrowser = newBrowser("TAP image selection menu", BK_TAP);
+	UiMenu *diskBrowser = newBrowser("Disk image selection menu", BK_DISK);
+	UiMenu *snapshotBrowser = newBrowser("Emulator savestate selection menu", BK_SNAPSHOT);
+	UiMenu *romBrowser = newBrowser("Cartridge/ROM selection menu", BK_ROM);
+	bankMenu = newMenu("CBM 264 ROM bank selection menu");
+
+	// main menu
+	addSubmenu(*mainMenu, "Load PRG file...", prgBrowser);
+	addSubmenu(*mainMenu, "Attach disk image...", diskBrowser);
+	addAction(*mainMenu, "Detach disk image", [this](bool) {
+		if (CTrueDrive::GetRoot())
+			CTrueDrive::GetRoot()->DetachDisk();
+		machineEnable1551(true);
+		return true;
+	});
+	addSeparator(*mainMenu);
+	addSubmenu(*mainMenu, "Load emulator snapshot...", snapshotBrowser);
+	addAction(*mainMenu, "Save emulator snapshot", [](bool) {
+		snapshotSave();
+		return true;
+	});
+	addSeparator(*mainMenu);
+	addSubmenu(*mainMenu, "Attach rom...", romBrowser);
+	addAction(*mainMenu, "Detach rom...", [this](bool) -> bool {
+		if (ted8360->getEmulationLevel() < 2) {
+			storedPath = "*";
+			populateBankMenu();
+			enter(bankMenu);
+			return false;
+		}
+		ted8360->loadromfromfile(1, "", 0);
+		ted8360->Reset();
+		return true;
+	});
+	addSeparator(*mainMenu);
+	addSubmenu(*mainMenu, "Tape controls...", tapeMenu);
+	addSeparator(*mainMenu);
+	addSubmenu(*mainMenu, "Options...", optionsMenu);
+	addSeparator(*mainMenu);
+	addAction(*mainMenu, "Enter monitor", [this](bool) {
+		monitorEnter(ted8360->getCpuPtr());
+		return true;
+	});
+	addAction(*mainMenu, "Resume emulation", [](bool) { return true; });
+	addSeparator(*mainMenu);
+	addAction(*mainMenu, "Reset emulator", [](bool) {
+		machineReset(1);
+		return true;
+	});
+	addSeparator(*mainMenu);
+	addAction(*mainMenu, "Quit emulation", [](bool) -> bool {
+		exit(1);
+	});
+
+	// tape menu
+	addSubmenu(*tapeMenu, "Attach TAP image...", tapBrowser);
+	addSeparator(*tapeMenu);
+	addAction(*tapeMenu, "Create TAP image", [](bool) { return false; });
+	addSeparator(*tapeMenu);
+	addAction(*tapeMenu, "Detach TAP image", [this](bool) {
+		ted8360->tap->detachTape();
+		return true;
+	});
+	addSeparator(*tapeMenu);
+	addAction(*tapeMenu, "Press PLAY", [this](bool) {
+		ted8360->tap->pressTapeButton(ted8360->GetClockCount(), 1);
+		return true;
+	});
+	addAction(*tapeMenu, "Press RECORD", [](bool) { return false; });
+	addAction(*tapeMenu, "Press STOP", [this](bool) {
+		ted8360->tap->pressTapeButton(ted8360->GetClockCount(), 0);
+		return true;
+	});
+	addAction(*tapeMenu, "Rewind tape", [this](bool) {
+		ted8360->tap->rewind();
+		return true;
+	});
+
+	// options menu: one entry per emulator setting
+	for (rvar_t **group = settings; *group; ++group) {
+		for (rvar_t *rv = *group; rv->value; ++rv) {
+			UiItem item(UiItem::SETTING, rv->menuName);
+			item.setting = rv;
+			optionsMenu->items.push_back(item);
 		}
 	}
-	options_menu.nr_of_elements = j;
+
+	nav.push_back(mainMenu);
+	mainMenu->select(0, +1);
 }
+
+void UI::enter(UiMenu *menu)
+{
+	nav.push_back(menu);
+	if (menu->isBrowser)
+		refreshBrowser(*menu);
+	else
+		menu->select(menu->sel, +1);
+}
+
+void UI::back()
+{
+	if (nav.size() > 1)
+		nav.pop_back();
+}
+
+//-----------------------------------------------------------------------------
+// Drawing
+//-----------------------------------------------------------------------------
 
 void UI::screen_update()
 {
@@ -228,7 +405,7 @@ void UI::screen_update()
 	const unsigned int ix = ted8360->getEmulationLevel();
 	const unsigned int cyclesPerRow = ted8360->getCyclesPerRow();
 
-	frameUpdate(display + (cyclesPerRow - offset[ix] - 384) / 2 + 10 * cyclesPerRow, pixels);
+	frameUpdate(display + (cyclesPerRow - offset[ix] - 384) / 2 + 10 * cyclesPerRow, &pixels[0]);
 }
 
 void UI::clear(char color, char shade)
@@ -242,586 +419,466 @@ void UI::set_color(unsigned char foreground, unsigned char background)
 	fgcol = foreground;
 }
 
-void UI::texttoscreen(int x, int y, char *scrtxt, size_t len = 0)
+// Draws one 8x8 cell from eight bitmap rows.
+void UI::glyphtoscreen(int x, int y, const unsigned char *rows)
 {
-	int i = 0;
-
-	if (!len) len = strlen(scrtxt);
-	while (scrtxt[i] != 0 && len--) {
-		chrtoscreen(x + i*8, y, asc2pet(scrtxt[i]));
-		i++;
-	}
-}
-
-void UI::chrtoscreen(int x,int y, char scrchr)
-{
-	int j, k;
-	unsigned char *cset = ted8360->getCharSetPtr() + (scrchr << 3);
 	const unsigned int CPR = ted8360->getCyclesPerRow();
 
-	for (j = 0; j<8; j++)
-		for (k = 0; k < 8; k++)
-			display[(y + j) * CPR + x + k] = (cset[j] & (0x80 >> k)) ? fgcol : bgcol;
+	for (int j = 0; j < 8; j++)
+		for (int k = 0; k < 8; k++)
+			display[(y + j) * CPR + x + k] = (rows[j] & (0x80 >> k)) ? fgcol : bgcol;
 }
 
-void UI::hide_sel_bar(menu_t *menu)
+// The text uses the character ROM of the running machine. The backslash has
+// no glyph in it, so it is drawn from a small bitmap of its own.
+void UI::texttoscreen(int x, int y, const std::string &text)
 {
-	if ( menu->element[ menu->curr_sel ].menufunction == UI_DIR_ITEM)
-		set_color( COLOR(2,1), COLOR(1,5) );
-	else
-		set_color( COLOR(0,0), COLOR(1,5) );
-	texttoscreen(LISTOFFSET, 64 + (curr_menu->curr_line<<3),
-		getShortName(menu->element[ curr_menu->curr_sel ].name));
-	screen_update();
-}
+	static const unsigned char backslash[8] = { 0xC0, 0x60, 0x30, 0x18, 0x0C, 0x06, 0x03, 0x00 };
+	const unsigned char *cset = ted8360->getCharSetPtr();
 
-void UI::show_sel_bar(menu_t * menu)
-{
-	set_color( COLOR(0,0), COLOR(15,7) );
-	texttoscreen(LISTOFFSET, 64 + (curr_menu->curr_line<<3),
-		getShortName(menu->element[ curr_menu->curr_sel ].name));
-	screen_update();
-}
-
-void UI::show_settings_list(menu_t * menu, rvar_t *rvItems)
-{
-	int nf = 0;
-	menu->nr_of_elements = 0;
-	rvar_t *rvPtr = *settings;
-
-	while (rvPtr) {
-		strcpy(menu->element[nf].name, rvPtr->menuName);
-		menu->element[nf].child = 0;
-		menu->element[nf].type = MENU_CALLBACK;
-		nf++;
-		rvPtr++;
-	}
-	menu->nr_of_elements = nf;
-}
-
-void UI::populateBankSelectionMenu()
-{
-	for (unsigned int i = 0; i < 8; i++) {
-		char txt[MAX_PATH + 16];
-		char *currbankTxt = (i & 1) ? TED::romhighpath[i >> 1] : TED::romlopath[i >> 1];
-		size_t currbankTxtLen = strlen(currbankTxt);
-		char *cbTxtPtr = currbankTxt + MAX(int(currbankTxtLen) - 30, 0);
-		size_t cbTxtLen = MIN(strlen(currbankTxt), 30);
-		cbTxtPtr[cbTxtLen] = '\0';
-		sprintf(txt, "BANK#%u %s : %s", i >> 1, (i & 1) ? "HI" : "LO", cbTxtPtr);
-		strcpy(bank_selection_menu.element[i].name, txt);
+	for (size_t i = 0; i < text.size(); i++) {
+		const int cx = x + (int) i * 8;
+		if (text[i] == '\\')
+			glyphtoscreen(cx, y, backslash);
+		else
+			glyphtoscreen(cx, y, cset + (asc2pet(text[i]) << 3));
 	}
 }
 
-void UI::show_file_list(menu_t * menu, UI_MenuClass type)
+std::string UI::shortName(const std::string &name)
 {
-	int nf = 0, res;
-	char cfilename[512];
-	char *fileFoundName;
-	UI_FileTypes ft = FT_NONE;
+	if ((int) name.size() > MAX_NAME_CHARS)
+		return name.substr(0, 20) + "..." + name.substr(name.size() - 20);
+	return name;
+}
 
-	menu->nr_of_elements = 0;
-	strcpy( menu->element[nf++].name, "..");
-	menu->element[0].menufunction = UI_DIR_ITEM;
+void UI::renderTitle(const UiMenu &menu)
+{
+	const int canvas = (int) ted8360->getCanvasX();
 
-	res = ad_find_first_file("*");
-	while (res) {
-		fileFoundName = ad_return_current_filename();
-		if (fileFoundName && strcmp(fileFoundName, ".") && strcmp(fileFoundName, "..")) {
-			ft = ad_return_current_filetype();
-			// fprintf(stderr,"Parsed: %s\n", ad_return_current_filename());
-			if (ft != FT_FILE && nf < sizeof(menu->element)/sizeof(menu->element[0])) {
-				strcpy(menu->element[nf].name, ad_return_current_filename());
-				menu->element[nf].menufunction = (ft == FT_DIR ? UI_DIR_ITEM : UI_DRIVE_ITEM);
-				++nf;
+	set_color(COLOR(8,7), COLOR(7,0));
+	texttoscreen((canvas - (int) menu.title.size() * 8) / 2, 24, menu.title);
+
+	// the subtitle (current directory) gets at most three lines, keeping its tail
+	set_color(COLOR(8,0), COLOR(1,5));
+	std::string subtitle = menu.subtitle;
+	const size_t maxChars = SUBTITLE_WIDTH * 3;
+	if (subtitle.size() > maxChars)
+		subtitle = "..." + subtitle.substr(subtitle.size() - (maxChars - 3));
+	int y = 40;
+	for (size_t pos = 0; pos < subtitle.size(); pos += SUBTITLE_WIDTH, y += 8) {
+		const std::string line = subtitle.substr(pos, SUBTITLE_WIDTH);
+		texttoscreen(canvas / 2 - (int) line.size() * 4, y, line);
+	}
+
+	const std::string help = "Arrows: navigate, ENTER: select, ESC: resume";
+	texttoscreen((canvas - (int) help.size() * 8) / 2 - 8, SCR_VSIZE - 32, help);
+}
+
+void UI::renderRows(const UiMenu &menu)
+{
+	const int listOffset = ted8360->getCyclesPerRow() != 456 ? 114 : 52;
+
+	for (int row = 0; row < VISIBLE_ROWS; row++) {
+		const int ix = menu.top + row;
+		if (ix >= menu.count())
+			break;
+		const UiItem &item = menu.items[ix];
+		if (item.kind == UiItem::SEPARATOR)
+			continue;
+
+		if (ix == menu.sel)
+			set_color(COLOR(0,0), COLOR(15,7));
+		else if (item.kind == UiItem::DIR)
+			set_color(COLOR(2,1), COLOR(1,5));
+		else
+			set_color(COLOR(0,0), COLOR(1,5));
+		const int y = LIST_TOP + (row << 3);
+		texttoscreen(listOffset, y, shortName(item.label));
+
+		if (item.kind == UiItem::SETTING) {
+			const std::string value = uiSettingText(item.setting);
+			set_color(COLOR(2,1), COLOR(1,5));
+			texttoscreen(listOffset + (VALUE_COLUMN << 3) - (int) value.size() * 8, y, value);
+		}
+	}
+}
+
+void UI::render()
+{
+	static const unsigned char blank[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+	const UiMenu &menu = *nav.back();
+	const int listOffset = ted8360->getCyclesPerRow() != 456 ? 114 : 52;
+
+	clear(1, 5);
+	renderTitle(menu);
+
+	// color palette strip
+	for (int i = 2; i < 16; i++) {
+		const int x = listOffset + 32 + i * 16;
+		set_color(0, COLOR(i, 3));
+		glyphtoscreen(x, SCR_VSIZE - 24, blank);
+		glyphtoscreen(x + 8, SCR_VSIZE - 24, blank);
+	}
+
+	renderRows(menu);
+	screen_update();
+}
+
+void UI::drawMenu()
+{
+	UiMenu &menu = *nav.back();
+	if (menu.isBrowser)
+		refreshBrowser(menu);
+	render();
+}
+
+//-----------------------------------------------------------------------------
+// File browsing
+//-----------------------------------------------------------------------------
+
+bool UI::acceptsExtension(BrowserKind kind, bool ted264, const std::string &ext)
+{
+	switch (kind) {
+		case BK_PRG:
+			return ext == "prg" || ext == "p00" || ext == "t64";
+		case BK_TAP:
+			return ext == "tap" || ext == "wav";
+		case BK_DISK:
+			return ext == "d64" || ext == "g64" || ext == "zip";
+		case BK_SNAPSHOT:
+			return ext == "yss";
+		case BK_ROM:
+			return ext == "crt" || ext == "rom" || ext == "bin" || (ted264 && ext == "prg");
+	}
+	return false;
+}
+
+void UI::refreshBrowser(UiMenu &menu)
+{
+	const BrowserKind kind = (BrowserKind) menu.browserKind;
+	const bool ted264 = ted8360->getEmulationLevel() == 3;
+	std::vector<UiItem> dirs, files;
+	bool drives = false;
+
+	menu.subtitle = currentDirectory();
+
+	int found = ad_find_first_file("*");
+	while (found) {
+		const char *found_name = ad_return_current_filename();
+		if (found_name && strcmp(found_name, ".") && strcmp(found_name, "..")) {
+			const std::string name = found_name;
+			const UI_FileTypes type = ad_return_current_filetype();
+
+			if (type == FT_DIR || type == FT_VOLUME) {
+				const bool isDrive = type == FT_VOLUME;
+				UiItem item(UiItem::DIR, name);
+				item.drive = isDrive;
+				item.action = [this, name, isDrive](bool) {
+					changeDirectory(name, isDrive);
+					return false;
+				};
+				dirs.push_back(item);
+				drives = drives || isDrive;
+			} else if (type == FT_FILE && acceptsExtension(kind, ted264, extensionOf(name))) {
+				UiItem item(UiItem::FILE_ITEM, name);
+				item.action = [this, kind, name](bool autorun) {
+					return openFile(kind, name, autorun);
+				};
+				files.push_back(item);
 			}
 		}
-		res = ad_find_next_file();
+		found = ad_find_next_file();
 	}
 	ad_find_file_close();
-	// populate file list
-	if (ft != FT_VOLUME) {
 
-		unsigned int nrOfExts = 1;
-		element_t ftypes[10];
+	if (!drives)
+		std::sort(dirs.begin(), dirs.end(), itemLess);
+	std::sort(files.begin(), files.end(), itemLess);
 
-		switch ( type ) {
-			case UI_T64_ITEM:
-			case UI_PRG_ITEM:
-				nrOfExts = 3;
-				strcpy(ftypes[0].name, "*.prg");
-				strcpy(ftypes[1].name, "*.P00");
-				strcpy(ftypes[2].name, "*.T64");
-				ftypes[0].menufunction = UI_PRG_ITEM;
-				ftypes[1].menufunction = UI_PRG_ITEM;
-				ftypes[2].menufunction = UI_T64_ITEM;
-				break;
-			case UI_TAP_ITEM:
-				strcpy(ftypes[0].name, "*.tap");
-				strcpy(ftypes[1].name, "*.wav");
-				ftypes[0].menufunction = UI_TAP_ITEM;
-				ftypes[1].menufunction = UI_TAP_ITEM;
-				nrOfExts = 2;
-				break;
-			case UI_D64_ITEM:
-			case UI_ZIP_ITEM:
-				strcpy(ftypes[0].name, "*.d64");
-				ftypes[0].menufunction = UI_D64_ITEM;
-				strcpy(ftypes[1].name, "*.g64");
-				ftypes[1].menufunction = UI_D64_ITEM;
-				strcpy(ftypes[2].name, "*.zip");
-				ftypes[2].menufunction = UI_ZIP_ITEM;
-#ifdef _WIN32
-				nrOfExts = 3;
-#else
-				nrOfExts = 5;
-				strcpy(ftypes[3].name, "*.D64");
-				ftypes[3].menufunction = UI_D64_ITEM;
-				strcpy(ftypes[4].name, "*.G64");
-				ftypes[4].menufunction = UI_D64_ITEM;
-#endif
-				break;
-			case UI_FRE_ITEM:
-				strcpy(ftypes[0].name, "*.yss");
-				ftypes[0].menufunction = UI_FRE_ITEM;
-				break;
-			case UI_CRT_ITEM:
-				strcpy(ftypes[0].name, "*.crt");
-				strcpy(ftypes[1].name, "*.rom");
-				strcpy(ftypes[2].name, "*.bin");
-				strcpy(ftypes[3].name, "*.prg");
-				ftypes[0].menufunction = 
-				ftypes[1].menufunction =
-				ftypes[2].menufunction = 
-				ftypes[3].menufunction = UI_CRT_ITEM;
-				nrOfExts = ted8360->getEmulationLevel() == 3 ? 4 : 3;
-				break;
-			case UI_DRIVE_SET_DIR:
-				menu->nr_of_elements = nf;
-			default:
-				return;
-		}
-		//
-		unsigned int k = nrOfExts - 1;
-		do {
-			strcpy(cfilename, ftypes[k].name);
-			type = ftypes[k].menufunction;
-			res = ad_find_first_file(cfilename);
-			while(res) {
-				strcpy(menu->element[nf].name, ad_return_current_filename());
-				menu->element[nf].menufunction = type;
-				++nf;
-				res = ad_find_next_file();
-			}
-			ad_find_file_close();
-		} while (k--);
-		//
+	menu.items.clear();
+	UiItem parent(UiItem::DIR, "..");
+	parent.action = [this](bool) {
+		changeDirectory("..", false);
+		return false;
+	};
+	menu.items.push_back(parent);
+	menu.items.insert(menu.items.end(), dirs.begin(), dirs.end());
+	if (!drives)
+		menu.items.insert(menu.items.end(), files.begin(), files.end());
+
+	menu.select(menu.sel, +1);
+}
+
+void UI::changeDirectory(const std::string &name, bool isDrive)
+{
+	char path[2 * MAX_PATH];
+
+	if (isDrive)
+		ad_exit_drive_selector();
+	snprintf(path, sizeof(path), "%s", name.c_str());
+	if (ad_set_curr_dir(path)) {
+		UiMenu &menu = *nav.back();
+		menu.sel = menu.top = 0;
+		refreshBrowser(menu);
 	}
-	menu->nr_of_elements = nf;
 }
 
 void UI::openD64Item(const char *name, bool autostart)
 {
 	machineEnable1551(false);
 	if (CTrueDrive::GetRoot()) {
-		const Uint8 *state = SDL_GetKeyboardState(NULL);
-		if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT] || autostart) {
+		if (shiftHeld() || autostart) {
 			autostart_file(name);
 		} else
 			CTrueDrive::SwapDisk(name);
 	}
 }
 
-bool UI::handle_menu_command( struct element_t *element)
+bool UI::openFile(BrowserKind kind, const std::string &name, bool autorun)
 {
-	int menuSelection;
-	UI_MenuClass ptype = UI_MENUITEM_MENULINK;
+	const char *file = name.c_str();
+	const bool autostart = autorun || shiftHeld();
+	const std::string ext = extensionOf(name);
 
-	// FIXME this must be nicer
-	if (!curr_menu->parent) {
-		menuSelection = element->menufunction;
-	} else {
-		ptype = curr_menu->parent->element[ curr_menu->parent->curr_sel ].menufunction;
-		menuSelection = element->menufunction;
-	}
-
-	switch ( menuSelection ) {
-
-		case UI_MENUITEM_MENULINK:
-			return false;
-
-		case UI_MENUITEM_CALLBACKS:
-			{	// find rvar and use callback
-				rvar_t *rv = findRVar(element->name);
-				if (rv) {
-					switch (rv->type) {
-						case RVAR_TOGGLE:
-							// if callback specified, call it otherwise toggle ourselves
-							if (rv->callback)
-								(rv->callback)(NULL);
-							else {
-								int *value = ((int*)(rv->value));
-								*value = !*value;
-							}
-							break;
-
-						case RVAR_HEX:
-						case RVAR_INT:
-							if (rv->callback)
-								(rv->callback)(NULL);
-							break;
-
-						case RVAR_STRING_FLIPLIST:
-							if (rv->callback) {
-								char text[64];
-								(rv->callback)(text);
-							}
-							break;
-
-						default:;
-					}
-				}
-			}
-			return false;
-
-		case UI_DRIVE_ITEM:
-			ad_exit_drive_selector();
-		case UI_DIR_ITEM:
-			if (ad_set_curr_dir(element->name)) {
-				ad_get_curr_dir( (char*)&(curr_menu->subtitle) );
-				if ( ptype == UI_FILE_LOAD_PRG )
-					show_file_list( &file_menu, UI_PRG_ITEM );
-				else if ( ptype == UI_TAPE_ATTACH_TAP )
-					show_file_list( &tap_list, UI_TAP_ITEM );
-				else if ( ptype == UI_DRIVE_ATTACH_IMAGE )
-					show_file_list( &d64_list, UI_D64_ITEM );
-				else if (ptype == UI_FILE_LOAD_FRE)
-					show_file_list(&fre_list, UI_FRE_ITEM);
-				else if (ptype == UI_CRT_ATTACH)
-					show_file_list(&crt_list, UI_CRT_ITEM);
-				curr_menu->curr_sel = 0;
-				curr_menu->curr_line = 0;
-				curr_menu->uppermost = 0;
-			}
-			/*if ( curr_menu->curr_sel >= file_menu.nr_of_elements )
-				curr_menu->curr_sel = file_menu.nr_of_elements - 1;*/
-			return false;
-
-		case UI_T64_ITEM:
-		case UI_PRG_ITEM:
-			{
-				const Uint8 *state = SDL_GetKeyboardState(NULL);
-				if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT] || autoStartNext) {
-					autostart_file(element->name);
-				} else {
-					if (menuSelection != UI_T64_ITEM)
-						PrgLoad(element->name, 0, ted8360);
-					else
-						prgLoadFromT64(element->name, 0, ted8360);
-				}
+	switch (kind) {
+		case BK_PRG:
+			if (autostart)
+				autostart_file(file);
+			else if (ext == "t64")
+				prgLoadFromT64(file, 0, ted8360);
+			else
+				PrgLoad(file, 0, ted8360);
 #if (SDL_VERSION_ATLEAST(2,24,0))
-				SDL_ResetKeyboard();
+			SDL_ResetKeyboard();
 #endif
-			}
-			clear (0, 0);
-			break;
+			return true;
 
-		case UI_TAP_ITEM:
-			{
-				const Uint8 *state = SDL_GetKeyboardState(NULL);
-				if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT] || autoStartNext) {
-					autostart_file(element->name);
-				} else 
-					ted8360->tap->attachTape(element->name);
-			}
-			break;
-		case UI_D64_ITEM:
-			openD64Item(element->name, autoStartNext);
-			break;
-		case UI_ZIP_ITEM:
-			start_file(element->name, true);
-			break;
-		case UI_CRT_ITEM:
+		case BK_TAP:
+			if (autostart)
+				autostart_file(file);
+			else
+				ted8360->tap->attachTape(file);
+			return true;
+
+		case BK_DISK:
+			if (ext == "zip")
+				start_file(file, true);
+			else
+				openD64Item(file, autorun);
+			return true;
+
+		case BK_SNAPSHOT:
+			fprintf(stderr, "Loading emulator state from %s.\n", file);
+			SaveState::openSnapshot(file, false);
+			return true;
+
+		case BK_ROM:
 			if (ted8360->getEmulationLevel() < 2) {
-				curr_menu = &bank_selection_menu;
-				ad_get_curr_dir(storedPath);
-				strcat(storedPath, PATH_SEP);
-				strcat(storedPath, element->name);
-				populateBankSelectionMenu();
+				// the ROM can go to any of the banks
+				storedPath = currentDirectory() + PATH_SEP + name;
+				populateBankMenu();
+				enter(bankMenu);
 				return false;
 			}
-			ted8360->loadromfromfile(1, element->name, 0);
-			break;
-		case UI_FILE_LOAD_C0LO:
-		case UI_FILE_LOAD_C0HI:
-		case UI_FILE_LOAD_C1LO:
-		case UI_FILE_LOAD_C1HI:
-		case UI_FILE_LOAD_C2LO:
-		case UI_FILE_LOAD_C2HI:
-		case UI_FILE_LOAD_C3LO:
-		case UI_FILE_LOAD_C3HI:
-			{
-				unsigned int ix = menuSelection - UI_FILE_LOAD_C0LO;
-				unsigned int rbank = ix >> 1;
-				unsigned int roffset = (ix & 1) ? 0x4000 : 0;
-				ted8360->loadromfromfile(rbank, storedPath, roffset);
-				machineReset(1);
-				curr_menu = bank_selection_menu.parent;
-			}
-			break;
-
-		case UI_FRE_ITEM:
-			fprintf(stderr, "Loading emulator state from %s.\n", element->name);
-			SaveState::openSnapshot(element->name, false);
-			//clear(0, 0);
-			break;
-
-		case UI_TAPE_DETACH_TAP:
-			ted8360->tap->detachTape();
-			break;
-		case UI_TAPE_REWIND:
-			ted8360->tap->rewind();
-			break;
-		case UI_TAPE_STOP:
-			ted8360->tap->pressTapeButton(ted8360->GetClockCount(), 0);
-			break;
-		case UI_TAPE_PLAY:
-			ted8360->tap->pressTapeButton(ted8360->GetClockCount(), 1);
-			break;
-		case UI_FILE_LOAD_PRG:
-			show_file_list( &file_menu, UI_PRG_ITEM );
-			return false;
-		case UI_TAPE_ATTACH_TAP:
-			show_file_list( &tap_list, UI_TAP_ITEM );
-			return false;
-		case UI_CRT_ATTACH:
-			show_file_list(&crt_list, UI_CRT_ITEM);
-			return false;
-		case UI_CRT_DETACH:
-			if (ted8360->getEmulationLevel() < 2) {
-				curr_menu = &bank_selection_menu;
-				bank_selection_menu.parent = &main_menu;
-				strcpy(storedPath, "*");
-				populateBankSelectionMenu();
-				return false;
-			}
-			ted8360->loadromfromfile(1, "", 0);
-			ted8360->Reset();
-			break;
-		case UI_FILE_LOAD_FRE:
-			show_file_list(&fre_list, UI_FRE_ITEM);
-			return false;
-		case UI_DRIVE_ATTACH_IMAGE:
-			show_file_list( &d64_list, UI_D64_ITEM );
-			//ted8360->HookTCBM(0);
-			return false;
-		case UI_DRIVE_DETACH_IMAGE:
-			if (CTrueDrive::GetRoot()) {
-				CTrueDrive *d = CTrueDrive::GetRoot();
-				d->DetachDisk();
-			}
-			machineEnable1551(true);
+			ted8360->loadromfromfile(1, file, 0);
 			return true;
-		case UI_SNAPSHOT_LOAD:
-			show_file_list( &snapshot_menu, UI_FRE_ITEM );
-			return false;
-		case UI_FILE_SAVE_FRE:
-			snapshotSave();
-			return true;
-		case UI_EMULATOR_MONITOR:
-			monitorEnter(ted8360->getCpuPtr());
-			return true;
-		case UI_EMULATOR_RESUME:
-			void ();
-			return true;
-		case UI_EMULATOR_RESET:
-			machineReset(1);
-			return true;
-		case UI_EMULATOR_EXIT:
-			exit(1);
-			break;
-		default:
-			break;
 	}
 	return true;
 }
 
-void UI::show_title(menu_t * menu)
+void UI::populateBankMenu()
 {
-	const unsigned int CPR = ted8360->getCanvasX();
-
-	size_t titlen = strlen( menu->title ) << 3;
-	set_color( COLOR(8,7), COLOR(7,0) );
-	texttoscreen( (CPR - int(titlen))/2, 24, menu->title);
-
-	titlen = strlen( menu->subtitle );
-	set_color( COLOR(8,0), COLOR(1,5) );
-	int chunks = (int) titlen / (CPR / 8) + 1;
-	int startline = 40 - (chunks / 3) * 8;
-	char *subtitle = menu->subtitle;
-	do {
-		const int MAXLEN = 46;//55;
-		int chunklen = (int) (titlen > MAXLEN ? MAXLEN : titlen);
-		texttoscreen(CPR / 2 - int(chunklen) * 4, startline,
-			petstr2ascstr(subtitle), chunklen);
-		titlen -= MAXLEN;
-		subtitle += chunklen;
-		startline += 8;
-	} while (chunks--);
-
-	char helptxt[] = "Arrows: navigate, ENTER: select, ESC: resume";
-	texttoscreen( (CPR - int(strlen(helptxt)*8)) / 2 - 8, 312 - 32, petstr2ascstr(helptxt));
-	set_color( fgcol, bgcol );
-}
-
-void UI::show_menu(menu_t * menu)
-{
-	int i;
-	int shown = menu->nr_of_elements - menu->uppermost;
-
-	show_title(menu);
-	if (shown > 0) {
-		if (shown > MAX_LINES)
-			shown = MAX_LINES + 1;
-
-		for (i = 2; i < 16; i++) {
-			const char c = ' ';
-			const unsigned int offset = LISTOFFSET + 32 + i * 16;
-			bgcol = COLOR(i, 3);
-			chrtoscreen(offset, 312 - 24, c);
-			chrtoscreen(offset + 8, 312 - 24, c);
-		}
-
-		set_color( COLOR(0,0), COLOR(1,5) );
-		for (i = 0; i < shown; ++i) {
-			unsigned int ix = menu->uppermost + i;
-			element_t &elem = menu->element[ix];
-
-			if (elem.menufunction == UI_DIR_ITEM)
-				set_color( COLOR(2,1), COLOR(1,5) );
-			else
-				set_color( COLOR(0,0), COLOR(1,5) );
-			// display menu list element
-			texttoscreen(LISTOFFSET, 64+(i<<3), getShortName(elem.name));
-
-			// if interactive menu, find out what to do
-			if (elem.menufunction == UI_MENUITEM_CALLBACKS) {
-				char valuetxt[256] = "";
-				unsigned int valuePos = LISTOFFSET + (43 << 3);
-				unsigned int valueTxtLen;
-				
-				rvar_t *rv = findRVar(elem.name);
-				unsigned int type = (RvarTypes) elem.type;
-				switch (type) {
-					case RVAR_TOGGLE:
-						strcpy(valuetxt, *((unsigned int*)(rv->value)) ? "ON" : "OFF");
-						break;
-
-					case RVAR_INT:
-						sprintf(valuetxt, "%i", *((int*)(rv->value)));
-						break;
-
-					case RVAR_HEX:
-						sprintf(valuetxt, "$%04X", *((unsigned int*)(rv->value)));
-						break;
-
-					case RVAR_STRING_FLIPLIST:
-						if (rv->label)
-							sprintf(valuetxt, "%s", rv->label());
-						break;
-
-					default:;
-				}
-				valueTxtLen = (unsigned int) (strlen(valuetxt) << 3);
-				set_color(COLOR(2,1), COLOR(1,5));
-				texttoscreen(valuePos - valueTxtLen, 64 + (i << 3), valuetxt);
-			}
-		}
+	bankMenu->items.clear();
+	for (unsigned int i = 0; i < 8; i++) {
+		std::string path = (i & 1) ? TED::romhighpath[i >> 1] : TED::romlopath[i >> 1];
+		if (path.size() > 28)
+			path = ".." + path.substr(path.size() - 26);
+		char prefix[32];
+		snprintf(prefix, sizeof(prefix), "BANK#%u %s : ", i >> 1, (i & 1) ? "HI" : "LO");
+		UiItem item(UiItem::ACTION, prefix + path);
+		item.action = [this, i](bool) { return loadBank(i); };
+		bankMenu->items.push_back(item);
 	}
-	screen_update();
+	bankMenu->select(bankMenu->sel, +1);
 }
 
-void UI::drawMenu()
+bool UI::loadBank(unsigned int index)
 {
-	ad_get_curr_dir(tap_list.subtitle);
-	ad_get_curr_dir(file_menu.subtitle);
-	ad_get_curr_dir(d64_list.subtitle);
-	ad_get_curr_dir(fre_list.subtitle);
-	ad_get_curr_dir(crt_list.subtitle);
+	const unsigned int bank = index >> 1;
+	const unsigned int offset = (index & 1) ? 0x4000 : 0;
 
-	clear (1, 5);
-	show_menu( curr_menu);
-	show_sel_bar( curr_menu );
+	ted8360->loadromfromfile(bank, storedPath.c_str(), offset);
+	machineReset(1);
+	back(); // leave the bank list
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Input
+//-----------------------------------------------------------------------------
+
+UI::Command UI::translate(const SDL_Event &event)
+{
+	switch (event.type) {
+
+		case SDL_MOUSEWHEEL:
+			{
+				int y = event.wheel.y;
+				if (event.wheel.direction != SDL_MOUSEWHEEL_FLIPPED)
+					y = -y;
+				return y < 0 ? CMD_UP : (y > 0 ? CMD_DOWN : CMD_NONE);
+			}
+
+		case SDL_MOUSEBUTTONDOWN:
+			if (event.button.button == SDL_BUTTON_RIGHT)
+				return CMD_CLOSE;
+			if (event.button.button == SDL_BUTTON_X1)
+				return CMD_BACK;
+			return event.button.button == SDL_BUTTON_MIDDLE ? CMD_ENTER_AUTORUN : CMD_ENTER;
+
+		case SDL_CONTROLLERAXISMOTION:
+			{
+				// only the two sticks navigate, a trigger must not
+				if (event.caxis.axis > SDL_CONTROLLER_AXIS_RIGHTY)
+					return CMD_NONE;
+				const unsigned int axis = (event.caxis.axis & 1) << 1;
+				const unsigned int pressed = abs(event.caxis.value) > 8192 ? 1 : 0;
+				const unsigned int dir = (event.caxis.value > 0);
+				const bool fire = pressed && (!axisState || abs(event.caxis.value) >= 32767);
+
+				axisState = pressed;
+				if (fire) {
+					switch (axis | dir) {
+						case 0: return CMD_BACK;
+						case 1: return CMD_ENTER_AUTORUN;
+						case 2: return CMD_UP;
+						case 3: return CMD_DOWN;
+					}
+				}
+				return CMD_NONE;
+			}
+
+		case (Uint32)SDL_CONTROLLERBUTTONUP:
+			switch (event.cbutton.button) {
+				case SDL_CONTROLLER_BUTTON_DPAD_UP:
+					return CMD_UP;
+				case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+					return CMD_DOWN;
+				case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+					return CMD_BACK;
+				case SDL_CONTROLLER_BUTTON_A:
+				case SDL_CONTROLLER_BUTTON_START:
+				case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+				case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+					return CMD_ENTER_AUTORUN;
+				default:
+					return CMD_NONE;
+			}
+
+		case SDL_KEYDOWN:
+			switch (event.key.keysym.sym) {
+				case SDLK_ESCAPE:
+				case SDLK_F8:
+				case SDLK_DELETE:
+					return CMD_CLOSE;
+				case SDLK_HOME:
+					return CMD_HOME;
+				case SDLK_END:
+					return CMD_END;
+				case SDLK_UP:
+					return CMD_UP;
+				case SDLK_DOWN:
+					return CMD_DOWN;
+				case SDLK_PAGEUP:
+					return CMD_PAGE_UP;
+				case SDLK_PAGEDOWN:
+					return CMD_PAGE_DOWN;
+				case SDLK_LEFT:
+					return CMD_BACK;
+				case SDLK_RIGHT:
+				case SDLK_RETURN:
+				case SDLK_KP_ENTER:
+					return CMD_ENTER;
+				default:
+					return CMD_NONE;
+			}
+	}
+	return CMD_NONE;
+}
+
+bool UI::activate(bool autorun)
+{
+	UiMenu &menu = *nav.back();
+	if (menu.items.empty())
+		return false;
+
+	const UiItem &item = menu.items[menu.sel];
+	switch (item.kind) {
+		case UiItem::SEPARATOR:
+			return false;
+		case UiItem::SUBMENU:
+			enter(item.submenu);
+			return false;
+		case UiItem::SETTING:
+			uiSettingActivate(item.setting);
+			return false;
+		default:
+			break;
+	}
+	// the action may rebuild the list it came from, so run a copy
+	const UiAction action = item.action;
+	return action ? action(autorun) : false;
+}
+
+bool UI::execute(Command cmd)
+{
+	UiMenu &menu = *nav.back();
+
+	switch (cmd) {
+		case CMD_UP:
+			menu.moveBy(-1);
+			break;
+		case CMD_DOWN:
+			menu.moveBy(+1);
+			break;
+		case CMD_PAGE_UP:
+			menu.pageBy(-1);
+			break;
+		case CMD_PAGE_DOWN:
+			menu.pageBy(+1);
+			break;
+		case CMD_HOME:
+			menu.home();
+			break;
+		case CMD_END:
+			menu.end();
+			break;
+		case CMD_BACK:
+			back();
+			break;
+		case CMD_ENTER:
+			return activate(false);
+		case CMD_ENTER_AUTORUN:
+			return activate(true);
+		case CMD_CLOSE:
+			return true;
+		default:
+			break;
+	}
+	return false;
 }
 
 int UI::enterMenu()
 {
-	int retval;
-
 	drawMenu();
-	retval = wait_events();
+	const int retval = wait_events();
 
-	clear (0, 0);
+	clear(0, 0);
 	return retval;
 }
 
-void UI::menuMove(int direction)
-{
-	if ((direction == -1 && curr_menu->curr_sel > 0) ||
-		(direction == +1 && curr_menu->curr_sel < curr_menu->nr_of_elements - 1))
-	{
-		int step = 0;
-		const int limit = direction == -1 ? 0 : MAX_LINES;
-		hide_sel_bar( curr_menu);
-		// Step and skip menu separators
-		do {
-			step++;
-		} while (curr_menu->element[curr_menu->curr_sel + step * direction].menufunction
-			== UI_MENUITEM_SEPARATOR);
-		if (curr_menu->curr_line == limit) {
-			curr_menu->uppermost += direction;
-			clear (1, 5);
-			show_menu( curr_menu );
-		} else
-			curr_menu->curr_line += step * direction;
-		curr_menu->curr_sel += step * direction;
-		show_sel_bar( curr_menu);
-	}
-}
-
-void UI::menuMoveLeft()
-{
-	if (curr_menu->parent) {
-		curr_menu = curr_menu->parent;
-		clear(1, 5);
-		show_menu(curr_menu);
-		show_sel_bar(curr_menu);
-	}
-}
-
-int UI::menuEnter(bool forceAutoRun = false)
-{
-	element_t *elem;
-	autoStartNext = forceAutoRun;
-
-	if ( curr_menu->element[ curr_menu->curr_sel ].child ) {
-		elem = &(curr_menu->element[ curr_menu->curr_sel ]);
-		curr_menu = elem->child;
-	} else {
-		elem = &(curr_menu->element[ curr_menu->curr_sel ]);
-	}
-	// returns zero if we have to get back to the main loop, 1 otherwise
-	if ( handle_menu_command( elem ) ) {
-		clear (0, 0);
-		return 0;
-	} else {
-		clear (1, 5);
-		show_menu( curr_menu );
-		show_sel_bar( curr_menu);
-	}
-	return 1;
-}
-
+// Returns 1 when the menu has been left, 0 when there are no more events.
 int UI::wait_events()
 {
 	SDL_Event event;
@@ -831,223 +888,44 @@ int UI::wait_events()
 #else
 	while (SDL_WaitEvent(&event)) {
 #endif
+		if (event.type == SDL_QUIT)
+			exit(0);
 
-		switch (event.type) {
-
-			case SDL_WINDOWEVENT:
-				if (event.window.event == SDL_WINDOWEVENT_RESIZED
-					|| event.window.event == SDL_WINDOWEVENT_RESTORED) {
-					screen_update();
-				}
-				break;
-
-			case SDL_MOUSEWHEEL:
-				{
-					int y = event.wheel.y;
-					if (event.wheel.direction != SDL_MOUSEWHEEL_FLIPPED)
-						y = -y;
-					menuMove(y);
-				}
-				break;
-
-			case SDL_MOUSEBUTTONDOWN:
-				if (event.button.button == SDL_BUTTON_RIGHT) {
-					clear(0, 0);
-					return 1;
-				}
-				else if (event.button.button == SDL_BUTTON_X1)
-					menuMoveLeft();
-				else if (!menuEnter(event.button.button == SDL_BUTTON_MIDDLE))
-					return 1;
-				break;
-
-			case SDL_CONTROLLERAXISMOTION:
-				{
-					//printf("controller: %u, axis: %u/%i was pressed!\n", event.caxis.which, event.caxis.axis, event.caxis.value);
-					unsigned int axis = (event.caxis.axis & 1) << 1;
-					unsigned int pressed = abs(event.caxis.value) > 8192 ? 1 : 0;
-					unsigned int dir = (event.caxis.value > 0);
-					static unsigned int previousState = 0;
-
-					if (pressed && (!previousState || abs(event.caxis.value) >= 32767)) {
-						switch (axis | dir) {
-						default:
-							break;
-						case 0:
-							menuMoveLeft();
-							break;
-						case 1:
-							if (!menuEnter(true))
-								return 1;
-							break;
-						case 2:
-							menuMove(-1);
-							break;
-						case 3:
-							menuMove(+1);
-							break;
-						}
-					}
-					previousState = pressed;
-				}
-				break;
-
-			case (Uint32)SDL_CONTROLLERBUTTONUP:
-				//printf("controller: %u, button: %u was pressed!\n", event.cbutton.which, event.cbutton.button);
-				switch (event.cbutton.button) {
-				default:
-					break;
-				case SDL_CONTROLLER_BUTTON_DPAD_UP:
-					menuMove(-1);
-					break;
-				case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
-					menuMove(+1);
-					break;
-				case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
-					menuMoveLeft();
-					break;
-
-				case SDL_CONTROLLER_BUTTON_A:
-				case SDL_CONTROLLER_BUTTON_START:
-				case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
-				case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
-					if (!menuEnter(true))
-						return 1;
-					break;
-				}
-				break;
-
-			case SDL_KEYDOWN:
-				//printf("key: %u, button was pressed!\n", event.key.keysym.scancode);
-				switch (event.key.keysym.sym) {
-					case SDLK_ESCAPE :
-					case SDLK_F8:
-					case SDLK_DELETE:
-						clear (0, 0);
-						return 1;
-
-					case SDLK_HOME:
-						hide_sel_bar( curr_menu);
-						clear (1, 5);
-						curr_menu->curr_sel = 0;
-						curr_menu->curr_line = 0;
-						curr_menu->uppermost = 0;
-						show_menu( curr_menu );
-						show_sel_bar( curr_menu);
-						break;
-					case SDLK_END:
-						hide_sel_bar(curr_menu);
-						clear(1, 5);
-						curr_menu->curr_sel = curr_menu->nr_of_elements - 1;
-						if (curr_menu->nr_of_elements < MAX_LINES) {
-							curr_menu->curr_line = curr_menu->nr_of_elements - 1;
-							curr_menu->uppermost = 0;
-						} else {
-							curr_menu->uppermost = curr_menu->curr_sel - MAX_LINES;
-							curr_menu->curr_line = MAX_LINES;
-						}
-						show_menu(curr_menu);
-						show_sel_bar(curr_menu);
-						break;
-					case SDLK_UP:
-						menuMove(-1);
-						break;
-					case SDLK_DOWN:
-						menuMove(+1);
-						break;
-					case SDLK_PAGEUP:
-						hide_sel_bar( curr_menu);
-						if (curr_menu->curr_line != 0 ) {
-							curr_menu->curr_sel = curr_menu->uppermost;
-							curr_menu->curr_line = 0;
-						} else {
-							curr_menu->curr_sel -= MAX_LINES;
-							if ( curr_menu->curr_sel < 0 )
-								curr_menu->curr_sel = 0;
-							curr_menu->uppermost = curr_menu->curr_sel;
-							clear (1, 5);
-							show_menu( curr_menu );
-						}
-						show_sel_bar( curr_menu);
-						break;
-					case SDLK_PAGEDOWN:
-						hide_sel_bar( curr_menu );
-						if (curr_menu->curr_line != MAX_LINES ) {
-							int nr_el = curr_menu->nr_of_elements - 1;
-							curr_menu->curr_sel = curr_menu->curr_line =
-								nr_el < MAX_LINES ? nr_el : MAX_LINES;
-						} else {
-							int nr_el = curr_menu->nr_of_elements - 1;
-							curr_menu->curr_sel += MAX_LINES;
-							if ( curr_menu->curr_sel > nr_el )
-								curr_menu->curr_sel = nr_el;
-							curr_menu->uppermost = curr_menu->curr_sel - MAX_LINES;
-							clear (1, 5);
-							show_menu( curr_menu );
-						}
-						show_sel_bar( curr_menu);
-						break;
-					case SDLK_LEFT:
-						menuMoveLeft();
-						break;
-					case SDLK_RIGHT:
-					case SDLK_RETURN:
-						// return 1 if we get back to the main loop
-						if (!menuEnter())
-							return 1;
-						break;
-					default :
-						break;
-				};
-				break;
-			case SDL_QUIT:
-				//return 2;
-				exit(0);
+		if (event.type == SDL_WINDOWEVENT) {
+			if (event.window.event == SDL_WINDOWEVENT_RESIZED
+				|| event.window.event == SDL_WINDOWEVENT_RESTORED)
+				screen_update();
+			continue;
 		}
+
+		const Command cmd = translate(event);
+		if (cmd == CMD_NONE)
+			continue;
+		if (execute(cmd)) {
+			clear(0, 0);
+			return 1;
+		}
+		render();
 	}
 	return 0;
 }
 
-char UI::pet2asc(char c)
-{
-	if (c == '\\')
-		return char(0x4D|0x80);
-	if (c == 0x5F)
-		return char(0x6F|0x80);
-	/*if ((c >= 'A') && (c <= 'Z') || (c >= 'a') && (c <= 'z'))
-		return c ^ 0x20;*/
-	/*if ((c >= 0xc1) && (c <= 0xda))
-		return c ^ 0x80;*/
+//-----------------------------------------------------------------------------
+// Character conversion
+//-----------------------------------------------------------------------------
 
-	return c;
-}
-
-char *UI::petstr2ascstr(char *string)
-{
-	char *p = string;
-
-	while (*p) {
-		*p = pet2asc( *p );
-		p++;
-	}
-	return string;
-}
-
+// Index of the glyph for an ASCII character in the machine's character ROM.
 unsigned char UI::asc2pet(char c)
 {
-	if ((c >= 'A') && (c <= 'Z'))
-		return c ;
-	if ((c >= 'a') && (c <= 'z'))
-		return c - 96;
-	if (c == '\\')
-		return 0xCE;
-	if (c == '/') 
-		return 0xCD;
-	if (c == '_')
+	const unsigned char u = (unsigned char) c;
+
+	if (u >= 'a' && u <= 'z')
+		return u - 96;
+	if (u == '_')
 		return 0x64;
-	/*if ((c >= 0xc1) && (c <= 0xda))
-		return c ^ 0x80;*/
-	return c;
+	if (u < 0x20 || u >= 0x7F)
+		return '?';
+	return u;
 }
 
 unsigned char* UI::stringToPETSCII(unsigned char* asciiStr, unsigned int count, bool useCaps)
@@ -1069,11 +947,6 @@ unsigned char* UI::stringToPETSCII(unsigned char* asciiStr, unsigned int count, 
 		asciiStr++;
 	}
 	return origPtr;
-}
-
-UI::~UI()
-{
-	delete []pixels;
 }
 
 void interfaceLoop(void *arg)
