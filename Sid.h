@@ -6,6 +6,18 @@
 
 #define SOUND_FREQ_PAL_C64 985248
 
+// SID_READ_AHEAD: register accesses bring the chip to their exact machine
+// cycle and sample rendering never runs past it, which keeps the timing of
+// gate and ADSR changes cycle exact. It costs some speed, so it is off by
+// default for the Emscripten build. Define it to 0 or 1 to override.
+#ifndef SID_READ_AHEAD
+#ifdef __EMSCRIPTEN__
+#define SID_READ_AHEAD 0
+#else
+#define SID_READ_AHEAD 1
+#endif
+#endif
+
 enum {
 	SID6581 = 0,
 	SID8580,
@@ -28,6 +40,7 @@ public:
 	virtual void setSampleRate(unsigned int sampleRate_);
 	virtual void calcSamples(short *buf, unsigned int count);
 	virtual void skipSamples(unsigned int count);
+#if SID_READ_AHEAD
 	virtual void calcSamplesAhead(short *buf, unsigned int count);
 	virtual void setRenderLimit(ClockCycle cycle, unsigned int frq);
 	virtual void holdSamples() {
@@ -35,13 +48,18 @@ public:
 		// cycles already advanced are dropped
 		cyclesAhead = 0;
 	}
+#endif
 	// this is for the FRE support
 	virtual void dumpState();
 	virtual void readState();
 	//
 	inline void updateState(unsigned int cyclesToDo);
 	inline int getOutput(int cyclesToDo);
+#if SID_READ_AHEAD
 	void catchUpOnState(ClockCycle currCycle);
+#else
+	void catchUpOnState(ClockCycle) {}
+#endif
 	inline void advanceForSample(unsigned int cycles);
 	static void setModel(unsigned int model);
 	void calcEnvelopeTable();

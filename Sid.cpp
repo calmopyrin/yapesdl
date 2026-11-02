@@ -761,6 +761,7 @@ inline int SIDsound::getOutput(int cyclesToDo)
 		+ dcMixer + dcDigiBlaster) * volume;
 }
 
+#if SID_READ_AHEAD
 // Steps the state for one sample, using up the cycles register accesses have
 // already advanced first, and never going past the cycle the current batch of
 // samples reaches. What cannot be stepped yet is owed and taken from the next
@@ -783,6 +784,12 @@ inline void SIDsound::advanceForSample(unsigned int cycles)
 		cyclesAhead -= todo - step;
 	}
 }
+#else
+inline void SIDsound::advanceForSample(unsigned int cycles)
+{
+	updateState(cycles);
+}
+#endif
 
 void SIDsound::calcSamples(short *buf, unsigned int count)
 {
@@ -798,6 +805,7 @@ void SIDsound::calcSamples(short *buf, unsigned int count)
 	} while (--count);
 }
 
+#if SID_READ_AHEAD
 // Samples ahead of the machine are rendered from a copy of the state: the
 // chip itself has to stay at the machine's time for register accesses.
 void SIDsound::calcSamplesAhead(short *buf, unsigned int count)
@@ -831,6 +839,7 @@ void SIDsound::setRenderLimit(ClockCycle cycle, unsigned int frq)
 	else
 		renderLimit = cycle / frq * sidBaseFreq + (cycle % frq) * sidBaseFreq / frq;
 }
+#endif
 
 void SIDsound::skipSamples(unsigned int count)
 {
@@ -843,6 +852,7 @@ SIDsound::~SIDsound()
 	masterVolume = volume;
 }
 
+#if SID_READ_AHEAD
 // Brings the chip state up to the given machine cycle. Register accesses
 // call this so that they observe and modify the chip at the exact cycle,
 // while the sample renderer consumes the cycles advanced this way first.
@@ -876,3 +886,4 @@ void SIDsound::catchUpOnState(ClockCycle currCycle)
 	if (cyclesAhead > limit || cyclesAhead < -limit)
 		cyclesAhead = 0;
 }
+#endif
