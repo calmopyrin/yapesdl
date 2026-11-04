@@ -11,7 +11,7 @@
 	(c) 2005 VENESZ Roland
 */
 
-#define NAME    "Yape/SDL 0.81.1"
+#define NAME    "Yape/SDL 0.91.1"
 #define WINDOWX SCREENX
 // the streaming texture is wider than the standard view so that the
 // VIC20 can show its side borders
@@ -49,7 +49,6 @@
 #include "vic2mem.h"
 #include "vicmem.h"
 #include "SaveState.h"
-#include "keyoverlay.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -81,7 +80,6 @@ static SDL_Texture *sdlTexture = NULL;
 // class pointer for the user interface
 static UI				*uinterface = NULL;
 // timeout variables
-static unsigned int		timeOutOverlayKeys = 0;
 static unsigned int		timeOutMousePointer = 75;
 static bool mouseBtnHeld = 0;
 
@@ -402,31 +400,6 @@ inline void PopupMsg(const char *msg, ...)
 	popupMessageTimeOut = 60; // frames
 }
 
-static void showKeyboardOverlay()
-{
-	static SDL_Texture* texture = NULL;
-	static SDL_Rect rc = { 0 };
-
-	if (!texture) {
-		SDL_RWops *rwops = SDL_RWFromMem((void*) keyoverlay, sizeof(keyoverlay));
-		SDL_Surface* loadedSurface = SDL_LoadBMP_RW(rwops, 1);
-		if (loadedSurface) {
-			// Note: the logical size of the window surface is 2×!
-			rc.w = loadedSurface->w * 2;
-			rc.h = loadedSurface->h * 2;
-			rc.x = SCREENX - rc.w / 2;
-			rc.y = SCREENY * 2 - rc.h;
-			texture = SDL_CreateTextureFromSurface(sdlRenderer, loadedSurface);
-			SDL_FreeSurface(loadedSurface);
-			if (!texture)
-				return;
-			SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-		}
-	}
-	SDL_SetTextureAlphaMod(texture, timeOutOverlayKeys);
-	SDL_RenderCopy(sdlRenderer, texture, NULL, &rc);
-}
-
 static void frameUpdateView(unsigned char *src, unsigned int *target, unsigned int viewW, unsigned int viewH)
 {
 	const unsigned int pixelsPerRow = ted8360->getCyclesPerRow();
@@ -463,12 +436,6 @@ static void frameUpdateView(unsigned char *src, unsigned int *target, unsigned i
 	// TODO: use SDL_LockTexture instead
 	int e = SDL_UpdateTexture(sdlTexture, &updrc, texture, pixelsPerRow * sizeof (unsigned int));
 	e = SDL_RenderCopy(sdlRenderer, sdlTexture, &srcrc, NULL);
-	if (timeOutOverlayKeys) {
-		showKeyboardOverlay();
-		//SDL_StartTextInput();
-		if (!mouseBtnHeld)
-			timeOutOverlayKeys -= 4;
-	}
 	SDL_RenderPresent(sdlRenderer);
 #else
 	static unsigned int* palette = palette_get_rgb();
@@ -746,7 +713,6 @@ static void doSwapKeyset()
 
 static void enterMenu()
 {
-	timeOutOverlayKeys = 0;
 	sound_pause();
 #ifdef __EMSCRIPTEN__
 	setMainLoop(0);
@@ -1340,13 +1306,21 @@ static void app_initialise()
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		WINDOWX * g_iWindowMultiplier, WINDOWY * g_iWindowMultiplier,
 #ifdef USE_OPENGL
-		SDL_WINDOW_OPENGL | 
+		SDL_WINDOW_OPENGL |
 #endif
-		SDL_WINDOW_RESIZABLE); // SDL_WINDOW_FULLSCREEN_DESKTOP
+#ifndef __EMSCRIPTEN__
+		SDL_WINDOW_RESIZABLE);
+#else
+		0);
+#endif
 	if (!sdlWindow) {
 		printf("Unable to create window: %s\n", SDL_GetError());
 		return;
 	}
+#ifdef __EMSCRIPTEN__
+	// On Emscripten, resizing is enabled once the canvas has its size.
+	SDL_SetWindowResizable(sdlWindow, SDL_TRUE);
+#endif
 #ifdef USE_OPENGL
 	openGLInit(sdlWindow, WINDOWX * g_iWindowMultiplier, WINDOWY * g_iWindowMultiplier, WINDOWX, WINDOWY, g_bVideoVsync);
 #endif
