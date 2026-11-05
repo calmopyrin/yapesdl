@@ -97,24 +97,36 @@ void TED::calcSamples(short* buffer, unsigned int nrsamples)
 		if (ch0_active) {
 			osc0 += step;
 			if (osc0 >= OSCRELOADVAL) {
-				ff ^= 0x10;
-				css0 = Volume | (ff & ch0_status);
-				cachedVolSample = volumeTable[css0 | css1];
-				osc0 -= OSCRELOADVAL;
-				osc0 += reload0;
+				unsigned int wraps = 0;
+				do {
+					osc0 -= OSCRELOADVAL;
+					osc0 += reload0;
+					wraps++;
+				} while (osc0 >= OSCRELOADVAL);
+				if (wraps & 1) {
+					ff ^= 0x10;
+					css0 = Volume | (ff & ch0_status);
+					cachedVolSample = volumeTable[css0 | css1];
+				}
 			}
 		}
 		// Channel 2
 		if (ch1_active) {
 			osc1 += step;
 			if (osc1 >= OSCRELOADVAL) {
-				ff ^= 0x20;
-				css1 = Volume | (ff & ch1_status) |
-					(noise[nc] & noise_status);
-				cachedVolSample = volumeTable[css0 | css1];
-				nc = (nc + 1) % 0xFF;
-				osc1 -= OSCRELOADVAL;
-				osc1 += reload1;
+				unsigned int wraps = 0;
+				do {
+					ff ^= 0x20;
+					osc1 -= OSCRELOADVAL;
+					osc1 += reload1;
+					wraps++;
+				} while (osc1 >= OSCRELOADVAL);
+				if (wraps & 1) {
+					css1 = Volume | (ff & ch1_status) |
+						(noise[nc] & noise_status);
+					cachedVolSample = volumeTable[css0 | css1];
+				}
+				nc = (nc + wraps) % 0xFF;
 			}
 		}
 		*buffer++ = cachedVolSample;
