@@ -82,14 +82,7 @@ void SIDsound::setModel(unsigned int model)
 		case SID8580DB:
 		case SID8580:
 			for ( i=0; i<2048; i++) {
-				double x = i / 8.0;
-				//double cf = 12500.0 * i / 2048.0; // specs and YAPE
-				// approximate with a 3-degree polynomial
-				//double cf = 0.0003*x*x*x + 0.0882*x*x + 44.49*x - 38.409;
-				// approximate with a 2-degree polynomial
-				//double cf = -0.0177*x*x + 55.261*x - 55.518; // CSG 8580R4
-				double cf = -0.0156*x*x + 48.473*x - 45.074; // 8580R5
-				temp[i] = cf <= 0 ? 0 : cf;
+				temp[i] = 12500.0 * (i + 1) / 2048.0; // specs and YAPE
 			}
 			dcWave = 0x000;
 			dcMixer = 0;
@@ -98,20 +91,8 @@ void SIDsound::setModel(unsigned int model)
 			break;
 
 		case SID6581: // R4 actually
-			for (i=0; i<1024; i++) {
-				temp[i] = (tanh(((double)i/1.5 - 1024.0)/1024.0*M_PI) + tanh(M_PI))
-					* (6000.0 - 220.0) + 220.0;
-			}
-			for (; i<1056; i++) {
-				double x = ((double)i - 1024.0) / (1056.0 - 1003.);
-				temp[i] = x*(1315.0 - 1003.0) + 1003.0;
-			}
-			for (; i<2048; i++) {
-				double x = ((double)i - 1056.0) / (2048.0 - 1056.0);
-				temp[i] = //(tanh (((double)i - 2048.0)/1024.0*M_PI) + tanh(M_PI))
-					//* (20163.0 - 1315.0) + 1315.0;
-					(20163.0 - 1315.0) * x + 1315.0;
-			}
+			for (i = 0; i < 2048; i++)
+				temp[i] = 240.0 + 11060.0 * (1.0 + tanh(((double)i - 1214.0) / 323.0)) / 2.0;
 			dcWave = 0x380;
 			dcMixer = -0xFFF*0xFF/18 >> 7;
 			dcVoice = 0x800*0xFF;
@@ -119,13 +100,12 @@ void SIDsound::setModel(unsigned int model)
 			break;
 
 		case SID6581R1: // 6581 R1
-			for (i=0; i<1024; i++) {
-				temp[i] = (tanh(((double)i-1024.0)/1024.0*M_PI) + tanh(M_PI))
-					* (6000.0 - 220.0) + 220.0;
-			}
-			for (; i<2048; i++) {
-				temp[i] = (tanh (((double)i-2048.0)/1024.0*M_PI) + tanh(M_PI))
-					* (18000.0 - 4600.0) + 4600.0;
+			// exponential rise up to FC = 0x3FF, then a step down at FC = 0x400 and a saturating rise
+			for (i = 0; i < 1024; i++)
+				temp[i] = 198.6 + 11.29 * exp((double)i / 162.4);
+			for (; i < 2048; i++) {
+				double x = ((double)i - 1024.0) / 1023.0;
+				temp[i] = 4600.0 + 13400.0 * x * (2.0 - x);
 			}
 			dcWave = 0x380;
 			dcMixer = -0xFFF*0xFF/18 >> 7;
@@ -135,7 +115,10 @@ void SIDsound::setModel(unsigned int model)
 	}
 	for (i=0; i<2048; i++) {
 		const double freqDomainDivCoeff = 2 * M_PI * 1.048576;
-		cutOffFreq[i] = int(temp[i] * freqDomainDivCoeff);
+		// The filter works on the sampled and held voice mix which loses some high frequencies,
+		// the factor compensates for that
+		static constexpr double sampleHoldCompensation = 1.15;
+		cutOffFreq[i] = int(temp[i] * sampleHoldCompensation * freqDomainDivCoeff);
 	}
 	delete [] temp;
 	setFilterCutoff();
@@ -493,7 +476,7 @@ inline void SIDsound::setFilterCutoff()
 
 inline void SIDsound::setResonance()
 {
-	resonanceCoeffDiv1024 = (int) (1024.0/(0.707 + 1.9 * (double) filterResonance / 15.0) + 0.5); // 2.3
+	resonanceCoeffDiv1024 = (int)(1579.2 * exp(-0.087 * ((double)(filterResonance + 1))) + 0.5);
 }
 
 inline unsigned int SIDsound::clock()
