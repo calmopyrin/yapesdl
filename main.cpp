@@ -669,6 +669,9 @@ static int SaveBitmap()
 
 	// finding the last yapeXXXX.bmp image
 	if (getSerializedFilename("yape", "bmp", bmpname)) {
+		// We need this as Emscripten's SDL2 maps onto a WebGL canvas that is discarded after presenting
+		SDL_Rect srcrc = { 0, 0, g_iEmulationLevel == 3 ? VIC20_VIEW_W : SCREENX, g_iEmulationLevel == 3 ? VIC20_VIEW_H : SCREENY };
+		SDL_RenderCopy(sdlRenderer, sdlTexture, &srcrc, NULL);
 		if (saveScreenshotBMP(bmpname, sdlWindow, sdlRenderer)) {
 			fprintf(stderr, "Screenshot saved: %s\n", bmpname);
 #ifdef __EMSCRIPTEN__
@@ -1490,6 +1493,7 @@ int main(int argc, char *argv[])
 	printf("LALT + ENTER : toggle full screen mode\n");
 	printf("LALT + F5    : save emulator snapshot\n");
 	printf("LALT + F6    : load emulator snapshot\n");
+	printf("F7	         : download screenshot in BMP format\n");
 	printf("ESC          : enter/leave menu\n");
 	printf("PAUSE        : suspend/resume emulation\n");
 	printSpecialKeys();
