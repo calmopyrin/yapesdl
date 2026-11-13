@@ -98,7 +98,7 @@ public:
 	}
 	virtual unsigned char readBusWithoutUpdate() {
 		return serialPort[0]
-			& serialPort[4]
+			& serialPort[4] & serialPort[5]
 			& serialPort[8] & serialPort[9] & serialPort[10] & serialPort[11];
 	}
 	void writeBus(unsigned char newLines);

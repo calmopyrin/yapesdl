@@ -168,10 +168,12 @@ void IecFakeSerial::interpretIecByte()
 	
 	switch (secondaryAddress&0xF0) {
 		case IEC_CMD_OPEN:
-			if (!dataTransfered && dev_nr >= 8) {
+			if (dev_nr >= 8) {
 				namePtr = nameBuffer;
 				nameLength = 0;
 			}
+			// a TALK that ended without UNTALK (file not found) leaves no transfer behind
+			dataTransfered = 0;
 			errorState = ST_OK;
 			break;	
 		case IEC_CMD_CLOSE:
@@ -339,7 +341,7 @@ void IecFakeSerial::update()
 						//if ( dataTransfered ) 
 						if (state & (IEC_STATE_LISTENING))
 						{
-							unsigned int command = dataTransfered ? IEC_CMD_DATA : IEC_CMD_OPEN;
+							unsigned int command = (secondaryAddress & 0xF0) == IEC_CMD_OPEN ? IEC_CMD_OPEN : IEC_CMD_DATA;
 							switch (dev_nr) {
 								case 8:
 								case 9:
@@ -437,8 +439,8 @@ void IecFakeSerial::update()
 						}
 					}
 					// the talker will pull the Clock line back to true in less than 200 microseconds
-					// Non-EOI Response to RFD typ: 40 max: 200
-					timeout = cycleCount + TED::usec2cycles(eoi ? 350 : 40);
+					// Non-EOI Response to RFD typ: 40 max: 200 (EOI waits for the listener instead)
+					timeout = cycleCount + TED::usec2cycles(40);
 					step = SM_READY_FOR_DATA;
 #if IEC_DEBUG >= 1
 					fprintf(stderr, "Ready for data.\n");
@@ -447,23 +449,23 @@ void IecFakeSerial::update()
 				break;
 
 			case SM_READY_FOR_DATA:
-				if (cycleCount >= timeout) {
+				if (eoi) {
+					// EOI: the Clock line stays released until the listener has acknowledged it
+					// (the listener's timeout is not the same with all machines)
 					bitCounter = 0;
-					if (eoi) {
-						step = SM_EOI;
-						// EOI-Timeout Handshake 200-250 us
-						timeout = cycleCount + TED::usec2cycles(250);
-					} else {
-						step = SM_BITTRANS;
-						// the talker controls both lines, Clock and Data.  At the beginning of the sequence, 
-						// it is holding the Clock true, while the Data line is released to false
-						clkLine = CLK_LO;
-						dataLine = DATA_HI;
-						timeout = cycleCount + TED::usec2cycles(60);
+					step = SM_EOI;
+					timeout = cycleCount + TED::usec2cycles(2000);
+				} else if (cycleCount >= timeout) {
+					bitCounter = 0;
+					step = SM_BITTRANS;
+					// the talker controls both lines, Clock and Data.  At the beginning of the sequence, 
+					// it is holding the Clock true, while the Data line is released to false
+					clkLine = CLK_LO;
+					dataLine = DATA_HI;
+					timeout = cycleCount + TED::usec2cycles(60);
 #if IEC_DEBUG >= 1
-						fprintf(stderr, "Transfering byte: %02X (%c).\n", io_byte, (char) io_byte);
+					fprintf(stderr, "Transfering byte: %02X (%c).\n", io_byte, (char) io_byte);
 #endif
-					}
 				}
 				break;
 
@@ -569,41 +571,32 @@ void IecFakeSerial::update()
 				break;
 
 			case SM_EOI:
-				if (cycleCount >= timeout) {
-					// Listener is pulling the Data line true for at least 60 microseconds...
-					if (!(readBusWithoutUpdate() & DATA_HI)) {
-						step = SM_EOI2;
-						timeout = cycleCount + TED::usec2cycles(60);
-					} else {
-						// Listener missed the EOI or did not care...
+				// Listener is pulling the Data line true for at least 60 microseconds...
+				if (!(readBusWithoutUpdate() & DATA_HI)) {
+					step = SM_EOI2;
+				} else if (cycleCount >= timeout) {
+					// Listener missed the EOI or did not care...
 #if IEC_DEBUG >= 1
-						fprintf(stderr, "EOI _not_ acknowledged.\n");
+					fprintf(stderr, "EOI _not_ acknowledged.\n");
 #endif
-						step = SM_BITTRANS;
-						timeout = cycleCount;
-					}
+					step = SM_BITTRANS;
+					timeout = cycleCount;
 				}
 				break;
-			
+
 			case SM_EOI2:
-				// ... and then releasing it.
+				// ... and then releasing it
 				if (readBusWithoutUpdate() & DATA_HI) {
-					if (cycleCount >= timeout + TED::usec2cycles(60)) {
 #if IEC_DEBUG >= 1
-						fprintf(stderr, "EOI acknowledged.\n");
+					fprintf(stderr, "EOI acknowledged.\n");
 #endif
-						// within 60 microseconds it will pull the Clock line true
-						timeout = cycleCount + TED::usec2cycles(30);
-						// back to business
-						step = SM_BITTRANS;
-					}
-#if IEC_DEBUG >= 1
-					 else
-						fprintf(stderr, "EOI _not_ acknowledged.\n");
-#endif
+					// within 60 microseconds it will pull the Clock line true
+					timeout = cycleCount + TED::usec2cycles(30);
+					// back to business
+					step = SM_BITTRANS;
 				}
 				break;
-			
+
 			case SM_FERROR0:
 				if (cycleCount >= timeout) {
 					clkLine = CLK_LO;
